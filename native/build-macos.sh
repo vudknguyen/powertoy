@@ -3,7 +3,8 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 ROOT="$(cd .. && pwd)"
-VER="$(cat "$ROOT/VERSION" 2>/dev/null || echo 1.0.0)"
+# version comes from the git tag at release time (POWERTOY_VERSION), or arg 1, else 'dev'
+VER="${POWERTOY_VERSION:-${1:-0.0.0}}"
 APP="build/powertoy.app"
 BIN="$APP/Contents/MacOS/powertoy"
 RES="$APP/Contents/Resources"

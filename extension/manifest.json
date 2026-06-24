@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "powertoy — developer utilities",
-  "version": "0.1.0",
+  "version": "0.0.0",
   "description": "76 offline developer & power-user tools: base64, color, hashing, JWT, regex, cron, CIDR, QR, certificates and more. Each with its shell equivalent.",
   "icons": {
     "16": "icons/icon-16.png",

@@ -1,8 +1,9 @@
 name: release-and-deploy
 
+# The git tag is the single source of truth for the version.
 # Flow: dev branch → PR → merge to main → push a tag `vX.Y.Z`.
-# The tag (and only the tag) triggers this: it publishes the macOS release AND
-# deploys the site to GitHub Pages, both stamped to the tag's version.
+# The tag triggers this: it stamps the version from the tag, deploys the site to
+# GitHub Pages, and publishes the macOS app + extension to a GitHub Release.
 on:
   push:
     tags: ['v*']
@@ -17,27 +18,23 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  # Gate: the tag must match the committed VERSION (kept in lockstep via the PR).
-  verify:
+  # Resolve the version from the tag (e.g. v1.2.0 → 1.2.0) and sanity-check the format.
+  version:
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.v.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
       - id: v
         run: |
-          TAG="${GITHUB_REF_NAME#v}"
-          FILE="$(cat VERSION)"
-          echo "tag=$TAG  VERSION=$FILE"
-          if [ "$TAG" != "$FILE" ]; then
-            echo "::error::tag v$TAG does not match VERSION ($FILE). Run ./set-version.sh $TAG in your PR before tagging."
-            exit 1
+          VER="${GITHUB_REF_NAME#v}"
+          if ! printf '%s' "$VER" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::tag '$GITHUB_REF_NAME' is not vX.Y.Z"; exit 1
           fi
-          echo "version=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=$VER" >> "$GITHUB_OUTPUT"
 
-  # Deploy the static site (stamped to the version) to GitHub Pages.
+  # Stamp the version into the site and deploy to GitHub Pages.
   deploy-pages:
-    needs: verify
+    needs: version
     runs-on: ubuntu-latest
     environment:
       name: github-pages
@@ -46,7 +43,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Stamp version + stage the site
         env:
-          VER: ${{ needs.verify.outputs.version }}
+          VER: ${{ needs.version.outputs.version }}
         run: |
           perl -i -pe "s/const APP_VERSION = '[^']*'/const APP_VERSION = '$VER'/" index.html
           mkdir site
@@ -59,21 +56,34 @@ jobs:
       - id: deploy
         uses: actions/deploy-pages@v4
 
-  # Build the native macOS app and attach powertoy-macos.zip to the GitHub Release.
-  release-macos:
-    needs: verify
+  # Build the native macOS app + the extension zip, attach both to the Release.
+  release:
+    needs: version
     runs-on: macos-latest
+    env:
+      VER: ${{ needs.version.outputs.version }}
     steps:
       - uses: actions/checkout@v4
-      - name: Build native .app
-        run: ./native/build-macos.sh        # reads VERSION, which == tag (verified)
-      - name: Zip the app
+
+      - name: Stamp version into the app
+        run: perl -i -pe "s/const APP_VERSION = '[^']*'/const APP_VERSION = '$VER'/" index.html
+
+      - name: Build native .app + zip
         run: |
-          cd native/build
-          zip -r -y -X ../../powertoy-macos.zip powertoy.app
-      - name: Publish release with the macOS artifact
+          POWERTOY_VERSION="$VER" ./native/build-macos.sh
+          cd native/build && zip -r -y -X ../../powertoy-macos.zip powertoy.app
+
+      - name: Package the Chrome extension
+        run: |
+          cp index.html manifest.webmanifest icon-192.png icon-512.png icon-maskable-512.png extension/
+          perl -i -pe "s/\"version\":\s*\"[0-9.]+\"/\"version\": \"$VER\"/" extension/manifest.json
+          cd extension && zip -r -X ../powertoy-extension.zip . -x '*.DS_Store'
+
+      - name: Publish release with both artifacts
         uses: softprops/action-gh-release@v2
         with:
           name: powertoy ${{ github.ref_name }}
-          files: powertoy-macos.zip
+          files: |
+            powertoy-macos.zip
+            powertoy-extension.zip
           generate_release_notes: true

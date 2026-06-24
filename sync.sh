@@ -1,16 +1,13 @@
 #!/usr/bin/env bash
-# Propagate a change in index.html to every package that bundles a snapshot of it:
-# the Chrome extension and the native macOS app. The PWA needs nothing — it serves
-# index.html directly and auto-updates when online.
+# Local helper: copy the current app into the Chrome extension and rebuild the native
+# app, so you can test those two channels locally. Versions are stamped from the git
+# tag by CI at release time — this is just for local testing, so it leaves a 0.0.0
+# placeholder. The PWA needs nothing; it serves index.html directly.
 set -euo pipefail
 cd "$(dirname "$0")"
 
-VER="$(cat VERSION 2>/dev/null || echo 1.0.0)"
-echo "▸ syncing app into the Chrome extension (version $VER)…"
+echo "▸ copying app into the Chrome extension…"
 cp index.html manifest.webmanifest icon-192.png icon-512.png icon-maskable-512.png extension/
-# stamp the extension version from the single source of truth (VERSION)
-MAN=extension/manifest.json
-perl -i -pe "s/\"version\": *\"[0-9.]+\"/\"version\": \"$VER\"/" "$MAN"
 
 echo "▸ rebuilding the native macOS app…"
 if command -v swiftc >/dev/null 2>&1; then
@@ -19,6 +16,4 @@ else
   echo "  (swiftc not found — skipping native build)"
 fi
 
-echo "✓ synced. PWA users get the update automatically on next load."
-echo "  Extension: reload at chrome://extensions (dev) or publish the new version."
-echo "  Native:    replace your installed copy with native/build/powertoy.app."
+echo "✓ done (local test builds; release versions are set from the git tag in CI)."

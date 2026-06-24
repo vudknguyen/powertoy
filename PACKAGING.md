@@ -32,7 +32,7 @@ does two things at once: deploys the site to Pages and publishes the macOS relea
 **One-time setup**
 
 ```bash
-git init && git add -A && git commit -m "powertoy v$(cat VERSION)"
+git init && git add -A && git commit -m "powertoy"
 git branch -M main
 git remote add origin https://github.com/<you>/<repo>.git
 git push -u origin main
@@ -52,37 +52,35 @@ with no hardcoding. (Locally the button is hidden since there's no repo.)
 
 **The everyday flow**
 
+The git tag is the only version. There's no version file to bump and nothing to stamp by
+hand — develop, merge, tag.
+
 ```bash
 # 1. develop on a branch
 git checkout -b my-change
 #    …edit index.html…
 
-# 2. if this change ships a new version, bump it (one source of truth):
-./set-version.sh 1.3.0       # stamps VERSION, the app badge, and the extension manifest
+# 2. PR → review → merge to main  (normal GitHub flow)
 
-# 3. PR → review → merge to main  (normal GitHub flow)
-
-# 4. release: tag main and push the tag
+# 3. release: tag main and push the tag — that's the whole release
 git checkout main && git pull
 git tag v1.3.0 && git push origin v1.3.0
 ```
 
 Pushing the tag triggers the workflow:
-1. **verify** — fails fast unless the tag equals `VERSION` (so the repo and the release can
-   never disagree).
-2. **deploy-pages** — stamps the version into `index.html` and deploys the site.
-3. **release-macos** — builds `powertoy.app`, zips it to **`powertoy-macos.zip`**, and
-   publishes a GitHub Release named after the tag with the zip attached.
+1. **version** — reads the version from the tag (`v1.3.0` → `1.3.0`), rejecting malformed tags.
+2. **deploy-pages** — stamps that version into `index.html` and deploys the site.
+3. **release** — builds `powertoy.app` and the Chrome extension, stamps both with the
+   version, and publishes a GitHub Release with `powertoy-macos.zip` + `powertoy-extension.zip`.
 
-The live page's badge and the downloadable macOS app therefore always match the tag.
+The live page's badge and the downloadable artifacts therefore always match the tag.
 
-> Prefer the GitHub UI? Creating a **Release** with tag `v1.3.0` does the same thing —
-> it pushes the tag, which triggers the workflow. Just bump `VERSION` first (step 2) so the
-> verify gate passes.
+> Prefer the GitHub UI? Creating a **Release** with tag `v1.3.0` does the same thing — it
+> pushes the tag, which triggers the workflow. No other steps.
 
-**Version consistency** is guaranteed three ways: `VERSION` is the single source of truth,
-`set-version.sh` stamps the committed files and the CI re-stamps from the tag, and the
-**verify** job refuses to release if the tag doesn't match `VERSION`. (Note: the `CACHE`
+**Version consistency** is automatic because there is only one source: the tag. In the repo,
+`APP_VERSION` stays `'dev'` and the extension manifest stays `0.0.0`; CI replaces both from
+the tag at release time, so the repo can never disagree with a release. (Note: the `CACHE`
 value in `sw.js` is a *separate* service-worker cache version — bump it only when you change
 `sw.js` itself.)
 
@@ -166,13 +164,13 @@ bundle a **snapshot** of `index.html`, so they update only when you re-sync/rebu
 | Channel | Auto-update? | What happens on a change to `index.html` |
 |---------|-------------|------------------------------------------|
 | **PWA** | ✅ automatic | The service worker is *network-first* for the page: every online load fetches the latest `index.html` (bypassing the HTTP cache) and re-caches it. Users get the new version on their next open/reload while online; offline they keep the last cached copy. No version bumping needed. |
-| **Chrome extension** | ⚠️ via the Store | The extension holds a copy. Run `./sync.sh` to copy the current `index.html` in (it stamps `manifest.json`'s version from `VERSION`). **Unpacked (dev):** reload at `chrome://extensions`. **Published:** upload the new zip — Chrome auto-updates installed users within a few hours. |
-| **Native macOS app** | ❌ manual / CI | On a tag, CI builds and publishes it. Locally, `./sync.sh` (or `native/build-macos.sh`) rebuilds it from `VERSION`. For an auto-updating installed app, add [Sparkle](https://sparkle-project.org) or ship via the Mac App Store. |
+| **Chrome extension** | ⚠️ via the Store | CI builds `powertoy-extension.zip` on each tag (version from the tag). **Unpacked (dev):** `./sync.sh` then reload at `chrome://extensions`. **Published:** upload the release zip — Chrome auto-updates installed users within a few hours. |
+| **Native macOS app** | ❌ manual / CI | On a tag, CI builds and publishes it. Locally, `./sync.sh` (or `native/build-macos.sh`) rebuilds it. For an auto-updating installed app, add [Sparkle](https://sparkle-project.org) or ship via the Mac App Store. |
 
 **One command to propagate an app change into the local extension + native build:**
 
 ```bash
-./sync.sh      # copies index.html into extension/ and rebuilds the native app (version from VERSION)
+./sync.sh      # copies index.html into extension/ and rebuilds the native app (for local testing)
 ```
 
 Only the PWA needs nothing — it's always live.
