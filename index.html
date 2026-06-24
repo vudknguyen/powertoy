@@ -5974,7 +5974,7 @@ document.addEventListener('keydown', e => {
    Pages URL (user.github.io/repo) so the "latest release" download link needs no
    hardcoding; set GITHUB_REPO to override. */
 const APP_VERSION = 'dev';
-const GITHUB_REPO = '';   // e.g. 'youruser/powertoy' — leave blank to auto-detect on github.io
+const GITHUB_REPO = 'vudknguyen/powertoy';   // set explicitly (custom domain can't auto-detect); blank = auto-detect on github.io
 (() => {
   const dev = APP_VERSION === 'dev';
   const repo = GITHUB_REPO || (() => {
