@@ -40,7 +40,7 @@ jobs:
       name: github-pages
       url: ${{ steps.deploy.outputs.page_url }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Stamp version + stage the site
         env:
           VER: ${{ needs.version.outputs.version }}
@@ -49,12 +49,12 @@ jobs:
           mkdir site
           cp index.html manifest.webmanifest sw.js CNAME \
              icon-192.png icon-512.png icon-maskable-512.png .nojekyll site/
-      - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/configure-pages@v6
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: site
       - id: deploy
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
 
   # Build the native macOS app + the extension zip, attach both to the Release.
   release:
@@ -63,7 +63,7 @@ jobs:
     env:
       VER: ${{ needs.version.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Stamp version into the app
         run: perl -i -pe "s/const APP_VERSION = '[^']*'/const APP_VERSION = '$VER'/" index.html
@@ -80,7 +80,7 @@ jobs:
           cd extension && zip -r -X ../powertoy-extension.zip . -x '*.DS_Store'
 
       - name: Publish release with both artifacts
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           name: powertoy ${{ github.ref_name }}
           files: |
