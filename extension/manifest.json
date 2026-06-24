@@ -1,0 +1,23 @@
+{
+  "manifest_version": 3,
+  "name": "powertoy — developer utilities",
+  "version": "1.0.2",
+  "description": "76 offline developer & power-user tools: base64, color, hashing, JWT, regex, cron, CIDR, QR, certificates and more. Each with its shell equivalent.",
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
+  "action": {
+    "default_title": "Open powertoy",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png"
+    }
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "offline_enabled": true
+}

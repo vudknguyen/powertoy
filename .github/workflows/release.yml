@@ -1,0 +1,79 @@
+name: release-and-deploy
+
+# Flow: dev branch → PR → merge to main → push a tag `vX.Y.Z`.
+# The tag (and only the tag) triggers this: it publishes the macOS release AND
+# deploys the site to GitHub Pages, both stamped to the tag's version.
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write   # create the GitHub Release
+  pages: write      # deploy to Pages
+  id-token: write   # Pages deployment auth
+
+concurrency:
+  group: release-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  # Gate: the tag must match the committed VERSION (kept in lockstep via the PR).
+  verify:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: v
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          FILE="$(cat VERSION)"
+          echo "tag=$TAG  VERSION=$FILE"
+          if [ "$TAG" != "$FILE" ]; then
+            echo "::error::tag v$TAG does not match VERSION ($FILE). Run ./set-version.sh $TAG in your PR before tagging."
+            exit 1
+          fi
+          echo "version=$TAG" >> "$GITHUB_OUTPUT"
+
+  # Deploy the static site (stamped to the version) to GitHub Pages.
+  deploy-pages:
+    needs: verify
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Stamp version + stage the site
+        env:
+          VER: ${{ needs.verify.outputs.version }}
+        run: |
+          perl -i -pe "s/const APP_VERSION = '[^']*'/const APP_VERSION = '$VER'/" index.html
+          mkdir site
+          cp index.html manifest.webmanifest sw.js \
+             icon-192.png icon-512.png icon-maskable-512.png .nojekyll site/
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - id: deploy
+        uses: actions/deploy-pages@v4
+
+  # Build the native macOS app and attach powertoy-macos.zip to the GitHub Release.
+  release-macos:
+    needs: verify
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build native .app
+        run: ./native/build-macos.sh        # reads VERSION, which == tag (verified)
+      - name: Zip the app
+        run: |
+          cd native/build
+          zip -r -y -X ../../powertoy-macos.zip powertoy.app
+      - name: Publish release with the macOS artifact
+        uses: softprops/action-gh-release@v2
+        with:
+          name: powertoy ${{ github.ref_name }}
+          files: powertoy-macos.zip
+          generate_release_notes: true

@@ -1,0 +1,8 @@
+# local tooling
+.gstack/
+.claude/
+.DS_Store
+
+# build output (the macOS .app is produced by CI / build-macos.sh)
+native/build/
+*.zip
