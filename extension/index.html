@@ -4545,7 +4545,7 @@ tool({
     }
     function fill(base, data, mk){
       const N = base.N, m = base.m.map(row => Int8Array.from(row));
-      // format info (kazuhiko layout, battle-tested)
+      // format-info bits: BCH(15,5)-encoded EC level + mask, written to both copies
       const fb = fmtBits(mk);
       for (let i = 0; i < 15; i++){
         const mod = ((fb >> i) & 1);
@@ -5969,10 +5969,11 @@ document.addEventListener('keydown', e => {
 });
 
 /* version badge + macOS download link.
-   APP_VERSION is stamped by release.sh from the VERSION file (single source of truth).
-   The GitHub repo is auto-derived from the Pages URL (user.github.io/repo) so the
-   "latest release" download link works without hardcoding; override GITHUB_REPO if needed. */
-const APP_VERSION = '1.0.2';
+   APP_VERSION tracks the VERSION file: set-version.sh stamps it for commits, and CI
+   re-stamps it from the git tag on release. The GitHub repo is auto-derived from the
+   Pages URL (user.github.io/repo) so the "latest release" download link needs no
+   hardcoding; set GITHUB_REPO to override. */
+const APP_VERSION = '0.1.0';
 const GITHUB_REPO = '';   // e.g. 'youruser/powertoy' — leave blank to auto-detect on github.io
 (() => {
   const repo = GITHUB_REPO || (() => {
