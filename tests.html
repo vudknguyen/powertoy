@@ -184,6 +184,7 @@ t('favicon generator', async () => {
   eq($$('#fv-grid canvas').length, 6); inc(val('#fv-html'), 'apple-touch-icon');
 });
 t('angle convert', async () => { await go('angle'); set('#angle-u', 'deg'); set('#angle-v', '180'); eq(txt('#angle-rad'), '3.141592654'); set('#angle-u', 'turn'); set('#angle-v', '1'); eq(txt('#angle-deg'), '360'); });
+t('ascii art text', async () => { await go('asciiart'); $$('#aa-mode [data-m]')[0].click(); set('#aa-cols','60'); set('#aa-text','A'); const o=val('#aa-out'); assert(o.split('\n').length>4 && /[#%@*+=]/.test(o), 'no ascii art produced'); });
 
 /* ---------- run ---------- */
 async function run(){

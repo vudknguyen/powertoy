@@ -6143,6 +6143,89 @@ unitTool({
   ],
 });
 
+/* ── ascii art ─────────────────────────────────────────────── */
+tool({
+  id:'asciiart', name:'ASCII art', group:'Text',
+  blurb:'Turn text into a banner or an image into ASCII art — both rendered on a canvas and mapped to a character ramp, so any font works and nothing is embedded.',
+  html: `
+    <div class="row">
+      <div class="seg" id="aa-mode"><button class="on" data-m="text">Text</button><button data-m="image">Image</button></div>
+      <label class="check">width <input type="number" id="aa-cols" value="80" min="10" max="220" style="width:5rem"> cols</label>
+      <select id="aa-ramp"><option value="standard">ramp: standard</option><option value="detailed">detailed</option><option value="blocks">blocks</option></select>
+      <label class="check"><input type="checkbox" id="aa-invert"> invert</label>
+    </div>
+    <div id="aa-textpane"><label class="lbl">Text</label><input type="text" id="aa-text" spellcheck="false" value="powertoy"></div>
+    <div id="aa-imgpane" hidden>
+      <div class="drop" id="aa-drop">Drop an image here or click to choose</div>
+      <input type="file" id="aa-file" accept="image/*" style="display:none">
+    </div>
+    <label class="lbl">Output ${cpyBtn('#aa-out')}</label>
+    <textarea id="aa-out" readonly style="min-height:260px;font-size:.62rem;line-height:1;white-space:pre;overflow:auto;font-family:var(--mono)"></textarea>
+    ${shPanel('asciiart', [
+      {why:'image → ASCII (jp2a)', cmd:`jp2a --width=80 photo.jpg`},
+      {why:'or resize + map with ImageMagick', cmd:`magick photo.jpg -resize 80x txt:- | head`},
+      {why:'text banners (figlet)', cmd:`figlet -w 120 'powertoy'`},
+    ])}`,
+  wire(){
+    const RAMPS = { standard:' .:-=+*#%@', detailed:" .'`^\",:;Il!i~+_-?][}{1)(|\\/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$", blocks:' ░▒▓█' };
+    let mode = 'text', img = null;
+    const out = $('#aa-out');
+    const asciiFromCanvas = src => {
+      const cols = Math.min(220, Math.max(10, +$('#aa-cols').value || 80));
+      const ramp = RAMPS[$('#aa-ramp').value] || RAMPS.standard;
+      const invert = $('#aa-invert').checked;
+      const rows = Math.max(1, Math.round(cols * (src.height / src.width) * 0.5));
+      const c = document.createElement('canvas'); c.width = cols; c.height = rows;
+      const cx = c.getContext('2d'); cx.drawImage(src, 0, 0, cols, rows);
+      const d = cx.getImageData(0, 0, cols, rows).data;
+      let s = '';
+      for (let y = 0; y < rows; y++){
+        let line = '';
+        for (let x = 0; x < cols; x++){
+          const i = (y*cols + x) * 4, a = d[i+3] / 255;
+          let lum = (0.299*d[i] + 0.587*d[i+1] + 0.114*d[i+2]) * a + 255 * (1 - a); // composite on white
+          let t = lum / 255; if (invert) t = 1 - t;
+          line += ramp[Math.min(ramp.length-1, Math.max(0, Math.round((1 - t) * (ramp.length - 1))))];
+        }
+        s += line.replace(/\s+$/, '') + '\n';
+      }
+      return s;
+    };
+    const textCanvas = text => {
+      const fs = 64, pad = 8, font = `bold ${fs}px "Avenir Next", Arial, sans-serif`;
+      const m = document.createElement('canvas').getContext('2d'); m.font = font;
+      const w = Math.max(1, Math.ceil(m.measureText(text || ' ').width) + pad*2), h = fs + pad*2;
+      const c = document.createElement('canvas'); c.width = w; c.height = h;
+      const cx = c.getContext('2d');
+      cx.fillStyle = '#fff'; cx.fillRect(0, 0, w, h);
+      cx.fillStyle = '#000'; cx.font = font; cx.textBaseline = 'middle';
+      cx.fillText(text, pad, h/2);
+      return c;
+    };
+    const run = () => {
+      if (mode === 'text'){ const t = $('#aa-text').value; out.value = t ? asciiFromCanvas(textCanvas(t)) : ''; }
+      else if (img) out.value = asciiFromCanvas(img);
+    };
+    $$('#aa-mode button').forEach(b => b.addEventListener('click', () => {
+      $$('#aa-mode button').forEach(x => x.classList.remove('on')); b.classList.add('on'); mode = b.dataset.m;
+      $('#aa-textpane').hidden = mode !== 'text'; $('#aa-imgpane').hidden = mode !== 'image'; run();
+    }));
+    $('#aa-text').addEventListener('input', run);
+    ['aa-cols','aa-ramp','aa-invert'].forEach(id => $('#'+id).addEventListener('input', run));
+    const drop = $('#aa-drop'), file = $('#aa-file');
+    const handle = f => {
+      if (!f || !f.type.startsWith('image/')) return;
+      const i = new Image(); i.onload = () => { img = i; drop.textContent = `${f.name} — drop another to replace`; run(); }; i.src = URL.createObjectURL(f);
+    };
+    drop.addEventListener('click', () => file.click());
+    file.addEventListener('change', () => handle(file.files[0]));
+    drop.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('over'); });
+    drop.addEventListener('dragleave', () => drop.classList.remove('over'));
+    drop.addEventListener('drop', e => { e.preventDefault(); drop.classList.remove('over'); handle(e.dataTransfer.files[0]); });
+    run();
+  }
+});
+
 /* ── contrast checker ──────────────────────────────────────── */
 tool({
   id:'contrast', name:'Contrast check', group:'Convert',
