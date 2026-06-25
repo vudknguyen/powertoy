@@ -1,6 +1,6 @@
 # powertoy — developer utilities
 
-A single-file webapp with 81 everyday utilities for developers and power users.
+A single-file webapp with 85 everyday utilities for developers and power users.
 Every tool shows its **shell equivalent** (bash / unix command) alongside the result.
 Works offline from a plain `file://` open — no build, no install, no server.
 
@@ -18,7 +18,7 @@ app release and shows the current version. See [PACKAGING.md](PACKAGING.md).
 ## Quality
 
 - **`tests.html`** — integration suite: drives every tool in a live iframe with
-  known-answer vectors (97 assertions across all 81 tools). Open it to see a pass/fail report.
+  known-answer vectors (101 assertions across all 85 tools). Open it to see a pass/fail report.
 - **`verify-commands.sh`** — runs each tool's documented shell command on your machine and
   confirms it matches the tool's output (43 checks).
 
@@ -59,6 +59,7 @@ app release and shows the current version. See [PACKAGING.md](PACKAGING.md).
 | Convert | CSS gradient      | `#gradient` |
 | Convert | Box shadow        | `#shadow` |
 | Convert | Aspect ratio      | `#aspect` |
+| Convert | Favicon generator | `#favicon` |
 | Time    | Epoch time        | `#time`   |
 | Time    | Timezone convert  | `#tz`     |
 | Time    | Cron expression   | `#cron`   |
@@ -72,6 +73,7 @@ app release and shows the current version. See [PACKAGING.md](PACKAGING.md).
 | Units   | Fuel economy      | `#fuel`   |
 | Units   | Temperature       | `#temp`   |
 | Units   | Data size         | `#data`   |
+| Units   | Angle convert     | `#angle`  |
 | Crypto  | Hash digest       | `#hash`   |
 | Crypto  | Encrypt / decrypt | `#aes`    |
 | Crypto  | Password gen      | `#pw`     |
@@ -101,6 +103,8 @@ app release and shows the current version. See [PACKAGING.md](PACKAGING.md).
 | Text    | JSON query        | `#jsonquery` |
 | Text    | Markdown preview  | `#md`     |
 | Text    | Mock data         | `#mock`   |
+| Text    | Whitespace inspect| `#ws`     |
+| Text    | Slugify           | `#slug`   |
 | Reference | HTTP status     | `#http`   |
 | Reference | ASCII table     | `#ascii`  |
 | Reference | Common ports    | `#ports`  |

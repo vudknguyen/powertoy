@@ -5957,6 +5957,192 @@ tool({
   }
 });
 
+/* ── whitespace inspector ──────────────────────────────────── */
+tool({
+  id:'ws', name:'Whitespace inspector', group:'Text',
+  blurb:'Reveal the invisible gremlins in pasted text — zero-width spaces, non-breaking spaces, smart quotes, tabs and trailing whitespace — then clean them out.',
+  html: `
+    <label class="lbl">Input</label>
+    <textarea id="ws-in" spellcheck="false" style="min-height:110px" placeholder="paste text to inspect…"></textarea>
+    <div class="outs"><div class="out" style="grid-template-columns:1fr"><span class="v" id="ws-found">—</span></div></div>
+    <label class="lbl">Revealed</label>
+    <div class="rgx-view" id="ws-view" style="white-space:pre-wrap"></div>
+    <label class="lbl">Clean up</label>
+    <div class="row">
+      <label class="check"><input type="checkbox" id="ws-trail" checked> trim trailing</label>
+      <label class="check"><input type="checkbox" id="ws-zw" checked> remove zero-width</label>
+      <label class="check"><input type="checkbox" id="ws-nbsp" checked> NBSP → space</label>
+      <label class="check"><input type="checkbox" id="ws-quotes"> smart quotes → ASCII</label>
+      <label class="check"><input type="checkbox" id="ws-collapse"> collapse spaces</label>
+      <label class="check"><input type="checkbox" id="ws-crlf"> normalize to LF</label>
+    </div>
+    <label class="lbl">Cleaned ${cpyBtn('#ws-out')}</label>
+    <textarea id="ws-out" readonly style="min-height:110px"></textarea>
+    ${shPanel('ws', [
+      {why:'find non-ASCII / invisible bytes', cmd:`grep -nP '[^\\x00-\\x7F]' file.txt`},
+      {why:'strip trailing whitespace', cmd:`sed -i 's/[[:space:]]*$//' file.txt`},
+      {why:'CRLF → LF', cmd:`sed -i 's/\\r$//' file.txt`},
+    ])}`,
+  wire(){
+    const inp = $('#ws-in');
+    const SPECIAL = {
+      '\u00A0':'NBSP', '\u200B':'ZWSP', '\u200C':'ZWNJ', '\u200D':'ZWJ', '\uFEFF':'BOM',
+      '\u00AD':'SHY', '\u2009':'THIN', '\u202F':'NNBSP',
+      '\u2018':'\u2018', '\u2019':'\u2019', '\u201C':'\u201C', '\u201D':'\u201D', '\u2013':'EN', '\u2014':'EM',
+    };
+    const e = s => s.replace(/[&<>]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;' }[c]));
+    const run = () => {
+      const v = inp.value;
+      const counts = {};
+      let html = '';
+      for (const ch of v){
+        if (ch === '\t'){ html += '<mark style="background:#cde3ff;color:#1d3a5f">→</mark>\t'; continue; }
+        if (ch === '\n'){ html += '<span style="color:var(--faint)">¶</span>\n'; continue; }
+        const lbl = SPECIAL[ch];
+        if (lbl){ counts[lbl] = (counts[lbl] || 0) + 1;
+          html += `<mark title="U+${ch.codePointAt(0).toString(16).toUpperCase().padStart(4,'0')}">[${lbl}]</mark>`; }
+        else html += e(ch);
+      }
+      html = html.replace(/([ \t]+)(\n|$)/g, '<mark style="background:#ffd0d0;color:#7a1d1d">$1</mark>$2');
+      $('#ws-view').innerHTML = html || '<span style="color:var(--faint)">empty</span>';
+      const found = Object.entries(counts).map(([k,n]) => `${n}×${k}`).join('   ');
+      $('#ws-found').textContent = found || 'no invisible characters found';
+      let out = v;
+      if ($('#ws-crlf').checked) out = out.replace(/\r\n?/g, '\n');
+      if ($('#ws-zw').checked) out = out.replace(/[\u200B\u200C\u200D\uFEFF\u00AD]/g, '');
+      if ($('#ws-nbsp').checked) out = out.replace(/[\u00A0\u2009\u202F]/g, ' ');
+      if ($('#ws-quotes').checked) out = out.replace(/[\u2018\u2019]/g, "'").replace(/[\u201C\u201D]/g, '"').replace(/\u2014/g, '--').replace(/\u2013/g, '-');
+      if ($('#ws-collapse').checked) out = out.replace(/ {2,}/g, ' ');
+      if ($('#ws-trail').checked) out = out.replace(/[ \t]+$/gm, '');
+      $('#ws-out').value = out;
+    };
+    inp.addEventListener('input', run);
+    ['ws-trail','ws-zw','ws-nbsp','ws-quotes','ws-collapse','ws-crlf'].forEach(id => $('#'+id).addEventListener('change', run));
+    run();
+  }
+});
+
+/* ── slugify ───────────────────────────────────────────────── */
+tool({
+  id:'slug', name:'Slugify', group:'Text',
+  blurb:'Turn a title into a clean URL slug — lowercased, accents stripped, punctuation and spaces collapsed to a single separator.',
+  html: `
+    <label class="lbl">Input</label>
+    <textarea id="sl-in" spellcheck="false" style="min-height:64px">My Café's “Best” Recipe! (2024)</textarea>
+    <div class="row">
+      <label class="check">separator
+        <select id="sl-sep"><option value="-">- dash</option><option value="_">_ underscore</option></select></label>
+      <label class="check"><input type="checkbox" id="sl-lower" checked> lowercase</label>
+    </div>
+    <label class="lbl">Slug ${cpyBtn('#sl-out')}</label>
+    <textarea id="sl-out" readonly style="min-height:44px"></textarea>
+    ${shPanel('slug', [
+      {why:'a slugify pipeline', cmd:`echo 'My Café Recipe' | iconv -t ascii//TRANSLIT | tr A-Z a-z | sed -E 's/[^a-z0-9]+/-/g; s/^-+|-+$//g'`},
+    ])}`,
+  wire(){
+    const inp = $('#sl-in');
+    const run = () => {
+      let s = inp.value.normalize('NFKD').replace(/[̀-ͯ]/g, '');
+      if ($('#sl-lower').checked) s = s.toLowerCase();
+      const sep = $('#sl-sep').value;
+      s = s.replace(/[^A-Za-z0-9]+/g, sep).replace(new RegExp(`^\\${sep}+|\\${sep}+$`, 'g'), '');
+      $('#sl-out').value = s;
+    };
+    inp.addEventListener('input', run);
+    ['sl-sep','sl-lower'].forEach(id => $('#'+id).addEventListener('change', run));
+    run();
+  }
+});
+
+/* ── favicon generator ─────────────────────────────────────── */
+tool({
+  id:'favicon', name:'Favicon generator', group:'Convert',
+  blurb:'Drop an image and get every favicon size, a multi-resolution .ico, and the HTML link tags — rendered on a canvas, entirely offline.',
+  html: `
+    <div class="drop" id="fv-drop">Drop a square image here or click to choose</div>
+    <input type="file" id="fv-file" accept="image/*" style="display:none">
+    <div class="err" id="fv-err"></div>
+    <div id="fv-out" style="display:none">
+      <label class="lbl">Sizes <span style="text-transform:none;letter-spacing:0;color:var(--faint)">click a tile to download that PNG</span></label>
+      <div id="fv-grid" style="display:flex;flex-wrap:wrap;gap:1rem;align-items:flex-end"></div>
+      <div class="row" style="margin-top:.9rem"><button class="act" id="fv-ico">Download favicon.ico</button></div>
+      <label class="lbl">HTML ${cpyBtn('#fv-html')}</label>
+      <textarea id="fv-html" readonly style="min-height:104px"></textarea>
+    </div>
+    ${shPanel('favicon', [
+      {why:'one size with ImageMagick', cmd:`magick logo.png -resize 32x32 favicon-32.png`},
+      {why:'a multi-resolution .ico', cmd:`magick logo.png -define icon:auto-resize=16,32,48 favicon.ico`},
+    ])}`,
+  wire(){
+    const SIZES = [16, 32, 48, 180, 192, 512];
+    const drop = $('#fv-drop'), file = $('#fv-file'), err = $('#fv-err');
+    let img = null;
+    const renderTo = s => { const c = document.createElement('canvas'); c.width = c.height = s; c.getContext('2d').drawImage(img, 0, 0, s, s); return c; };
+    const dl = (blob, name) => { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click(); };
+    const buildIco = async sizes => {
+      const pngs = await Promise.all(sizes.map(s => new Promise(res => renderTo(s).toBlob(b => b.arrayBuffer().then(res), 'image/png'))));
+      const n = sizes.length;
+      const head = new DataView(new ArrayBuffer(6 + 16 * n));
+      head.setUint16(0, 0, true); head.setUint16(2, 1, true); head.setUint16(4, n, true);
+      let offset = 6 + 16 * n; const parts = [];
+      sizes.forEach((s, i) => {
+        const png = new Uint8Array(pngs[i]); const e = 6 + 16 * i;
+        head.setUint8(e, s >= 256 ? 0 : s); head.setUint8(e + 1, s >= 256 ? 0 : s);
+        head.setUint16(e + 4, 1, true); head.setUint16(e + 6, 32, true);
+        head.setUint32(e + 8, png.length, true); head.setUint32(e + 12, offset, true);
+        offset += png.length; parts.push(png);
+      });
+      const out = new Uint8Array(offset); out.set(new Uint8Array(head.buffer), 0);
+      let o = 6 + 16 * n; for (const p of parts){ out.set(p, o); o += p.length; }
+      return new Blob([out], { type:'image/x-icon' });
+    };
+    const handle = f => {
+      if (!f || !f.type.startsWith('image/')){ err.textContent = 'Please choose an image file'; return; }
+      err.textContent = ''; const i = new Image();
+      i.onload = () => {
+        img = i;
+        err.textContent = i.width !== i.height ? 'Tip: a square source gives the best result.' : '';
+        $('#fv-out').style.display = '';
+        $('#fv-grid').innerHTML = SIZES.map(s => { const d = Math.min(s, 96);
+          return `<div style="text-align:center"><canvas data-s="${s}" width="${d}" height="${d}" style="border:1px solid var(--border);border-radius:6px;cursor:pointer;background:var(--surface)"></canvas><div style="font-size:.7rem;color:var(--faint);margin-top:.25rem">${s}px</div></div>`;
+        }).join('');
+        SIZES.forEach(s => { const cv = $(`#fv-grid canvas[data-s="${s}"]`); const d = Math.min(s, 96);
+          cv.getContext('2d').drawImage(img, 0, 0, d, d); cv.title = `download ${s}×${s}`;
+          cv.addEventListener('click', () => renderTo(s).toBlob(b => dl(b, `favicon-${s}.png`), 'image/png')); });
+        $('#fv-html').value = [
+          '<link rel="icon" href="/favicon.ico" sizes="any">',
+          '<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">',
+          '<link rel="icon" type="image/png" sizes="192x192" href="/favicon-192.png">',
+          '<link rel="apple-touch-icon" sizes="180x180" href="/favicon-180.png">',
+        ].join('\n');
+        drop.textContent = `${f.name} — drop another to replace`;
+      };
+      i.src = URL.createObjectURL(f);
+    };
+    drop.addEventListener('click', () => file.click());
+    file.addEventListener('change', () => handle(file.files[0]));
+    drop.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('over'); });
+    drop.addEventListener('dragleave', () => drop.classList.remove('over'));
+    drop.addEventListener('drop', e => { e.preventDefault(); drop.classList.remove('over'); handle(e.dataTransfer.files[0]); });
+    $('#fv-ico').addEventListener('click', async () => { if (img) dl(await buildIco([16, 32, 48]), 'favicon.ico'); });
+  }
+});
+
+/* ── angle convert ─────────────────────────────────────────── */
+unitTool({
+  id:'angle', name:'Angle convert', def:'deg', target:'radian', target2:'rad',
+  blurb:'Degrees, radians, gradians, turns and the arc-minute / arc-second subdivisions.',
+  units:[
+    { k:'deg',    label:'Degrees',      sym:'degree', f:1 },
+    { k:'rad',    label:'Radians',      sym:'radian', f:180/Math.PI },
+    { k:'grad',   label:'Gradians',     sym:'grad',   f:0.9 },
+    { k:'turn',   label:'Turns',        sym:'turn',   f:360 },
+    { k:'mrad',   label:'Milliradians', sym:'mrad',   f:(180/Math.PI)/1000 },
+    { k:'arcmin', label:'Arcminutes',   sym:'arcmin', f:1/60 },
+    { k:'arcsec', label:'Arcseconds',   sym:'arcsec', f:1/3600 },
+  ],
+});
+
 /* ── contrast checker ──────────────────────────────────────── */
 tool({
   id:'contrast', name:'Contrast check', group:'Convert',

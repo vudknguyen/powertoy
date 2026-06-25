@@ -166,6 +166,24 @@ t('css gradient', async () => { await go('gradient'); $$('#gr-type [data-t]')[0]
 t('box shadow', async () => { await go('shadow'); chk('#sh-inset', false); inc(val('#sh-css'), 'box-shadow:'); inc(val('#sh-css'), 'rgba('); chk('#sh-inset', true); inc(val('#sh-css'), 'inset'); });
 t('aspect ratio', async () => { await go('aspect'); set('#ar-preset', '4:3'); set('#ar-w', '800'); eq(val('#ar-h'), '600'); inc(txt('#ar-norm'), '4 : 3'); });
 t('mime types', async () => { await go('mime'); set('#mi-q', 'webp'); assert($$('#mi-list .out').some(o => o.textContent.includes('image/webp')), 'webp not found'); });
+t('whitespace inspector', async () => {
+  await go('ws');
+  chk('#ws-zw', true); chk('#ws-nbsp', true); chk('#ws-trail', true); chk('#ws-quotes', false); chk('#ws-collapse', false); chk('#ws-crlf', true);
+  set('#ws-in', 'a\u00A0b\u200Bc  ');           // NBSP, ZWSP, trailing spaces
+  eq(val('#ws-out'), 'a bc');                    // ZWSP removed, NBSP→space, trailing trimmed
+  inc(txt('#ws-found'), 'NBSP'); inc(txt('#ws-found'), 'ZWSP');
+});
+t('slugify', async () => { await go('slug'); set('#sl-sep', '-'); chk('#sl-lower', true); set('#sl-in', 'My Café’s “Best” Recipe! (2024)'); eq(val('#sl-out'), 'my-cafe-s-best-recipe-2024'); });
+t('favicon generator', async () => {
+  await go('favicon');
+  const cv = D().createElement('canvas'); cv.width = cv.height = 128; const x = cv.getContext('2d'); x.fillStyle = '#106b5b'; x.fillRect(0,0,128,128);
+  const blob = await new Promise(r => cv.toBlob(r, 'image/png'));
+  const dt = new DataTransfer(); dt.items.add(new File([blob], 'logo.png', { type:'image/png' }));
+  const f = $('#fv-file'); Object.defineProperty(f, 'files', { value: dt.files, configurable: true }); f.dispatchEvent(new Event('change'));
+  await wait(500);
+  eq($$('#fv-grid canvas').length, 6); inc(val('#fv-html'), 'apple-touch-icon');
+});
+t('angle convert', async () => { await go('angle'); set('#angle-u', 'deg'); set('#angle-v', '180'); eq(txt('#angle-rad'), '3.141592654'); set('#angle-u', 'turn'); set('#angle-v', '1'); eq(txt('#angle-deg'), '360'); });
 
 /* ---------- run ---------- */
 async function run(){
