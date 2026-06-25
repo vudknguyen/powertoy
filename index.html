@@ -227,6 +227,45 @@ button.ghost:hover{color:var(--accent-2);border-color:var(--accent)}
 .rgx-view mark{background:#ffe27a;border-radius:3px;padding:0 1px;color:#1d1c19}
 .rgx-view mark:nth-of-type(even){background:#bfe3d5}
 
+/* markdown preview */
+.md-split{display:grid;grid-template-columns:1fr 1fr;gap:.8rem;align-items:start}
+.md-split > div{min-width:0;display:flex;flex-direction:column}   /* min-width:0 stops wide content breaking the columns */
+.md-split textarea{resize:none;height:58vh;min-height:320px}
+.md-prev{
+  background:var(--surface);border:1px solid var(--border-2);border-radius:var(--radius);
+  padding:1rem 1.25rem;margin-top:.35rem;height:58vh;min-height:320px;overflow:auto;
+  font-family:var(--sans);font-size:.95rem;line-height:1.65;color:var(--ink);
+  overflow-wrap:break-word;word-break:normal;
+}
+.md-prev > :first-child{margin-top:0}
+.md-prev > :last-child{margin-bottom:0}
+.md-prev h1,.md-prev h2,.md-prev h3,.md-prev h4,.md-prev h5,.md-prev h6{
+  font-family:var(--serif);font-weight:600;line-height:1.25;margin:1.4em 0 .5em}
+.md-prev h1{font-size:1.7em;border-bottom:1px solid var(--border);padding-bottom:.25em}
+.md-prev h2{font-size:1.4em;border-bottom:1px solid var(--border);padding-bottom:.2em}
+.md-prev h3{font-size:1.18em}
+.md-prev h4{font-size:1.02em}
+.md-prev p{margin:.7em 0}
+.md-prev ul,.md-prev ol{margin:.7em 0;padding-left:1.6em}
+.md-prev li{margin:.3em 0}
+.md-prev blockquote{margin:.9em 0;padding:.3em 1em;border-left:3px solid var(--accent);
+  color:var(--muted);background:var(--tint);border-radius:0 6px 6px 0}
+.md-prev code{font-family:var(--mono);font-size:.86em;background:var(--code-bg);padding:.14em .4em;border-radius:4px}
+.md-prev pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;
+  padding:.85em 1em;margin:.9em 0;overflow-x:auto}
+.md-prev pre code{background:none;padding:0;font-size:.84em;line-height:1.55}
+.md-prev a{color:var(--accent);text-decoration:underline}
+.md-prev img{max-width:100%;border-radius:6px}
+.md-prev hr{border:0;border-top:1px solid var(--border);margin:1.4em 0}
+.md-prev table{border-collapse:collapse;margin:.9em 0;font-size:.92em;display:block;overflow-x:auto;max-width:max-content}
+.md-prev th,.md-prev td{border:1px solid var(--border-2);padding:.4em .7em;text-align:left}
+.md-prev th{background:var(--code-bg);font-weight:600}
+@media (max-width:700px){
+  .md-split{grid-template-columns:1fr}
+  .md-split textarea,.md-prev{height:auto;min-height:240px}
+  .md-prev{max-height:60vh}
+}
+
 /* text diff */
 .diff-view{
   border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);
@@ -4817,9 +4856,9 @@ tool({
   id:'md', name:'Markdown preview', group:'Text',
   blurb:'Live Markdown rendering with the generated HTML alongside. Headings, lists, tables, code, links, images, blockquotes and inline styles — links and images are sanitized to safe schemes.',
   html: `
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:.7rem">
+    <div class="md-split">
       <div><label class="lbl" style="margin-top:0">Markdown</label>
-        <textarea id="md-in" spellcheck="false" style="min-height:300px"># powertoy
+        <textarea id="md-in" spellcheck="false"># powertoy
 
 A **single file**, _fully offline_.
 
@@ -4842,7 +4881,7 @@ const x = 42;
 [Learn more](https://example.com)
 </textarea></div>
       <div><label class="lbl" style="margin-top:0">Preview</label>
-        <div class="rgx-view" id="md-prev" style="min-height:300px;white-space:normal;line-height:1.6"></div></div>
+        <div class="md-prev" id="md-prev"></div></div>
     </div>
     <label class="lbl">HTML source ${cpyBtn('#md-html')}</label>
     <textarea id="md-html" readonly style="min-height:100px"></textarea>
@@ -4892,10 +4931,10 @@ const x = 42;
           const head = cells(ln); i += 2;
           const rows = [];
           while (i < lines.length && /^\s*\|.*\|\s*$/.test(lines[i])){ rows.push(cells(lines[i])); i++; }
-          out.push('<table style="border-collapse:collapse;width:100%"><thead><tr>' +
-            head.map(h => `<th style="border:1px solid var(--border-2);padding:.3rem .5rem;text-align:left">${inline(h)}</th>`).join('') +
+          out.push('<table><thead><tr>' +
+            head.map(h => `<th>${inline(h)}</th>`).join('') +
             '</tr></thead><tbody>' +
-            rows.map(r => '<tr>' + r.map(c => `<td style="border:1px solid var(--border);padding:.3rem .5rem">${inline(c)}</td>`).join('') + '</tr>').join('') +
+            rows.map(r => '<tr>' + r.map(c => `<td>${inline(c)}</td>`).join('') + '</tr>').join('') +
             '</tbody></table>');
         }
         else if (m = ln.match(/^(\s*)([-*+]|\d+\.)\s+(.*)$/)){
