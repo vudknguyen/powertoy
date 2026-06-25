@@ -6153,14 +6153,27 @@ tool({
       <label class="check">width <input type="number" id="aa-cols" value="80" min="10" max="220" style="width:5rem"> cols</label>
       <select id="aa-ramp"><option value="standard">ramp: standard</option><option value="detailed">detailed</option><option value="blocks">blocks</option></select>
       <label class="check"><input type="checkbox" id="aa-invert"> invert</label>
+      <label class="check"><input type="checkbox" id="aa-color"> color</label>
     </div>
+    <div class="row" id="aa-textstyle">
+      <select id="aa-font">
+        <option value="sans">Sans</option><option value="serif">Serif</option><option value="mono">Mono</option>
+        <option value="condensed">Condensed</option><option value="script">Script</option><option value="slab">Slab</option>
+      </select>
+      <label class="check"><input type="checkbox" id="aa-bold" checked> bold</label>
+      <label class="check"><input type="checkbox" id="aa-italic"> italic</label>
+      <label class="check"><input type="checkbox" id="aa-outline"> outline</label>
+    </div>
+    <label class="lbl">Custom ramp <span style="text-transform:none;letter-spacing:0;color:var(--faint)">optional, light → dark; overrides the preset</span></label>
+    <input type="text" id="aa-customramp" spellcheck="false" placeholder=" .:-=+*#%@">
     <div id="aa-textpane"><label class="lbl">Text</label><input type="text" id="aa-text" spellcheck="false" value="powertoy"></div>
     <div id="aa-imgpane" hidden>
       <div class="drop" id="aa-drop">Drop an image here or click to choose</div>
       <input type="file" id="aa-file" accept="image/*" style="display:none">
     </div>
     <label class="lbl">Output ${cpyBtn('#aa-out')}</label>
-    <textarea id="aa-out" readonly style="min-height:260px;font-size:.62rem;line-height:1;white-space:pre;overflow:auto;font-family:var(--mono)"></textarea>
+    <textarea id="aa-out" readonly style="min-height:230px;font-size:.62rem;line-height:1;white-space:pre;overflow:auto;font-family:var(--mono)"></textarea>
+    <div id="aa-preview" hidden style="margin-top:.5rem;background:#0d0d0d;border:1px solid var(--border);border-radius:8px;padding:.6rem;font-family:var(--mono);font-size:.62rem;line-height:1;white-space:pre;overflow:auto"></div>
     ${shPanel('asciiart', [
       {why:'image → ASCII (jp2a)', cmd:`jp2a --width=80 photo.jpg`},
       {why:'or resize + map with ImageMagick', cmd:`magick photo.jpg -resize 80x txt:- | head`},
@@ -6168,50 +6181,66 @@ tool({
     ])}`,
   wire(){
     const RAMPS = { standard:' .:-=+*#%@', detailed:" .'`^\",:;Il!i~+_-?][}{1)(|\\/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$", blocks:' ░▒▓█' };
+    const FONTS = { sans:'"Avenir Next", Arial, sans-serif', serif:'Georgia, "Times New Roman", serif',
+      mono:'"SF Mono", Menlo, monospace', condensed:'"Arial Narrow", Impact, sans-serif',
+      script:'"Snell Roundhand", "Brush Script MT", cursive', slab:'Rockwell, "Courier New", serif' };
     let mode = 'text', img = null;
-    const out = $('#aa-out');
+    const out = $('#aa-out'), preview = $('#aa-preview');
+    const ramp = () => { const cr = $('#aa-customramp').value; return cr.length >= 2 ? cr : (RAMPS[$('#aa-ramp').value] || RAMPS.standard); };
     const asciiFromCanvas = src => {
       const cols = Math.min(220, Math.max(10, +$('#aa-cols').value || 80));
-      const ramp = RAMPS[$('#aa-ramp').value] || RAMPS.standard;
-      const invert = $('#aa-invert').checked;
+      const r = ramp(), invert = $('#aa-invert').checked, color = $('#aa-color').checked;
       const rows = Math.max(1, Math.round(cols * (src.height / src.width) * 0.5));
       const c = document.createElement('canvas'); c.width = cols; c.height = rows;
       const cx = c.getContext('2d'); cx.drawImage(src, 0, 0, cols, rows);
       const d = cx.getImageData(0, 0, cols, rows).data;
-      let s = '';
+      let text = '', html = '';
       for (let y = 0; y < rows; y++){
-        let line = '';
+        let lt = '', lh = '';
         for (let x = 0; x < cols; x++){
           const i = (y*cols + x) * 4, a = d[i+3] / 255;
           let lum = (0.299*d[i] + 0.587*d[i+1] + 0.114*d[i+2]) * a + 255 * (1 - a); // composite on white
           let t = lum / 255; if (invert) t = 1 - t;
-          line += ramp[Math.min(ramp.length-1, Math.max(0, Math.round((1 - t) * (ramp.length - 1))))];
+          const ch = r[Math.min(r.length-1, Math.max(0, Math.round((1 - t) * (r.length - 1))))];
+          lt += ch;
+          if (color) lh += ch === ' ' ? ' ' : `<span style="color:rgb(${d[i]},${d[i+1]},${d[i+2]})">${esc(ch)}</span>`;
         }
-        s += line.replace(/\s+$/, '') + '\n';
+        text += lt.replace(/\s+$/, '') + '\n';
+        if (color) html += lh + '\n';
       }
-      return s;
+      return { text, html };
     };
     const textCanvas = text => {
-      const fs = 64, pad = 8, font = `bold ${fs}px "Avenir Next", Arial, sans-serif`;
-      const m = document.createElement('canvas').getContext('2d'); m.font = font;
+      const fs = 64, pad = 10;
+      const style = `${$('#aa-italic').checked ? 'italic ' : ''}${$('#aa-bold').checked ? 'bold ' : ''}${fs}px ${FONTS[$('#aa-font').value] || FONTS.sans}`;
+      const m = document.createElement('canvas').getContext('2d'); m.font = style;
       const w = Math.max(1, Math.ceil(m.measureText(text || ' ').width) + pad*2), h = fs + pad*2;
       const c = document.createElement('canvas'); c.width = w; c.height = h;
       const cx = c.getContext('2d');
       cx.fillStyle = '#fff'; cx.fillRect(0, 0, w, h);
-      cx.fillStyle = '#000'; cx.font = font; cx.textBaseline = 'middle';
-      cx.fillText(text, pad, h/2);
+      cx.font = style; cx.textBaseline = 'middle';
+      if ($('#aa-outline').checked){ cx.strokeStyle = '#000'; cx.lineWidth = Math.max(2, fs/22); cx.strokeText(text, pad, h/2); }
+      else { cx.fillStyle = '#000'; cx.fillText(text, pad, h/2); }
       return c;
     };
     const run = () => {
-      if (mode === 'text'){ const t = $('#aa-text').value; out.value = t ? asciiFromCanvas(textCanvas(t)) : ''; }
-      else if (img) out.value = asciiFromCanvas(img);
+      let res = null;
+      if (mode === 'text'){ const t = $('#aa-text').value; res = t ? asciiFromCanvas(textCanvas(t)) : { text:'', html:'' }; }
+      else if (img) res = asciiFromCanvas(img);
+      if (!res) return;
+      out.value = res.text;
+      if ($('#aa-color').checked && res.html){ preview.hidden = false; preview.innerHTML = res.html; }
+      else preview.hidden = true;
     };
     $$('#aa-mode button').forEach(b => b.addEventListener('click', () => {
       $$('#aa-mode button').forEach(x => x.classList.remove('on')); b.classList.add('on'); mode = b.dataset.m;
-      $('#aa-textpane').hidden = mode !== 'text'; $('#aa-imgpane').hidden = mode !== 'image'; run();
+      $('#aa-textpane').hidden = mode !== 'text'; $('#aa-imgpane').hidden = mode !== 'image'; $('#aa-textstyle').hidden = mode !== 'text';
+      run();
     }));
     $('#aa-text').addEventListener('input', run);
-    ['aa-cols','aa-ramp','aa-invert'].forEach(id => $('#'+id).addEventListener('input', run));
+    ['aa-cols','aa-ramp','aa-invert','aa-color','aa-customramp','aa-font','aa-bold','aa-italic','aa-outline'].forEach(id => {
+      const el = $('#'+id); el.addEventListener('input', run); el.addEventListener('change', run);
+    });
     const drop = $('#aa-drop'), file = $('#aa-file');
     const handle = f => {
       if (!f || !f.type.startsWith('image/')) return;
