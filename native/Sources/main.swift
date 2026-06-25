@@ -4,6 +4,7 @@ import Cocoa
 import WebKit
 import CoreWLAN
 import CoreLocation
+import Darwin
 
 final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKScriptMessageHandlerWithReply {
     var window: NSWindow!
@@ -23,8 +24,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
 
         let cfg = WKWebViewConfiguration()
         cfg.preferences.setValue(true, forKey: "developerExtrasEnabled")
-        // bridge: JS calls window.webkit.messageHandlers.wifi.postMessage('get') → live WiFi stats
+        // bridges: window.webkit.messageHandlers.{wifi,device}.postMessage('get')
         cfg.userContentController.addScriptMessageHandler(self, contentWorld: .page, name: "wifi")
+        cfg.userContentController.addScriptMessageHandler(self, contentWorld: .page, name: "device")
         webView = WKWebView(frame: frame, configuration: cfg)
         webView.navigationDelegate = self
         webView.autoresizingMask = [.width, .height]
@@ -50,26 +52,53 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
 
     func applicationShouldTerminateAfterLastWindowClosed(_ s: NSApplication) -> Bool { true }
 
-    // WiFi bridge — read live signal via CoreWLAN and reply to the JS promise.
+    // Native bridges — reply to the JS promise with live system data.
     func userContentController(_ ucc: WKUserContentController, didReceive message: WKScriptMessage,
                               replyHandler: @escaping (Any?, String?) -> Void) {
-        guard message.name == "wifi" else { replyHandler(nil, "unknown handler"); return }
-        guard let i = CWWiFiClient.shared().interface() else { replyHandler(nil, "no WiFi interface"); return }
-        var d: [String: Any] = ["interface": i.interfaceName ?? "—"]
-        if let ssid = i.ssid() { d["ssid"] = ssid }
-        d["rssi"] = i.rssiValue()
-        d["noise"] = i.noiseMeasurement()
-        d["txRate"] = i.transmitRate()
-        if let ch = i.wlanChannel() {
-            d["channel"] = ch.channelNumber
-            switch ch.channelBand {
-            case .band2GHz: d["band"] = "2.4 GHz"
-            case .band5GHz: d["band"] = "5 GHz"
-            case .band6GHz: d["band"] = "6 GHz"
-            default: break
+        switch message.name {
+        case "wifi":
+            guard let i = CWWiFiClient.shared().interface() else { replyHandler(nil, "no WiFi interface"); return }
+            var d: [String: Any] = ["interface": i.interfaceName ?? "—"]
+            if let ssid = i.ssid() { d["ssid"] = ssid }
+            d["rssi"] = i.rssiValue()
+            d["noise"] = i.noiseMeasurement()
+            d["txRate"] = i.transmitRate()
+            if let ch = i.wlanChannel() {
+                d["channel"] = ch.channelNumber
+                switch ch.channelBand {
+                case .band2GHz: d["band"] = "2.4 GHz"
+                case .band5GHz: d["band"] = "5 GHz"
+                case .band6GHz: d["band"] = "6 GHz"
+                default: break
+                }
+            }
+            replyHandler(d, nil)
+        case "device":
+            replyHandler(["hostname": ProcessInfo.processInfo.hostName, "localIPs": localIPv4()], nil)
+        default:
+            replyHandler(nil, "unknown handler")
+        }
+    }
+
+    // Non-loopback IPv4 addresses per interface, via getifaddrs.
+    func localIPv4() -> [String] {
+        var out: [String] = []
+        var ifaddr: UnsafeMutablePointer<ifaddrs>?
+        guard getifaddrs(&ifaddr) == 0 else { return out }
+        defer { freeifaddrs(ifaddr) }
+        var ptr = ifaddr
+        while let p = ptr {
+            let ifa = p.pointee
+            ptr = ifa.ifa_next
+            guard let sa = ifa.ifa_addr, sa.pointee.sa_family == UInt8(AF_INET) else { continue }
+            if (ifa.ifa_flags & UInt32(IFF_LOOPBACK)) != 0 { continue }
+            var host = [CChar](repeating: 0, count: Int(NI_MAXHOST))
+            if getnameinfo(sa, socklen_t(sa.pointee.sa_len), &host, socklen_t(host.count), nil, 0, NI_NUMERICHOST) == 0 {
+                let ip = String(cString: host)
+                if !ip.isEmpty { out.append("\(String(cString: ifa.ifa_name)): \(ip)") }
             }
         }
-        replyHandler(d, nil)
+        return out
     }
 }
 

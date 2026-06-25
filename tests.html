@@ -186,6 +186,7 @@ t('favicon generator', async () => {
 t('angle convert', async () => { await go('angle'); set('#angle-u', 'deg'); set('#angle-v', '180'); eq(txt('#angle-rad'), '3.141592654'); set('#angle-u', 'turn'); set('#angle-v', '1'); eq(txt('#angle-deg'), '360'); });
 t('ascii art text', async () => { await go('asciiart'); $$('#aa-mode [data-m]')[0].click(); set('#aa-cols','60'); set('#aa-text','A'); const o=val('#aa-out'); assert(o.split('\n').length>4 && /[#%@*+=]/.test(o), 'no ascii art produced'); });
 t('connection tool', async () => { await go('wifi'); await wait(60); rx(txt('#cn-online'), /online|offline/); assert($('#cn-nativewrap').style.display === 'none', 'native WiFi section should be hidden in a browser'); });
+t('device info', async () => { await go('device'); await wait(60); inc(txt('#dv-ua'), 'Mozilla'); inc(txt('#dv-localip'), 'not exposed'); assert(/\d/.test(txt('#dv-screen')), 'no screen size'); });
 
 /* ---------- run ---------- */
 async function run(){

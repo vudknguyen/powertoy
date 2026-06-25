@@ -6325,6 +6325,68 @@ tool({
   }
 });
 
+/* ── device info ───────────────────────────────────────────── */
+tool({
+  id:'device', name:'Device info', group:'Ops',
+  blurb:'Everything the browser will tell you about this device — user agent, platform, screen, CPU, GPU, locale, storage — plus your local IP when run as the native macOS app, and the commands for the rest.',
+  html: `
+    <div class="outs">
+      ${outRow('User agent','dv-ua')}
+      ${outRow('Platform','dv-plat')}
+      ${outRow('Browser','dv-brow')}
+      ${outRow('Languages','dv-lang')}
+      ${outRow('Locale · TZ','dv-tz')}
+      ${outRow('Screen','dv-screen')}
+      ${outRow('Viewport','dv-vp')}
+      ${outRow('Pixel ratio','dv-dpr')}
+      ${outRow('Color depth','dv-depth')}
+      ${outRow('CPU cores','dv-cpu')}
+      ${outRow('Device memory','dv-mem')}
+      ${outRow('Touch points','dv-touch')}
+      ${outRow('GPU','dv-gpu')}
+      ${outRow('Storage','dv-store')}
+      ${outRow('Cookies','dv-cookie')}
+      ${outRow('Local IP','dv-localip')}
+      ${outRow('Public IP','dv-pubip')}
+    </div>
+    ${shPanel('device', [
+      {why:'local IP (macOS / BSD)', cmd:`ifconfig | grep 'inet ' | grep -v 127.0.0.1`},
+      {why:'local IP (Linux)', cmd:`ip -4 addr show | grep inet`},
+      {why:'public IP', cmd:`curl -s ifconfig.me`},
+      {why:'OS / kernel', cmd:`uname -a; sw_vers 2>/dev/null`},
+    ])}`,
+  wire(){
+    const set = (id, v) => $('#'+id).textContent = (v == null || v === '') ? '—' : v;
+    const gpu = () => { try { const c = document.createElement('canvas'); const gl = c.getContext('webgl') || c.getContext('experimental-webgl'); if (!gl) return null; const e = gl.getExtension('WEBGL_debug_renderer_info'); return e ? gl.getParameter(e.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER); } catch { return null; } };
+    const ua = navigator.userAgentData;
+    const render = () => {
+      set('dv-ua', navigator.userAgent);
+      set('dv-plat', (ua && ua.platform) || navigator.platform);
+      set('dv-brow', ua && ua.brands ? ua.brands.map(b => `${b.brand} ${b.version}`).join(', ') + (ua.mobile ? ' · mobile' : '') : 'not exposed (Chromium only)');
+      set('dv-lang', (navigator.languages || [navigator.language]).join(', '));
+      const o = Intl.DateTimeFormat().resolvedOptions(); set('dv-tz', `${o.locale} · ${o.timeZone}`);
+      set('dv-screen', `${screen.width}×${screen.height} logical · ${Math.round(screen.width*devicePixelRatio)}×${Math.round(screen.height*devicePixelRatio)} physical · avail ${screen.availWidth}×${screen.availHeight}`);
+      set('dv-vp', `${innerWidth}×${innerHeight}`);
+      set('dv-dpr', devicePixelRatio);
+      set('dv-depth', screen.colorDepth + '-bit');
+      set('dv-cpu', navigator.hardwareConcurrency ? navigator.hardwareConcurrency + ' logical' : 'not exposed');
+      set('dv-mem', navigator.deviceMemory ? `≥ ${navigator.deviceMemory} GB` : 'not exposed');
+      set('dv-touch', navigator.maxTouchPoints || 0);
+      set('dv-gpu', gpu() || 'not exposed');
+      set('dv-cookie', navigator.cookieEnabled ? 'enabled' : 'disabled');
+      set('dv-pubip', 'needs a network request — see command below');
+      if (navigator.storage && navigator.storage.estimate)
+        navigator.storage.estimate().then(e => { const gb = x => x ? (x/1073741824).toFixed(2) + ' GB' : '—'; set('dv-store', `${gb(e.usage)} used of ${gb(e.quota)} quota`); });
+      else set('dv-store', 'not exposed');
+      const h = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.device;
+      if (h) h.postMessage('get').then(d => set('dv-localip', (d && d.localIPs && d.localIPs.join('   ')) || '—')).catch(() => set('dv-localip', '—'));
+      else set('dv-localip', 'not exposed by browsers (privacy) — see command');
+    };
+    addEventListener('resize', () => set('dv-vp', `${innerWidth}×${innerHeight}`));
+    render();
+  }
+});
+
 /* ── contrast checker ──────────────────────────────────────── */
 tool({
   id:'contrast', name:'Contrast check', group:'Convert',
