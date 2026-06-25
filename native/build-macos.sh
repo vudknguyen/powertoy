@@ -11,7 +11,7 @@ RES="$APP/Contents/Resources"
 
 echo "▸ compiling…"
 rm -rf build && mkdir -p "$APP/Contents/MacOS" "$RES"
-swiftc -O Sources/main.swift -o "$BIN" -framework Cocoa -framework WebKit
+swiftc -O Sources/main.swift -o "$BIN" -framework Cocoa -framework WebKit -framework CoreWLAN -framework CoreLocation
 
 echo "▸ bundling the app…"
 cp "$ROOT/index.html" "$RES/index.html"
@@ -41,6 +41,8 @@ cat > "$APP/Contents/Info.plist" <<PLIST
   <key>LSMinimumSystemVersion</key><string>11.0</string>
   <key>NSHighResolutionCapable</key><true/>
   <key>LSApplicationCategoryType</key><string>public.app-category.developer-tools</string>
+  <key>NSLocationUsageDescription</key><string>powertoy reads WiFi signal (RSSI, SSID, channel), which macOS gates behind Location access.</string>
+  <key>NSLocationWhenInUseUsageDescription</key><string>powertoy reads WiFi signal (RSSI, SSID, channel), which macOS gates behind Location access.</string>
 </dict></plist>
 PLIST
 

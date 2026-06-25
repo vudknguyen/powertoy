@@ -2,12 +2,16 @@
 // No npm, no Rust, no Electron: just AppKit + WebKit, ~hundreds of KB.
 import Cocoa
 import WebKit
+import CoreWLAN
+import CoreLocation
 
-final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKScriptMessageHandlerWithReply {
     var window: NSWindow!
     var webView: WKWebView!
+    let loc = CLLocationManager()   // CoreWLAN needs Location authorization for SSID/RSSI on modern macOS
 
     func applicationDidFinishLaunching(_ note: Notification) {
+        loc.requestWhenInUseAuthorization()
         let frame = NSRect(x: 0, y: 0, width: 1200, height: 820)
         window = NSWindow(contentRect: frame,
                           styleMask: [.titled, .closable, .miniaturizable, .resizable],
@@ -19,6 +23,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate {
 
         let cfg = WKWebViewConfiguration()
         cfg.preferences.setValue(true, forKey: "developerExtrasEnabled")
+        // bridge: JS calls window.webkit.messageHandlers.wifi.postMessage('get') → live WiFi stats
+        cfg.userContentController.addScriptMessageHandler(self, contentWorld: .page, name: "wifi")
         webView = WKWebView(frame: frame, configuration: cfg)
         webView.navigationDelegate = self
         webView.autoresizingMask = [.width, .height]
@@ -43,6 +49,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate {
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ s: NSApplication) -> Bool { true }
+
+    // WiFi bridge — read live signal via CoreWLAN and reply to the JS promise.
+    func userContentController(_ ucc: WKUserContentController, didReceive message: WKScriptMessage,
+                              replyHandler: @escaping (Any?, String?) -> Void) {
+        guard message.name == "wifi" else { replyHandler(nil, "unknown handler"); return }
+        guard let i = CWWiFiClient.shared().interface() else { replyHandler(nil, "no WiFi interface"); return }
+        var d: [String: Any] = ["interface": i.interfaceName ?? "—"]
+        if let ssid = i.ssid() { d["ssid"] = ssid }
+        d["rssi"] = i.rssiValue()
+        d["noise"] = i.noiseMeasurement()
+        d["txRate"] = i.transmitRate()
+        if let ch = i.wlanChannel() {
+            d["channel"] = ch.channelNumber
+            switch ch.channelBand {
+            case .band2GHz: d["band"] = "2.4 GHz"
+            case .band5GHz: d["band"] = "5 GHz"
+            case .band6GHz: d["band"] = "6 GHz"
+            default: break
+            }
+        }
+        replyHandler(d, nil)
+    }
 }
 
 let app = NSApplication.shared

@@ -6255,6 +6255,76 @@ tool({
   }
 });
 
+/* ── connection / wifi ─────────────────────────────────────── */
+tool({
+  id:'wifi', name:'Connection', group:'Ops',
+  blurb:'What the browser knows about your connection — plus the real OS commands to read WiFi signal (RSSI, SSID, channel). In the native macOS app, live signal shows here directly.',
+  html: `
+    <div id="cn-nativewrap" style="display:none">
+      <label class="lbl">WiFi (native)</label>
+      <div class="outs">
+        ${outRow('SSID','cn-ssid')}
+        ${outRow('Signal (RSSI)','cn-rssi')}
+        ${outRow('Quality','cn-qual')}
+        ${outRow('Channel','cn-chan')}
+        ${outRow('Tx rate','cn-tx')}
+        ${outRow('Noise','cn-noise')}
+      </div>
+    </div>
+    <label class="lbl">Browser view</label>
+    <div class="outs">
+      ${outRow('Status','cn-online')}
+      ${outRow('Type','cn-type')}
+      ${outRow('Effective type','cn-eff')}
+      ${outRow('Downlink (est.)','cn-down')}
+      ${outRow('Round-trip (est.)','cn-rtt')}
+      ${outRow('Save-Data','cn-save')}
+    </div>
+    <p class="note">Browsers can't read true WiFi signal — the values above are a coarse estimate from recent traffic, exposed only by Chromium. For real RSSI/SSID/channel, run a command below or use the native macOS app (which fills the WiFi section above).</p>
+    ${shPanel('wifi', [
+      {why:'macOS — full WiFi status (some fields need sudo)', cmd:`wdutil info`},
+      {why:'macOS — no sudo', cmd:`system_profiler SPAirPortDataType`},
+      {why:'Linux', cmd:`nmcli -f IN-USE,SSID,SIGNAL,RATE,CHAN dev wifi`},
+      {why:'Windows', cmd:`netsh wlan show interfaces`},
+    ])}`,
+  wire(){
+    const set = (id, v) => $('#'+id).textContent = (v == null || v === '') ? '—' : v;
+    const qual = r => r >= -50 ? 'Excellent' : r >= -60 ? 'Good' : r >= -67 ? 'Fair' : r >= -75 ? 'Weak' : 'Very weak';
+    const renderBrowser = () => {
+      set('cn-online', navigator.onLine ? 'online' : 'offline');
+      const c = navigator.connection || navigator.webkitConnection || navigator.mozConnection;
+      if (!c){ ['cn-type','cn-eff','cn-down','cn-rtt','cn-save'].forEach(i => set(i, 'not exposed by this browser')); return; }
+      set('cn-type', c.type);
+      set('cn-eff', c.effectiveType);
+      set('cn-down', c.downlink != null ? c.downlink + ' Mbps' : null);
+      set('cn-rtt', c.rtt != null ? c.rtt + ' ms' : null);
+      set('cn-save', c.saveData ? 'on' : 'off');
+    };
+    const nativeWifi = async () => {
+      const h = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.wifi;
+      if (!h) return null;
+      try { return await h.postMessage('get'); } catch { return null; }
+    };
+    const renderNative = async () => {
+      const w = await nativeWifi();
+      if (!w){ $('#cn-nativewrap').style.display = 'none'; return; }
+      $('#cn-nativewrap').style.display = '';
+      set('cn-ssid', w.ssid || '— (grant Location to see SSID)');
+      const r = typeof w.rssi === 'number' && w.rssi !== 0 ? w.rssi : null;
+      set('cn-rssi', r != null ? r + ' dBm' : null);
+      set('cn-qual', r != null ? `${qual(r)} (${Math.max(0, Math.min(100, 2*(r+100)))}%)` : null);
+      set('cn-chan', w.channel ? `${w.channel}${w.band ? ' · ' + w.band : ''}` : null);
+      set('cn-tx', w.txRate ? w.txRate + ' Mbps' : null);
+      set('cn-noise', typeof w.noise === 'number' && w.noise !== 0 ? w.noise + ' dBm' : null);
+    };
+    const refresh = () => { renderBrowser(); renderNative(); };
+    addEventListener('online', renderBrowser); addEventListener('offline', renderBrowser);
+    const c = navigator.connection; if (c && c.addEventListener) c.addEventListener('change', renderBrowser);
+    setInterval(() => { if ($('#tool-wifi').classList.contains('active')) renderNative(); }, 3000);
+    refresh();
+  }
+});
+
 /* ── contrast checker ──────────────────────────────────────── */
 tool({
   id:'contrast', name:'Contrast check', group:'Convert',
