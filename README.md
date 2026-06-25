@@ -1,6 +1,6 @@
 # powertoy — developer utilities
 
-A single-file webapp with 76 everyday utilities for developers and power users.
+A single-file webapp with 81 everyday utilities for developers and power users.
 Every tool shows its **shell equivalent** (bash / unix command) alongside the result.
 Works offline from a plain `file://` open — no build, no install, no server.
 
@@ -18,7 +18,7 @@ app release and shows the current version. See [PACKAGING.md](PACKAGING.md).
 ## Quality
 
 - **`tests.html`** — integration suite: drives every tool in a live iframe with
-  known-answer vectors (92 assertions across all 76 tools). Open it to see a pass/fail report.
+  known-answer vectors (97 assertions across all 81 tools). Open it to see a pass/fail report.
 - **`verify-commands.sh`** — runs each tool's documented shell command on your machine and
   confirms it matches the tool's output (43 checks).
 
@@ -56,6 +56,9 @@ app release and shows the current version. See [PACKAGING.md](PACKAGING.md).
 | Convert | Image resize      | `#img`    |
 | Convert | IEEE 754 float    | `#ieee`   |
 | Convert | Easing curve      | `#bezier` |
+| Convert | CSS gradient      | `#gradient` |
+| Convert | Box shadow        | `#shadow` |
+| Convert | Aspect ratio      | `#aspect` |
 | Time    | Epoch time        | `#time`   |
 | Time    | Timezone convert  | `#tz`     |
 | Time    | Cron expression   | `#cron`   |
@@ -83,6 +86,7 @@ app release and shows the current version. See [PACKAGING.md](PACKAGING.md).
 | Crypto  | JWT signer        | `#jwtsign` |
 | Crypto  | ID decoder        | `#iddecode` |
 | Crypto  | Certificate decoder | `#x509` |
+| Crypto  | File checksum     | `#filehash` |
 | Text    | JSON format       | `#json`   |
 | Text    | Regex tester      | `#rgx`    |
 | Text    | Case convert      | `#case`   |
@@ -102,6 +106,7 @@ app release and shows the current version. See [PACKAGING.md](PACKAGING.md).
 | Reference | Common ports    | `#ports`  |
 | Reference | Keycode finder  | `#keycode` |
 | Reference | Emoji search    | `#emoji`  |
+| Reference | MIME types      | `#mime`   |
 
 ## Notes
 

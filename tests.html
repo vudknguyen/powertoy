@@ -151,6 +151,22 @@ t('common ports', async () => { await go('ports'); set('#po-q','5432'); assert($
 t('emoji search', async () => { await go('emoji'); set('#em-q','rocket'); assert($$('#em-grid button[data-emoji]').some(b=>b.dataset.emoji==='🚀'),'rocket missing'); });
 t('keycode finder', async () => { await go('keycode'); $('#kc-zone').dispatchEvent(new KeyboardEvent('keydown',{key:'a',code:'KeyA',keyCode:65,bubbles:true})); eq(txt('#kc-key'),'a'); });
 
+/* ---------- newer tools ---------- */
+t('file checksum', async () => {
+  await go('filehash');
+  const blob = new Blob([new TextEncoder().encode('hello')], { type:'text/plain' });
+  const dt = new DataTransfer(); dt.items.add(new File([blob], 'h.txt', { type:'text/plain' }));
+  const f = $('#fh-file'); Object.defineProperty(f, 'files', { value: dt.files, configurable: true }); f.dispatchEvent(new Event('change'));
+  await wait(400);
+  eq(txt('#fh-md5'), '5d41402abc4b2a76b9719d911017c592');
+  eq(txt('#fh-sha256'), '2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824');
+  set('#fh-exp', '2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824'); inc(txt('#fh-vres'), 'matches SHA-256');
+});
+t('css gradient', async () => { await go('gradient'); $$('#gr-type [data-t]')[0].click(); inc(val('#gr-css'), 'linear-gradient('); inc(val('#gr-css'), '#106b5b'); $$('#gr-type [data-t]')[1].click(); inc(val('#gr-css'), 'radial-gradient('); });
+t('box shadow', async () => { await go('shadow'); chk('#sh-inset', false); inc(val('#sh-css'), 'box-shadow:'); inc(val('#sh-css'), 'rgba('); chk('#sh-inset', true); inc(val('#sh-css'), 'inset'); });
+t('aspect ratio', async () => { await go('aspect'); set('#ar-preset', '4:3'); set('#ar-w', '800'); eq(val('#ar-h'), '600'); inc(txt('#ar-norm'), '4 : 3'); });
+t('mime types', async () => { await go('mime'); set('#mi-q', 'webp'); assert($$('#mi-list .out').some(o => o.textContent.includes('image/webp')), 'webp not found'); });
+
 /* ---------- run ---------- */
 async function run(){
   await new Promise(r => { if (D() && D().querySelector('#nav button')) r(); else frame.onload = () => setTimeout(r, 300); });

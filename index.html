@@ -5708,6 +5708,255 @@ tool({
   }
 });
 
+/* ── file checksum ─────────────────────────────────────────── */
+tool({
+  id:'filehash', name:'File checksum', group:'Crypto',
+  blurb:'Drop a file to get its MD5, SHA-1, SHA-256 and SHA-512, and verify it against an expected checksum — the “did my download arrive intact” check. The file never leaves the tab.',
+  html: `
+    <div class="drop" id="fh-drop">Drop a file here or click to choose</div>
+    <input type="file" id="fh-file" style="display:none">
+    <div class="err" id="fh-err"></div>
+    <div class="outs" id="fh-outs" style="display:none;margin-top:.8rem">
+      ${outRow('File','fh-name')}
+      ${outRow('MD5','fh-md5')}
+      ${outRow('SHA-1','fh-sha1')}
+      ${outRow('SHA-256','fh-sha256')}
+      ${outRow('SHA-512','fh-sha512')}
+    </div>
+    <label class="lbl">Verify against a checksum</label>
+    <div class="row">
+      <input class="grow" type="text" id="fh-exp" spellcheck="false" placeholder="paste an expected hash (any algorithm)">
+      <span id="fh-vres" style="font-size:.9rem"></span>
+    </div>
+    ${shPanel('filehash', [
+      {why:'sha-256 of a file', cmd:`shasum -a 256 file.iso`},
+      {why:'md5 and sha-512', cmd:`md5sum file.iso; shasum -a 512 file.iso`},
+      {why:'verify against a published checksum', cmd:`echo 'EXPECTED  file.iso' | shasum -a 256 -c`},
+    ])}`,
+  wire(){
+    const drop = $('#fh-drop'), file = $('#fh-file'), exp = $('#fh-exp'), err = $('#fh-err');
+    let hashes = {};
+    const hex = buf => [...new Uint8Array(buf)].map(hex2).join('');
+    const handle = async f => {
+      if (!f) return;
+      err.textContent = ''; drop.textContent = `Hashing ${f.name}…`;
+      try {
+        const buf = await f.arrayBuffer();
+        hashes = { md5: md5(new Uint8Array(buf)) };
+        $('#fh-name').textContent = `${f.name} · ${f.size.toLocaleString('en-US')} bytes`;
+        $('#fh-md5').textContent = hashes.md5;
+        $('#fh-outs').style.display = '';
+        if (crypto.subtle){
+          for (const [id, alg] of [['fh-sha1','SHA-1'],['fh-sha256','SHA-256'],['fh-sha512','SHA-512']]){
+            const d = hex(await crypto.subtle.digest(alg, buf));
+            hashes[id] = d; $('#'+id).textContent = d;
+          }
+        } else ['fh-sha1','fh-sha256','fh-sha512'].forEach(id => $('#'+id).textContent = 'WebCrypto unavailable');
+        drop.textContent = `${f.name} — drop another to replace`;
+        verify();
+      } catch { err.textContent = 'Could not read the file'; drop.textContent = 'Drop a file here or click to choose'; }
+    };
+    const verify = () => {
+      const v = exp.value.trim().toLowerCase(), res = $('#fh-vres');
+      if (!v || !Object.keys(hashes).length){ res.textContent = ''; return; }
+      const all = [hashes.md5, hashes['fh-sha1'], hashes['fh-sha256'], hashes['fh-sha512']].filter(Boolean);
+      const match = all.find(h => h.toLowerCase() === v);
+      const byLen = { 32:'MD5', 40:'SHA-1', 64:'SHA-256', 128:'SHA-512' };
+      res.innerHTML = match ? `<span style="color:var(--good)">✓ matches ${byLen[match.length] || ''}</span>`
+                            : '<span style="color:var(--bad)">✗ no match</span>';
+    };
+    drop.addEventListener('click', () => file.click());
+    file.addEventListener('change', () => handle(file.files[0]));
+    drop.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('over'); });
+    drop.addEventListener('dragleave', () => drop.classList.remove('over'));
+    drop.addEventListener('drop', e => { e.preventDefault(); drop.classList.remove('over'); handle(e.dataTransfer.files[0]); });
+    exp.addEventListener('input', verify);
+  }
+});
+
+/* ── css gradient ──────────────────────────────────────────── */
+tool({
+  id:'gradient', name:'CSS gradient', group:'Convert',
+  blurb:'Build a linear or radial gradient with as many color stops as you like, preview it live, and copy the CSS.',
+  html: `
+    <div class="row">
+      <div class="seg" id="gr-type"><button class="on" data-t="linear">Linear</button><button data-t="radial">Radial</button></div>
+      <label class="check" id="gr-anglewrap">angle <input type="number" id="gr-angle" value="90" min="0" max="360" style="width:5rem">°</label>
+      <button class="ghost" id="gr-add">+ Add stop</button>
+    </div>
+    <div id="gr-stops" style="margin-top:.7rem;display:flex;flex-direction:column;gap:.4rem"></div>
+    <div id="gr-preview" style="height:130px;border:1px solid var(--border-2);border-radius:var(--radius);margin-top:.8rem"></div>
+    <label class="lbl">CSS ${cpyBtn('#gr-css')}</label>
+    <textarea id="gr-css" readonly style="min-height:50px"></textarea>
+    ${shPanel('gradient', [{why:'pure CSS — drop it into a stylesheet', cmd:`background: linear-gradient(90deg, #106b5b, #ffb000);`}])}`,
+  wire(){
+    let type = 'linear';
+    let stops = [{ c:'#106b5b', p:0 }, { c:'#ffb000', p:100 }];
+    const stopsEl = $('#gr-stops');
+    const stopStr = () => stops.slice().sort((a,b) => a.p - b.p).map(s => `${s.c} ${s.p}%`).join(', ');
+    const css = () => type === 'linear'
+      ? `linear-gradient(${$('#gr-angle').value}deg, ${stopStr()})`
+      : `radial-gradient(circle, ${stopStr()})`;
+    const update = () => {
+      const g = css();
+      $('#gr-preview').style.background = g;
+      $('#gr-css').value = `background: ${g};`;
+      $('#gr-anglewrap').style.display = type === 'linear' ? '' : 'none';
+    };
+    const render = () => {
+      stopsEl.innerHTML = stops.map((s,i) => `
+        <div class="row" data-i="${i}">
+          <input type="color" value="${s.c}" data-k="c" style="width:48px;height:34px;padding:2px;border:1px solid var(--border-2);border-radius:6px;background:var(--surface)">
+          <input type="number" value="${s.p}" min="0" max="100" data-k="p" style="width:5.5rem"> %
+          <button class="ghost gr-del" ${stops.length<=2?'disabled':''} style="padding:.3rem .65rem">✕</button>
+        </div>`).join('');
+      update();
+    };
+    stopsEl.addEventListener('input', e => {
+      const row = e.target.closest('[data-i]'); if (!row) return;
+      const i = +row.dataset.i, k = e.target.dataset.k;
+      if (k === 'c') stops[i].c = e.target.value;
+      if (k === 'p') stops[i].p = Math.max(0, Math.min(100, +e.target.value || 0));
+      update();
+    });
+    stopsEl.addEventListener('click', e => {
+      if (e.target.classList.contains('gr-del') && stops.length > 2){
+        stops.splice(+e.target.closest('[data-i]').dataset.i, 1); render();
+      }
+    });
+    $('#gr-add').addEventListener('click', () => { stops.push({ c:'#ffffff', p:50 }); render(); });
+    $('#gr-angle').addEventListener('input', update);
+    $$('#gr-type button').forEach(b => b.addEventListener('click', () => {
+      $$('#gr-type button').forEach(x => x.classList.remove('on')); b.classList.add('on'); type = b.dataset.t; update();
+    }));
+    render();
+  }
+});
+
+/* ── box shadow ────────────────────────────────────────────── */
+tool({
+  id:'shadow', name:'Box shadow', group:'Convert',
+  blurb:'Dial in a CSS box-shadow — offset, blur, spread, color and inset — with a live preview, and copy the rule.',
+  html: `
+    <div class="row">
+      <label class="check">x <input type="number" id="sh-x" value="0" style="width:4.5rem"></label>
+      <label class="check">y <input type="number" id="sh-y" value="10" style="width:4.5rem"></label>
+      <label class="check">blur <input type="number" id="sh-blur" value="25" min="0" style="width:4.5rem"></label>
+      <label class="check">spread <input type="number" id="sh-spread" value="-5" style="width:4.5rem"></label>
+      <label class="check">color <input type="color" id="sh-color" value="#106b5b" style="width:44px;height:32px;padding:2px;border:1px solid var(--border-2);border-radius:6px;background:var(--surface)"></label>
+      <label class="check">opacity <input type="range" id="sh-alpha" min="0" max="100" value="30" style="width:90px"> <span id="sh-av" style="font-family:var(--mono)">30%</span></label>
+      <label class="check"><input type="checkbox" id="sh-inset"> inset</label>
+    </div>
+    <div style="display:flex;justify-content:center;align-items:center;height:190px;background:var(--code-bg);border-radius:var(--radius);margin-top:.9rem">
+      <div id="sh-preview" style="width:150px;height:95px;background:var(--surface);border-radius:12px"></div>
+    </div>
+    <label class="lbl">CSS ${cpyBtn('#sh-css')}</label>
+    <textarea id="sh-css" readonly style="min-height:46px"></textarea>
+    ${shPanel('shadow', [{why:'pure CSS — drop it into a stylesheet', cmd:`box-shadow: 0 10px 25px -5px rgba(16, 107, 91, 0.30);`}])}`,
+  wire(){
+    const ids = ['sh-x','sh-y','sh-blur','sh-spread','sh-color','sh-alpha','sh-inset'];
+    const update = () => {
+      const a = +$('#sh-alpha').value; $('#sh-av').textContent = a + '%';
+      const c = parseColor($('#sh-color').value) || { r:0, g:0, b:0 };
+      const rgba = `rgba(${c.r}, ${c.g}, ${c.b}, ${(a/100).toFixed(2)})`;
+      const inset = $('#sh-inset').checked ? 'inset ' : '';
+      const val = `${inset}${$('#sh-x').value}px ${$('#sh-y').value}px ${$('#sh-blur').value}px ${$('#sh-spread').value}px ${rgba}`;
+      $('#sh-preview').style.boxShadow = val;
+      $('#sh-css').value = `box-shadow: ${val};`;
+    };
+    ids.forEach(id => { $('#'+id).addEventListener('input', update); $('#'+id).addEventListener('change', update); });
+    update();
+  }
+});
+
+/* ── aspect ratio ──────────────────────────────────────────── */
+tool({
+  id:'aspect', name:'Aspect ratio', group:'Convert',
+  blurb:'Lock a ratio and get the missing dimension — type a width, read the height (or the reverse). Presets for the common video and photo ratios.',
+  html: `
+    <div class="row">
+      <select id="ar-preset">
+        <option value="16:9" selected>16:9</option><option value="4:3">4:3</option>
+        <option value="21:9">21:9</option><option value="3:2">3:2</option>
+        <option value="1:1">1:1</option><option value="9:16">9:16 (portrait)</option>
+        <option value="custom">custom…</option>
+      </select>
+      <label class="check">ratio <input type="number" id="ar-rw" value="16" min="1" style="width:4.5rem"> : <input type="number" id="ar-rh" value="9" min="1" style="width:4.5rem"></label>
+    </div>
+    <div class="row" style="margin-top:.8rem">
+      <label class="check">width <input type="number" id="ar-w" value="1920" min="0" style="width:7rem"> px</label>
+      <span style="color:var(--muted)">→</span>
+      <label class="check">height <input type="number" id="ar-h" value="1080" min="0" style="width:7rem"> px</label>
+    </div>
+    <div class="outs" style="margin-top:.8rem">${outRow('Simplified ratio','ar-norm')}</div>
+    ${shPanel('aspect', [{why:'resize keeping ratio (width fixed, height auto)', cmd:`magick in.jpg -resize 1920x out.jpg`}])}`,
+  wire(){
+    const rw = $('#ar-rw'), rh = $('#ar-rh'), w = $('#ar-w'), h = $('#ar-h'), preset = $('#ar-preset');
+    const gcd = (a,b) => b ? gcd(b, a % b) : a;
+    const ratio = () => (+rw.value || 1) / (+rh.value || 1);
+    const showNorm = () => {
+      const a = Math.round(+rw.value || 1), b = Math.round(+rh.value || 1), g = gcd(a,b) || 1;
+      $('#ar-norm').textContent = `${a/g} : ${b/g}   (${(a/b).toFixed(4)})`;
+    };
+    const fromW = () => { h.value = Math.round((+w.value || 0) / ratio()); showNorm(); };
+    const fromH = () => { w.value = Math.round((+h.value || 0) * ratio()); showNorm(); };
+    rw.addEventListener('input', () => { preset.value = 'custom'; fromW(); });
+    rh.addEventListener('input', () => { preset.value = 'custom'; fromW(); });
+    w.addEventListener('input', fromW);
+    h.addEventListener('input', fromH);
+    preset.addEventListener('change', () => {
+      if (preset.value === 'custom') return;
+      const [a,b] = preset.value.split(':'); rw.value = a; rh.value = b; fromW();
+    });
+    fromW();
+  }
+});
+
+/* ── mime types ────────────────────────────────────────────── */
+tool({
+  id:'mime', name:'MIME types', group:'Reference',
+  blurb:'Look up the MIME type for a file extension or the other way round — the common ones you actually serve.',
+  html: `
+    <div class="row"><input class="grow" type="text" id="mi-q" spellcheck="false" placeholder="filter: webp, json, .mp4, font…" style="max-width:22rem"></div>
+    <div class="outs" id="mi-list" style="max-height:520px;overflow:auto"></div>
+    ${shPanel('mime', [
+      {why:'detect a file type from its content', cmd:`file --mime-type -b photo.webp`},
+      {why:'the system table', cmd:`grep -w webp /etc/mime.types`},
+    ])}`,
+  wire(){
+    const DATA = [
+      ['html','text/html'],['htm','text/html'],['css','text/css'],['js','text/javascript'],['mjs','text/javascript'],
+      ['json','application/json'],['map','application/json'],['xml','application/xml'],['csv','text/csv'],
+      ['txt','text/plain'],['md','text/markdown'],['yaml','application/yaml'],['yml','application/yaml'],
+      ['toml','application/toml'],['ics','text/calendar'],['rtf','application/rtf'],['webmanifest','application/manifest+json'],
+      ['svg','image/svg+xml'],['png','image/png'],['jpg','image/jpeg'],['jpeg','image/jpeg'],['gif','image/gif'],
+      ['webp','image/webp'],['avif','image/avif'],['bmp','image/bmp'],['ico','image/vnd.microsoft.icon'],
+      ['tiff','image/tiff'],['heic','image/heic'],
+      ['woff','font/woff'],['woff2','font/woff2'],['ttf','font/ttf'],['otf','font/otf'],['eot','application/vnd.ms-fontobject'],
+      ['mp4','video/mp4'],['webm','video/webm'],['mov','video/quicktime'],['avi','video/x-msvideo'],['mkv','video/x-matroska'],
+      ['mp3','audio/mpeg'],['wav','audio/wav'],['ogg','audio/ogg'],['flac','audio/flac'],['aac','audio/aac'],['m4a','audio/mp4'],
+      ['pdf','application/pdf'],['zip','application/zip'],['gz','application/gzip'],['tar','application/x-tar'],
+      ['7z','application/x-7z-compressed'],['rar','application/vnd.rar'],['bz2','application/x-bzip2'],
+      ['doc','application/msword'],['docx','application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
+      ['xls','application/vnd.ms-excel'],['xlsx','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'],
+      ['ppt','application/vnd.ms-powerpoint'],['pptx','application/vnd.openxmlformats-officedocument.presentationml.presentation'],
+      ['wasm','application/wasm'],['epub','application/epub+zip'],['apk','application/vnd.android.package-archive'],
+      ['exe','application/vnd.microsoft.portable-executable'],['bin','application/octet-stream'],['woff','font/woff'],
+    ];
+    const list = $('#mi-list'), q = $('#mi-q');
+    const render = needle => {
+      needle = needle.trim().toLowerCase().replace(/^\./,'');
+      list.innerHTML = DATA.filter(([e,m]) => !needle || e.includes(needle) || m.includes(needle))
+        .map(([e,m]) => `<div class="out" style="grid-template-columns:6rem 1fr">
+          <span class="v" style="color:var(--accent-2);font-weight:700">.${e}</span>
+          <span class="v">${esc(m)}</span>
+        </div>`).join('') || '<div class="out"><span class="v" style="color:var(--faint)">no match</span></div>';
+    };
+    q.addEventListener('input', () => render(q.value));
+    render('');
+  }
+});
+
 /* ── contrast checker ──────────────────────────────────────── */
 tool({
   id:'contrast', name:'Contrast check', group:'Convert',
