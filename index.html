@@ -345,6 +345,24 @@ button.ghost:hover{color:var(--accent-2);border-color:var(--accent)}
   .navgroup{grid-column:1/-1}
   .out{grid-template-columns:7rem 1fr auto}
 }
+
+/* ── toys ─────────────────────────────────────────────────── */
+.toybar{display:flex;gap:.6rem;align-items:center;flex-wrap:wrap;margin:.2rem 0 .8rem}
+.score{font-family:var(--mono);color:var(--muted);font-size:.9rem}
+.game-cv{border:1px solid var(--border-2);border-radius:8px;background:var(--surface);display:block;touch-action:none}
+.g2048{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;background:var(--border-2);padding:8px;border-radius:10px;width:min(360px,92vw);aspect-ratio:1}
+.g2048 .cell{display:flex;align-items:center;justify-content:center;border-radius:6px;background:var(--code-bg);font-family:var(--mono);font-weight:700;font-size:clamp(1rem,5vw,1.5rem);color:#5b574a;transition:background .08s}
+.ms-grid{display:grid;gap:2px;background:var(--border-2);padding:2px;border-radius:8px;width:max-content;user-select:none;max-width:100%;overflow:auto}
+.ms-cell{width:26px;height:26px;display:flex;align-items:center;justify-content:center;background:var(--code-bg);border-radius:3px;font-family:var(--mono);font-weight:700;font-size:.85rem;cursor:pointer}
+.ms-cell.rev{background:var(--surface);cursor:default}
+.ms-cell.boom{background:var(--bad);color:#fff}
+.sudoku{display:grid;grid-template-columns:repeat(9,1fr);width:min(430px,94vw);aspect-ratio:1;border:2px solid var(--ink);border-radius:4px;overflow:hidden}
+.sudoku input{border:1px solid var(--border);text-align:center;font-family:var(--mono);font-size:clamp(.9rem,4vw,1.15rem);padding:0;width:100%;height:100%;background:var(--surface);color:var(--accent-2);outline:none}
+.sudoku input.given{color:var(--ink);font-weight:700;background:var(--code-bg)}
+.sudoku input.bad{background:#ffd9d4;color:var(--bad)}
+.sudoku input:focus{box-shadow:inset 0 0 0 2px var(--accent)}
+.beatdot{width:16px;height:16px;border-radius:50%;background:var(--border-2);display:inline-block;transition:background .05s}
+.beatdot.on{background:var(--accent)}.beatdot.accent.on{background:var(--bad)}
 </style>
 </head>
 <body>
@@ -6387,6 +6405,270 @@ tool({
   }
 });
 
+/* ── toys: shared CSPRNG int ───────────────────────────────── */
+const rint = max => { const lim = Math.floor(0x100000000 / max) * max; const b = new Uint32Array(1); do { crypto.getRandomValues(b); } while (b[0] >= lim); return b[0] % max; };
+const cssVar = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim() || '#000';
+
+/* ── snake ─────────────────────────────────────────────────── */
+tool({
+  id:'snake', name:'Snake', group:'Toys',
+  blurb:'The classic. Arrow keys or WASD to steer, eat the food, don’t bite yourself. Walls wrap. High score saved locally.',
+  html: `
+    <div class="toybar">
+      <button class="act" id="sn-play">New game</button>
+      <span class="score" id="sn-score">score 0</span>
+      <span class="score" id="sn-hi"></span>
+    </div>
+    <canvas id="sn-cv" class="game-cv" width="360" height="360"></canvas>
+    <p class="note">Arrow keys / WASD to move.</p>`,
+  wire(){
+    const N = 20, S = 18, cx = $('#sn-cv').getContext('2d'), HK = 'pt-snake-hi';
+    let snake, dir, nextDir, food, score, dead;
+    const hi = () => +(localStorage.getItem(HK) || 0);
+    const place = () => { let f; do { f = { x: rint(N), y: rint(N) }; } while (snake.some(s => s.x === f.x && s.y === f.y)); return f; };
+    const upd = () => { $('#sn-score').textContent = 'score ' + score; $('#sn-hi').textContent = 'best ' + hi(); };
+    const draw = () => {
+      cx.fillStyle = cssVar('--surface'); cx.fillRect(0, 0, 360, 360);
+      cx.fillStyle = cssVar('--accent'); cx.fillRect(food.x*S+2, food.y*S+2, S-4, S-4);
+      snake.forEach((s, i) => { cx.fillStyle = i === 0 ? cssVar('--accent-2') : cssVar('--ink'); cx.fillRect(s.x*S+1, s.y*S+1, S-2, S-2); });
+      if (dead){ cx.fillStyle = 'rgba(0,0,0,.55)'; cx.fillRect(0,0,360,360); cx.fillStyle = '#fff'; cx.font = 'bold 19px sans-serif'; cx.textAlign = 'center'; cx.fillText('Game over — New game', 180, 184); }
+    };
+    const reset = () => { snake = [{x:10,y:10},{x:9,y:10},{x:8,y:10}]; dir = {x:1,y:0}; nextDir = dir; food = place(); score = 0; dead = false; upd(); draw(); };
+    const tick = () => {
+      if (!$('#tool-snake').classList.contains('active') || dead) return;
+      dir = nextDir;
+      const head = { x:(snake[0].x+dir.x+N)%N, y:(snake[0].y+dir.y+N)%N };
+      if (snake.some(s => s.x===head.x && s.y===head.y)){ dead = true; if (score>hi()) try{localStorage.setItem(HK,score);}catch{} upd(); draw(); return; }
+      snake.unshift(head);
+      if (head.x===food.x && head.y===food.y){ score++; if (score>hi()) try{localStorage.setItem(HK,score);}catch{} food = place(); } else snake.pop();
+      upd(); draw();
+    };
+    document.addEventListener('keydown', e => {
+      if (!$('#tool-snake').classList.contains('active')) return;
+      const m = { arrowup:[0,-1], w:[0,-1], arrowdown:[0,1], s:[0,1], arrowleft:[-1,0], a:[-1,0], arrowright:[1,0], d:[1,0] }[e.key.toLowerCase()];
+      if (m){ e.preventDefault(); if (m[0] !== -dir.x || m[1] !== -dir.y) nextDir = { x:m[0], y:m[1] }; }
+    });
+    $('#sn-play').addEventListener('click', reset);
+    reset(); setInterval(tick, 110);
+  }
+});
+
+/* ── 2048 ──────────────────────────────────────────────────── */
+tool({
+  id:'g2048', name:'2048', group:'Toys',
+  blurb:'Slide the tiles with the arrow keys; matching numbers merge. Reach 2048. High score saved locally.',
+  html: `
+    <div class="toybar">
+      <button class="act" id="tf-new">New game</button>
+      <span class="score" id="tf-score">score 0</span>
+      <span class="score" id="tf-hi"></span>
+      <span class="score" id="tf-msg" style="color:var(--accent-2)"></span>
+    </div>
+    <div class="g2048" id="tf-grid"></div>
+    <p class="note">Arrow keys / WASD to slide.</p>`,
+  wire(){
+    const HK = 'pt-2048-hi', COLORS = {2:'#eee4da',4:'#ede0c8',8:'#f2b179',16:'#f59563',32:'#f67c5f',64:'#f65e3b',128:'#edcf72',256:'#edcc61',512:'#edc850',1024:'#edc53f',2048:'#edc22e'};
+    let g, score;
+    const hi = () => +(localStorage.getItem(HK) || 0);
+    const empty = () => { const c = []; for (let r=0;r<4;r++) for (let q=0;q<4;q++) if (!g[r][q]) c.push([r,q]); return c; };
+    const spawn = () => { const c = empty(); if (!c.length) return; const [r,q] = c[rint(c.length)]; g[r][q] = rint(10) ? 2 : 4; };
+    const render = () => {
+      const el = $('#tf-grid'); el.innerHTML = '';
+      for (let r=0;r<4;r++) for (let q=0;q<4;q++){ const v = g[r][q], d = document.createElement('div'); d.className = 'cell';
+        if (v){ d.textContent = v; d.style.background = COLORS[v] || '#3c3a32'; d.style.color = v > 4 ? '#f9f6f2' : '#5b574a'; if (v >= 1024) d.style.fontSize = '1.05rem'; }
+        el.appendChild(d); }
+      $('#tf-score').textContent = 'score ' + score; $('#tf-hi').textContent = 'best ' + hi();
+    };
+    const reset = () => { g = [[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]]; score = 0; spawn(); spawn(); $('#tf-msg').textContent = ''; render(); };
+    const slide = row => { let a = row.filter(x => x), gained = 0; for (let i=0;i<a.length-1;i++){ if (a[i]===a[i+1]){ a[i]*=2; gained+=a[i]; a.splice(i+1,1); } } while (a.length<4) a.push(0); return { a, gained }; };
+    const move = d => {
+      const before = JSON.stringify(g); const rows = d==='l'||d==='r'; let gained = 0;
+      const get = (i,j) => rows ? g[i][j] : g[j][i], set = (i,j,v) => rows ? g[i][j]=v : g[j][i]=v;
+      for (let i=0;i<4;i++){ let line = [0,1,2,3].map(j => get(i,j)); if (d==='r'||d==='dn') line.reverse(); const res = slide(line); gained += res.gained; let out = res.a; if (d==='r'||d==='dn') out.reverse(); out.forEach((v,j) => set(i,j,v)); }
+      if (JSON.stringify(g) !== before){ score += gained; if (score>hi()) try{localStorage.setItem(HK,score);}catch{} spawn(); render(); check(); }
+    };
+    const check = () => {
+      if (g.flat().includes(2048)) $('#tf-msg').textContent = '🎉 2048!';
+      if (!empty().length){ let can = false; for (let r=0;r<4;r++) for (let q=0;q<4;q++){ if (q<3 && g[r][q]===g[r][q+1]) can = true; if (r<3 && g[r][q]===g[r+1][q]) can = true; } if (!can) $('#tf-msg').textContent = 'Game over'; }
+    };
+    document.addEventListener('keydown', e => {
+      if (!$('#tool-g2048').classList.contains('active')) return;
+      const m = { arrowleft:'l', a:'l', arrowright:'r', d:'r', arrowup:'up', w:'up', arrowdown:'dn', s:'dn' }[e.key.toLowerCase()];
+      if (m){ e.preventDefault(); move(m); }
+    });
+    $('#tf-new').addEventListener('click', reset); reset();
+  }
+});
+
+/* ── minesweeper ───────────────────────────────────────────── */
+tool({
+  id:'mines', name:'Minesweeper', group:'Toys',
+  blurb:'Reveal every safe cell. Left-click to dig, right-click to flag. The first click is always safe.',
+  html: `
+    <div class="toybar">
+      <select id="mw-diff"><option value="9,10">Easy 9×9</option><option value="12,24" selected>Medium 12×12</option><option value="16,50">Hard 16×16</option></select>
+      <button class="act" id="mw-new">New game</button>
+      <span class="score" id="mw-mines"></span>
+      <span class="score" id="mw-status"></span>
+    </div>
+    <div class="ms-grid" id="mw-grid"></div>
+    <p class="note">Right-click (or two-finger tap) to flag.</p>`,
+  wire(){
+    let W, H, M, board, revealed, flagged, started, dead, won;
+    const grid = $('#mw-grid'), idx = (r,c) => r*W+c;
+    const neigh = (r,c) => { const o = []; for (let dr=-1;dr<=1;dr++) for (let dc=-1;dc<=1;dc++){ if (!dr&&!dc) continue; const nr=r+dr,nc=c+dc; if (nr>=0&&nr<H&&nc>=0&&nc<W) o.push([nr,nc]); } return o; };
+    const status = () => { $('#mw-mines').textContent = `${M-flagged.size} 💣`; $('#mw-status').textContent = dead ? '💥 boom' : won ? '✓ cleared!' : ''; };
+    const reset = () => {
+      const [w,m] = $('#mw-diff').value.split(',').map(Number); W = w; H = w; M = m;
+      board = Array(W*H).fill(0); revealed = new Set(); flagged = new Set(); started = false; dead = false; won = false;
+      grid.style.gridTemplateColumns = `repeat(${W},26px)`; render(); status();
+    };
+    const gen = (sr,sc) => {
+      const safe = new Set([idx(sr,sc), ...neigh(sr,sc).map(([r,c]) => idx(r,c))]);
+      let placed = 0; while (placed < M){ const p = rint(W*H); if (board[p]===-1 || safe.has(p)) continue; board[p] = -1; placed++; }
+      for (let r=0;r<H;r++) for (let c=0;c<W;c++){ if (board[idx(r,c)]===-1) continue; board[idx(r,c)] = neigh(r,c).filter(([nr,nc]) => board[idx(nr,nc)]===-1).length; }
+    };
+    const flood = (r,c) => { const st = [[r,c]]; while (st.length){ const [cr,cc] = st.pop(), i = idx(cr,cc); if (revealed.has(i)||flagged.has(i)) continue; revealed.add(i); if (board[i]===0) neigh(cr,cc).forEach(([nr,nc]) => { if (!revealed.has(idx(nr,nc))) st.push([nr,nc]); }); } };
+    const dig = (r,c) => {
+      if (dead||won) return; const i = idx(r,c); if (flagged.has(i)||revealed.has(i)) return;
+      if (!started){ gen(r,c); started = true; }
+      if (board[i]===-1){ dead = true; revealed.add(i); render(); status(); return; }
+      flood(r,c); if (revealed.size === W*H - M) won = true; render(); status();
+    };
+    const render = () => {
+      grid.innerHTML = ''; const COL = ['', '#3b6fd4','#2e8b57','#c0392b','#7b2fbe','#b8860b','#0e7c86','#444','#888'];
+      for (let r=0;r<H;r++) for (let c=0;c<W;c++){ const i = idx(r,c), d = document.createElement('div'); d.className = 'ms-cell'; d.dataset.r = r; d.dataset.c = c;
+        if (flagged.has(i)) d.textContent = '🚩';
+        if (revealed.has(i) || (dead && board[i]===-1)){ d.classList.add('rev'); if (board[i]===-1){ d.textContent = '💣'; if (revealed.has(i)) d.classList.add('boom'); } else if (board[i]>0){ d.textContent = board[i]; d.style.color = COL[board[i]]; } }
+        grid.appendChild(d); }
+    };
+    grid.addEventListener('click', e => { const c = e.target.closest('.ms-cell'); if (c) dig(+c.dataset.r, +c.dataset.c); });
+    grid.addEventListener('contextmenu', e => { e.preventDefault(); const cell = e.target.closest('.ms-cell'); if (!cell||dead||won) return; const i = idx(+cell.dataset.r, +cell.dataset.c); if (revealed.has(i)) return; flagged.has(i) ? flagged.delete(i) : flagged.add(i); render(); status(); });
+    $('#mw-new').addEventListener('click', reset); $('#mw-diff').addEventListener('change', reset); reset();
+  }
+});
+
+/* ── sudoku ────────────────────────────────────────────────── */
+tool({
+  id:'sudoku', name:'Sudoku', group:'Toys',
+  blurb:'A fresh puzzle each time, generated with a unique solution. Type digits; conflicts highlight live. Check it or reveal the answer.',
+  html: `
+    <div class="toybar">
+      <select id="su-diff"><option value="40">Easy</option><option value="32" selected>Medium</option><option value="26">Hard</option></select>
+      <button class="act" id="su-new">New</button>
+      <button class="ghost" id="su-check">Check</button>
+      <button class="ghost" id="su-solve">Solve</button>
+      <span class="score" id="su-msg"></span>
+    </div>
+    <div class="sudoku" id="su-grid"></div>`,
+  wire(){
+    let solution, puzzle; const grid = $('#su-grid');
+    const ok = (b,r,c,v) => { for (let i=0;i<9;i++){ if (b[r*9+i]===v || b[i*9+c]===v) return false; } const br=3*Math.floor(r/3), bc=3*Math.floor(c/3); for (let dr=0;dr<3;dr++) for (let dc=0;dc<3;dc++) if (b[(br+dr)*9+(bc+dc)]===v) return false; return true; };
+    const shuf = a => { for (let i=a.length-1;i>0;i--){ const j = rint(i+1); [a[i],a[j]]=[a[j],a[i]]; } return a; };
+    const fill = b => { const p = b.indexOf(0); if (p<0) return true; const r=Math.floor(p/9), c=p%9; for (const v of shuf([1,2,3,4,5,6,7,8,9])){ if (ok(b,r,c,v)){ b[p]=v; if (fill(b)) return true; b[p]=0; } } return false; };
+    const count = (b,lim) => { const p = b.indexOf(0); if (p<0) return 1; const r=Math.floor(p/9), c=p%9; let n=0; for (let v=1;v<=9;v++){ if (ok(b,r,c,v)){ b[p]=v; n+=count(b,lim); b[p]=0; if (n>=lim) break; } } return n; };
+    const gen = givens => {
+      solution = Array(81).fill(0); fill(solution); puzzle = solution.slice();
+      let removed = 0; const target = 81 - givens;
+      for (const p of shuf([...Array(81).keys()])){ if (removed>=target) break; const bak = puzzle[p]; if (!bak) continue; puzzle[p]=0; const t = puzzle.slice(); if (count(t,2)!==1) puzzle[p]=bak; else removed++; }
+    };
+    const render = () => {
+      grid.innerHTML = '';
+      for (let i=0;i<81;i++){ const r=Math.floor(i/9), c=i%9, inp = document.createElement('input'); inp.maxLength = 1; inp.inputMode = 'numeric';
+        if (c%3===2 && c<8) inp.style.borderRight = '2px solid var(--ink)'; if (r%3===2 && r<8) inp.style.borderBottom = '2px solid var(--ink)';
+        if (puzzle[i]){ inp.value = puzzle[i]; inp.classList.add('given'); inp.readOnly = true; }
+        grid.appendChild(inp); }
+    };
+    const cur = () => [...grid.querySelectorAll('input')].map(i => +i.value || 0);
+    const live = () => { const b = cur(), ins = grid.querySelectorAll('input'); ins.forEach((inp,i) => { inp.classList.remove('bad'); const v = b[i]; if (!v) return; const r=Math.floor(i/9), c=i%9; b[i]=0; if (!ok(b,r,c,v)) inp.classList.add('bad'); b[i]=v; }); };
+    grid.addEventListener('input', e => { e.target.value = e.target.value.replace(/[^1-9]/g,''); live(); const b = cur(); $('#su-msg').textContent = (!b.includes(0) && !grid.querySelector('.bad')) ? (b.join('')===solution.join('') ? '🎉 solved!' : 'filled, but not correct') : ''; });
+    $('#su-new').addEventListener('click', () => { $('#su-msg').textContent = 'generating…'; setTimeout(() => { gen(+$('#su-diff').value); render(); $('#su-msg').textContent = ''; }, 10); });
+    $('#su-check').addEventListener('click', () => { live(); const b = cur(); $('#su-msg').textContent = b.includes(0) ? 'keep going…' : grid.querySelector('.bad') ? 'conflicts highlighted' : b.join('')===solution.join('') ? '🎉 correct!' : 'no conflicts, but wrong'; });
+    $('#su-solve').addEventListener('click', () => { grid.querySelectorAll('input').forEach((inp,i) => { if (!inp.classList.contains('given')){ inp.value = solution[i]; inp.classList.remove('bad'); } }); $('#su-msg').textContent = 'solution shown'; });
+    gen(32); render();
+  }
+});
+
+/* ── dice & pick ───────────────────────────────────────────── */
+tool({
+  id:'roll', name:'Dice & pick', group:'Toys',
+  blurb:'Roll polyhedral dice, flip a coin, or pick a random item from a list — all from a fair CSPRNG, never Math.random().',
+  html: `
+    <label class="lbl">Dice</label>
+    <div class="row">
+      <span>d</span><select id="dc-sides"><option>4</option><option>6</option><option>8</option><option>10</option><option>12</option><option>20</option><option>100</option></select>
+      <label class="check">× <input type="number" id="dc-n" value="2" min="1" max="30" style="width:4rem"></label>
+      <button class="act" id="dc-roll">Roll</button>
+      <button class="ghost" id="dc-coin">Flip coin</button>
+    </div>
+    <div class="outs"><div class="out" style="grid-template-columns:1fr"><span class="v" id="dc-out" style="font-size:1.05rem">—</span></div></div>
+    <label class="lbl">Random picker (one item per line)</label>
+    <textarea id="dc-list" spellcheck="false" style="min-height:90px">Alice
+Bob
+Carol
+Dave</textarea>
+    <div class="row"><button class="act" id="dc-pick">Pick one</button><button class="ghost" id="dc-shuf">Shuffle</button></div>
+    <div class="outs"><div class="out" style="grid-template-columns:1fr"><span class="v" id="dc-pickout" style="font-size:1.05rem">—</span></div></div>
+    ${shPanel('roll', [
+      {why:'roll a d6 in the shell', cmd:`echo $((RANDOM % 6 + 1))`},
+      {why:'pick a random line', cmd:`shuf -n 1 names.txt`},
+      {why:'coin flip', cmd:`shuf -e -n 1 Heads Tails`},
+    ])}`,
+  wire(){
+    const items = () => $('#dc-list').value.split('\n').map(s => s.trim()).filter(Boolean);
+    $('#dc-roll').addEventListener('click', () => { const s = +$('#dc-sides').value, n = Math.min(30, Math.max(1, +$('#dc-n').value || 1)); const rolls = Array.from({length:n}, () => rint(s)+1); const sum = rolls.reduce((a,b) => a+b, 0); $('#dc-out').textContent = rolls.join(', ') + (n>1 ? '   =  ' + sum : ''); });
+    $('#dc-coin').addEventListener('click', () => { $('#dc-out').textContent = rint(2) ? 'Heads' : 'Tails'; });
+    $('#dc-pick').addEventListener('click', () => { const it = items(); $('#dc-pickout').textContent = it.length ? it[rint(it.length)] : '(empty list)'; });
+    $('#dc-shuf').addEventListener('click', () => { const it = items(); for (let i=it.length-1;i>0;i--){ const j = rint(i+1); [it[i],it[j]]=[it[j],it[i]]; } $('#dc-list').value = it.join('\n'); $('#dc-pickout').textContent = 'shuffled ✓'; });
+  }
+});
+
+/* ── metronome ─────────────────────────────────────────────── */
+tool({
+  id:'metro', name:'Metronome', group:'Toys',
+  blurb:'A click track with adjustable tempo and time signature, plus a tone generator for testing speakers or tuning. Pure WebAudio.',
+  html: `
+    <div class="row">
+      <button class="act" id="mt-toggle">Start</button>
+      <label class="check">BPM <input type="number" id="mt-bpm" value="100" min="20" max="300" style="width:5rem"></label>
+      <input type="range" id="mt-bpmr" min="20" max="300" value="100" style="width:170px">
+      <label class="check">beats <input type="number" id="mt-beats" value="4" min="1" max="12" style="width:4rem"></label>
+    </div>
+    <div id="mt-dots" style="display:flex;gap:.5rem;margin:.9rem 0;min-height:16px"></div>
+    <label class="lbl">Tone generator</label>
+    <div class="row">
+      <button class="ghost" id="mt-tone">Play tone</button>
+      <input type="range" id="mt-freq" min="50" max="2000" value="440" style="width:220px"> <span id="mt-freqv" class="score">440 Hz</span>
+    </div>
+    <p class="note">A440 is concert pitch. Leaving this tool stops the sound.</p>`,
+  wire(){
+    let actx, running = false, next = 0, beat = 0, timer = null, osc = null, toneWatch = null;
+    const ac = () => actx || (actx = new (window.AudioContext || window.webkitAudioContext)());
+    const dots = () => { const n = +$('#mt-beats').value, el = $('#mt-dots'); el.innerHTML = ''; for (let i=0;i<n;i++){ const d = document.createElement('span'); d.className = 'beatdot' + (i===0 ? ' accent' : ''); el.appendChild(d); } };
+    const click = (time, accent) => { const o = ac().createOscillator(), g = ac().createGain(); o.frequency.value = accent ? 1500 : 900; o.connect(g); g.connect(ac().destination); g.gain.setValueAtTime(0.0001, time); g.gain.linearRampToValueAtTime(0.4, time+0.001); g.gain.exponentialRampToValueAtTime(0.0001, time+0.05); o.start(time); o.stop(time+0.06); };
+    const stop = () => { running = false; clearTimeout(timer); $('#mt-toggle').textContent = 'Start'; [...$('#mt-dots').children].forEach(d => d.classList.remove('on')); };
+    const sched = () => {
+      if (!running || !$('#tool-metro').classList.contains('active')){ stop(); return; }
+      const spb = 60 / Math.min(300, Math.max(20, +$('#mt-bpm').value || 100));
+      while (next < ac().currentTime + 0.1){ click(next, beat===0); const at = next, b = beat; setTimeout(() => { const ds = $('#mt-dots').children; [...ds].forEach(d => d.classList.remove('on')); if (ds[b]) ds[b].classList.add('on'); }, Math.max(0,(at-ac().currentTime)*1000)); next += spb; beat = (beat+1) % (+$('#mt-beats').value); }
+      timer = setTimeout(sched, 25);
+    };
+    const start = () => { running = true; beat = 0; next = ac().currentTime + 0.06; $('#mt-toggle').textContent = 'Stop'; sched(); };
+    $('#mt-toggle').addEventListener('click', () => running ? stop() : start());
+    $('#mt-bpm').addEventListener('input', () => $('#mt-bpmr').value = $('#mt-bpm').value);
+    $('#mt-bpmr').addEventListener('input', () => $('#mt-bpm').value = $('#mt-bpmr').value);
+    $('#mt-beats').addEventListener('input', dots);
+    const tone = () => {
+      if (osc){ osc.stop(); osc = null; clearInterval(toneWatch); $('#mt-tone').textContent = 'Play tone'; return; }
+      osc = ac().createOscillator(); const g = ac().createGain(); g.gain.value = 0.15; osc.frequency.value = +$('#mt-freq').value; osc.connect(g); g.connect(ac().destination); osc.start(); $('#mt-tone').textContent = 'Stop tone';
+      toneWatch = setInterval(() => { if (!$('#tool-metro').classList.contains('active') && osc){ osc.stop(); osc = null; clearInterval(toneWatch); $('#mt-tone').textContent = 'Play tone'; } }, 400);
+    };
+    $('#mt-tone').addEventListener('click', tone);
+    $('#mt-freq').addEventListener('input', () => { $('#mt-freqv').textContent = $('#mt-freq').value + ' Hz'; if (osc) osc.frequency.value = +$('#mt-freq').value; });
+    dots();
+  }
+});
+
 /* ── contrast checker ──────────────────────────────────────── */
 tool({
   id:'contrast', name:'Contrast check', group:'Convert',
@@ -6595,7 +6877,7 @@ tool({
 });
 
 /* ═══════════════════════ shell: nav, routing, search ═══════════════════════ */
-const GROUPS = ['Encode','Convert','Time','Units','Ops','Crypto','Text','Reference'];
+const GROUPS = ['Encode','Convert','Time','Units','Ops','Crypto','Text','Reference','Toys'];
 const nav = $('#nav'), main = $('#main');
 
 /* pinned favorites */

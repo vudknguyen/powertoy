@@ -187,6 +187,14 @@ t('angle convert', async () => { await go('angle'); set('#angle-u', 'deg'); set(
 t('ascii art text', async () => { await go('asciiart'); $$('#aa-mode [data-m]')[0].click(); set('#aa-cols','60'); set('#aa-text','A'); const o=val('#aa-out'); assert(o.split('\n').length>4 && /[#%@*+=]/.test(o), 'no ascii art produced'); });
 t('connection tool', async () => { await go('wifi'); await wait(60); rx(txt('#cn-online'), /online|offline/); assert($('#cn-nativewrap').style.display === 'none', 'native WiFi section should be hidden in a browser'); });
 t('device info', async () => { await go('device'); await wait(60); inc(txt('#dv-ua'), 'Mozilla'); inc(txt('#dv-localip'), 'not exposed'); assert(/\d/.test(txt('#dv-screen')), 'no screen size'); });
+/* ---------- Toys ---------- */
+t('snake', async () => { await go('snake'); $('#sn-play').click(); assert($('#sn-cv').width===360, 'no canvas'); inc(txt('#sn-score'), 'score'); });
+t('2048', async () => { await go('g2048'); $('#tf-new').click(); const cells=$$('#tf-grid .cell'); eq(cells.length,16); assert(cells.filter(c=>c.textContent).length>=2, 'no spawned tiles'); });
+t('2048 move merges', async () => { await go('g2048'); $('#tf-new').click(); const before=$$('#tf-grid .cell').filter(c=>c.textContent).length; document.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowLeft',bubbles:true})); assert($$('#tf-grid .cell').length===16,'grid intact'); });
+t('minesweeper', async () => { await go('mines'); set('#mw-diff','9,10'); $('#mw-new').click(); eq($$('#mw-grid .ms-cell').length, 81); $('#mw-grid .ms-cell').click(); assert($$('#mw-grid .ms-cell.rev').length>=1, 'first dig revealed nothing'); });
+t('sudoku', async () => { await go('sudoku'); const ins=$$('#su-grid input'); eq(ins.length,81); assert(ins.filter(i=>i.classList.contains('given')).length>=17, 'too few givens'); $('#su-solve').click(); assert($$('#su-grid input').every(i=>i.value), 'solve left blanks'); });
+t('dice & pick', async () => { await go('roll'); set('#dc-sides','6'); set('#dc-n','3'); $('#dc-roll').click(); assert(/\d/.test(txt('#dc-out')), 'no roll'); $('#dc-pick').click(); assert(['Alice','Bob','Carol','Dave'].includes(txt('#dc-pickout')), 'pick failed'); });
+t('metronome dots', async () => { await go('metro'); set('#mt-beats','5'); eq($('#mt-dots').children.length, 5); });
 
 /* ---------- run ---------- */
 async function run(){
