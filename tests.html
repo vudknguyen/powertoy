@@ -195,6 +195,14 @@ t('minesweeper', async () => { await go('mines'); set('#mw-diff','9,10'); $('#mw
 t('sudoku', async () => { await go('sudoku'); const ins=$$('#su-grid input'); eq(ins.length,81); assert(ins.filter(i=>i.classList.contains('given')).length>=17, 'too few givens'); $('#su-solve').click(); assert($$('#su-grid input').every(i=>i.value), 'solve left blanks'); });
 t('dice & pick', async () => { await go('roll'); set('#dc-sides','6'); set('#dc-n','3'); $('#dc-roll').click(); assert(/\d/.test(txt('#dc-out')), 'no roll'); $('#dc-pick').click(); assert(['Alice','Bob','Carol','Dave'].includes(txt('#dc-pickout')), 'pick failed'); });
 t('metronome dots', async () => { await go('metro'); set('#mt-beats','5'); eq($('#mt-dots').children.length, 5); });
+t('tetris', async () => { await go('tetris'); $('#tt-play').click(); eq($('#tt-cv').width,200); inc(txt('#tt-score'),'score'); });
+t('breakout', async () => { await go('breakout'); $('#bk-play').click(); eq($('#bk-cv').width,400); inc(txt('#bk-lives'),'3'); });
+t('simon', async () => { await go('simon'); eq($('#si-pads').children.length,4); });
+t('typing test', async () => { await go('typing'); $('#ty-new').click(); assert($('#ty-text').textContent.trim().length>20,'no passage'); assert($$('#ty-text span').length>=30,'not rendered'); });
+t('word guess', async () => { await go('wordguess'); $('#wg-new').click(); set('#wg-in','about'); $('#wg-go').click(); const first=$('#wg-grid').children[0]; assert(first && first.children[0].textContent==='A'.toLowerCase()||first.children[0].textContent==='A'||/[a-zA-Z]/.test(first.children[0].textContent),'guess not rendered'); });
+t('mastermind', async () => { await go('mastermind'); $('#mm-new').click(); eq($('#mm-palette').children.length,6); const pal=$$('#mm-palette [data-i]'); pal[0].click();pal[1].click();pal[2].click();pal[3].click(); $('#mm-go').click(); eq($('#mm-history').children.length,1); });
+t('tic-tac-toe', async () => { await go('ttt'); $('#tc-new').click(); eq($('#tc-board').children.length,9); $('#tc-board').children[0].click(); await wait(250); assert($$('#tc-board [data-i]').filter(d=>d.textContent).length>=2,'AI did not move'); });
+t('connect four', async () => { await go('connect4'); $('#c4-new').click(); eq($('#c4-board').children.length,42); $('#c4-board').querySelector('[data-c=\"3\"]').click(); await wait(400); const filled=$$('#c4-board [data-c]').filter(d=>{const bg=d.style.background;return bg&&!bg.includes('surface');}); assert(filled.length>=2,'no discs dropped'); });
 
 /* ---------- run ---------- */
 async function run(){

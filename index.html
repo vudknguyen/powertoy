@@ -6669,6 +6669,302 @@ tool({
   }
 });
 
+/* ── tetris ────────────────────────────────────────────────── */
+tool({
+  id:'tetris', name:'Tetris', group:'Toys',
+  blurb:'Stack the falling blocks and clear lines. Arrows to move/rotate, down to soft-drop, space to hard-drop. Speeds up as you clear.',
+  html: `
+    <div class="toybar">
+      <button class="act" id="tt-play">New game</button>
+      <span class="score" id="tt-score">score 0</span>
+      <span class="score" id="tt-lines">lines 0</span>
+      <span class="score" id="tt-hi"></span>
+    </div>
+    <canvas id="tt-cv" class="game-cv" width="200" height="400"></canvas>
+    <p class="note">← → move · ↑ rotate · ↓ soft drop · space hard drop.</p>`,
+  wire(){
+    const COLS=10, ROWS=20, S=20, cx=$('#tt-cv').getContext('2d'), HK='pt-tetris-hi';
+    const PIECES = {
+      I:{c:'#3bc9db',m:[[1,1,1,1]]}, O:{c:'#ffd43b',m:[[1,1],[1,1]]}, T:{c:'#b197fc',m:[[1,1,1],[0,1,0]]},
+      S:{c:'#69db7c',m:[[0,1,1],[1,1,0]]}, Z:{c:'#ff8787',m:[[1,1,0],[0,1,1]]},
+      J:{c:'#4dabf7',m:[[1,0,0],[1,1,1]]}, L:{c:'#ffa94d',m:[[0,0,1],[1,1,1]]},
+    };
+    const KEYS=Object.keys(PIECES);
+    let board, piece, score, lines, dead, timer, speed;
+    const hi=()=>+(localStorage.getItem(HK)||0);
+    const rot=m=>m[0].map((_,i)=>m.map(r=>r[i]).reverse());
+    const spawn=()=>{ const k=KEYS[rint(KEYS.length)]; const p=PIECES[k]; return {m:p.m,c:p.c,x:Math.floor((COLS-p.m[0].length)/2),y:0}; };
+    const collide=(pc,nx,ny,nm)=>{ const m=nm||pc.m; for(let r=0;r<m.length;r++)for(let q=0;q<m[r].length;q++){ if(!m[r][q])continue; const x=nx+q,y=ny+r; if(x<0||x>=COLS||y>=ROWS)return true; if(y>=0&&board[y][x])return true; } return false; };
+    const merge=()=>{ piece.m.forEach((row,r)=>row.forEach((v,q)=>{ if(v){ const y=piece.y+r; if(y>=0)board[y][piece.x+q]=piece.c; } })); };
+    const clearLines=()=>{ let n=0; for(let r=ROWS-1;r>=0;r--){ if(board[r].every(c=>c)){ board.splice(r,1); board.unshift(Array(COLS).fill(0)); n++; r++; } } if(n){ score+=[0,100,300,500,800][n]; lines+=n; speed=Math.max(90,500-Math.floor(lines/10)*40); restartTimer(); } };
+    const drop=()=>{ if(dead)return; if(!collide(piece,piece.x,piece.y+1)){ piece.y++; } else { merge(); clearLines(); piece=spawn(); if(collide(piece,piece.x,piece.y)){ dead=true; if(score>hi())try{localStorage.setItem(HK,score);}catch{} } } draw(); upd(); };
+    const upd=()=>{ $('#tt-score').textContent='score '+score; $('#tt-lines').textContent='lines '+lines; $('#tt-hi').textContent='best '+hi(); };
+    const draw=()=>{
+      cx.fillStyle=cssVar('--surface'); cx.fillRect(0,0,200,400);
+      for(let r=0;r<ROWS;r++)for(let q=0;q<COLS;q++){ if(board[r][q]){ cx.fillStyle=board[r][q]; cx.fillRect(q*S+1,r*S+1,S-2,S-2); } }
+      if(piece) piece.m.forEach((row,r)=>row.forEach((v,q)=>{ if(v){ cx.fillStyle=piece.c; cx.fillRect((piece.x+q)*S+1,(piece.y+r)*S+1,S-2,S-2); } }));
+      if(dead){ cx.fillStyle='rgba(0,0,0,.6)'; cx.fillRect(0,0,200,400); cx.fillStyle='#fff'; cx.font='bold 18px sans-serif'; cx.textAlign='center'; cx.fillText('Game over',100,200); }
+    };
+    const reset=()=>{ board=Array.from({length:ROWS},()=>Array(COLS).fill(0)); score=0; lines=0; dead=false; speed=500; piece=spawn(); draw(); upd(); restartTimer(); };
+    const restartTimer=()=>{ clearInterval(timer); timer=setInterval(()=>{ if($('#tool-tetris').classList.contains('active')&&!dead)drop(); },speed); };
+    document.addEventListener('keydown',e=>{
+      if(!$('#tool-tetris').classList.contains('active')||dead)return;
+      const k=e.key;
+      if(k==='ArrowLeft'){ e.preventDefault(); if(!collide(piece,piece.x-1,piece.y))piece.x--; draw(); }
+      else if(k==='ArrowRight'){ e.preventDefault(); if(!collide(piece,piece.x+1,piece.y))piece.x++; draw(); }
+      else if(k==='ArrowDown'){ e.preventDefault(); drop(); }
+      else if(k==='ArrowUp'){ e.preventDefault(); const nm=rot(piece.m); if(!collide(piece,piece.x,piece.y,nm))piece.m=nm; draw(); }
+      else if(k===' '){ e.preventDefault(); while(!collide(piece,piece.x,piece.y+1))piece.y++; drop(); }
+    });
+    $('#tt-play').addEventListener('click',reset); reset();
+  }
+});
+
+/* ── breakout ──────────────────────────────────────────────── */
+tool({
+  id:'breakout', name:'Breakout', group:'Toys',
+  blurb:'Bounce the ball, break every brick, don’t drop it. Move the paddle with the mouse or arrow keys.',
+  html: `
+    <div class="toybar">
+      <button class="act" id="bk-play">New game</button>
+      <span class="score" id="bk-score">score 0</span>
+      <span class="score" id="bk-lives">lives 3</span>
+      <span class="score" id="bk-msg"></span>
+    </div>
+    <canvas id="bk-cv" class="game-cv" width="400" height="300"></canvas>
+    <p class="note">Move: mouse or ← →. Launch: click / space.</p>`,
+  wire(){
+    const W=400,H=300, cx=$('#bk-cv').getContext('2d');
+    const COLS=8, BROWS=4, BW=W/COLS, BH=16, BTOP=30;
+    const COLORS=['#ff8787','#ffa94d','#ffd43b','#69db7c'];
+    let paddle, ball, bricks, score, lives, running, over, raf;
+    const reset=()=>{
+      paddle={x:W/2-40,w:80,h:10}; resetBall(); score=0; lives=3; over=false; running=false;
+      bricks=[]; for(let r=0;r<BROWS;r++)for(let c=0;c<COLS;c++)bricks.push({x:c*BW,y:BTOP+r*BH,alive:true,col:COLORS[r]});
+      $('#bk-msg').textContent='click / space to launch'; upd(); draw(); loop();
+    };
+    const resetBall=()=>{ ball={x:W/2,y:H-30,vx:0,vy:0,r:6}; running=false; };
+    const launch=()=>{ if(over){reset();return;} if(!running){ ball.vx=(rint(2)?1:-1)*2.6; ball.vy=-3; running=true; $('#bk-msg').textContent=''; } };
+    const upd=()=>{ $('#bk-score').textContent='score '+score; $('#bk-lives').textContent='lives '+lives; };
+    const draw=()=>{
+      cx.fillStyle=cssVar('--surface'); cx.fillRect(0,0,W,H);
+      bricks.forEach(b=>{ if(b.alive){ cx.fillStyle=b.col; cx.fillRect(b.x+1,b.y+1,BW-2,BH-2); } });
+      cx.fillStyle=cssVar('--accent'); cx.fillRect(paddle.x,H-18,paddle.w,paddle.h);
+      cx.beginPath(); cx.arc(ball.x,ball.y,ball.r,0,7); cx.fillStyle=cssVar('--ink'); cx.fill();
+      if(over){ cx.fillStyle='rgba(0,0,0,.55)'; cx.fillRect(0,0,W,H); cx.fillStyle='#fff'; cx.font='bold 18px sans-serif'; cx.textAlign='center'; cx.fillText(bricks.every(b=>!b.alive)?'You win! — New game':'Game over — New game',W/2,H/2); }
+    };
+    const step=()=>{
+      if(!running){ ball.x=paddle.x+paddle.w/2; draw(); return; }
+      ball.x+=ball.vx; ball.y+=ball.vy;
+      if(ball.x<ball.r||ball.x>W-ball.r)ball.vx*=-1;
+      if(ball.y<ball.r)ball.vy*=-1;
+      if(ball.y>H-18-ball.r && ball.y<H-18+6 && ball.x>paddle.x && ball.x<paddle.x+paddle.w && ball.vy>0){ ball.vy*=-1; ball.vx=((ball.x-(paddle.x+paddle.w/2))/(paddle.w/2))*3.2; }
+      bricks.forEach(b=>{ if(b.alive && ball.x>b.x && ball.x<b.x+BW && ball.y>b.y && ball.y<b.y+BH){ b.alive=false; ball.vy*=-1; score+=10; upd(); } });
+      if(bricks.every(b=>!b.alive)){ over=true; }
+      if(ball.y>H){ lives--; upd(); if(lives<=0){ over=true; } else { resetBall(); $('#bk-msg').textContent='click / space to launch'; } }
+      draw();
+    };
+    const loop=()=>{ cancelAnimationFrame(raf); const run=()=>{ if($('#tool-breakout').classList.contains('active')){ if(!over)step(); else draw(); } raf=requestAnimationFrame(run); }; raf=requestAnimationFrame(run); };
+    const cv=$('#bk-cv');
+    cv.addEventListener('mousemove',e=>{ const r=cv.getBoundingClientRect(); paddle.x=Math.max(0,Math.min(W-paddle.w,e.clientX-r.left-paddle.w/2)); });
+    cv.addEventListener('click',launch);
+    document.addEventListener('keydown',e=>{ if(!$('#tool-breakout').classList.contains('active'))return; if(e.key==='ArrowLeft'){e.preventDefault();paddle.x=Math.max(0,paddle.x-24);} else if(e.key==='ArrowRight'){e.preventDefault();paddle.x=Math.min(W-paddle.w,paddle.x+24);} else if(e.key===' '){e.preventDefault();launch();} });
+    $('#bk-play').addEventListener('click',reset); reset();
+  }
+});
+
+/* ── simon ─────────────────────────────────────────────────── */
+tool({
+  id:'simon', name:'Simon', group:'Toys',
+  blurb:'Watch the sequence, then repeat it. Each round adds one. How far can your memory go? Sound via WebAudio.',
+  html: `
+    <div class="toybar">
+      <button class="act" id="si-play">Start</button>
+      <span class="score" id="si-score">round 0</span>
+      <span class="score" id="si-hi"></span>
+      <span class="score" id="si-msg"></span>
+    </div>
+    <div id="si-pads" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;width:min(280px,80vw)"></div>`,
+  wire(){
+    const HK='pt-simon-hi', PADS=[{c:'#ff8787',f:329.6},{c:'#69db7c',f:392.0},{c:'#4dabf7',f:261.6},{c:'#ffd43b',f:440.0}];
+    let seq, step, playing, accept, actx;
+    const hi=()=>+(localStorage.getItem(HK)||0);
+    const el=$('#si-pads');
+    el.innerHTML=PADS.map((p,i)=>`<div data-i="${i}" style="height:120px;border-radius:10px;background:${p.c};opacity:.45;cursor:pointer;transition:opacity .1s"></div>`).join('');
+    const ac=()=>actx||(actx=new (window.AudioContext||window.webkitAudioContext)());
+    const beep=(f,ms)=>{ const o=ac().createOscillator(),g=ac().createGain(); o.frequency.value=f; o.connect(g); g.connect(ac().destination); g.gain.value=.2; o.start(); setTimeout(()=>{o.stop();},ms); };
+    const flash=i=>{ const d=el.children[i]; d.style.opacity='1'; beep(PADS[i].f,300); setTimeout(()=>d.style.opacity='.45',300); };
+    const play=async()=>{ accept=false; for(const i of seq){ await new Promise(r=>setTimeout(r,420)); flash(i); } accept=true; step=0; $('#si-msg').textContent='your turn'; };
+    const next=()=>{ seq.push(rint(4)); $('#si-score').textContent='round '+seq.length; play(); };
+    const start=()=>{ seq=[]; playing=true; $('#si-msg').textContent=''; $('#si-hi').textContent='best '+hi(); next(); };
+    el.addEventListener('click',e=>{ const d=e.target.closest('[data-i]'); if(!d||!accept)return; const i=+d.dataset.i; flash(i); if(i===seq[step]){ step++; if(step===seq.length){ accept=false; if(seq.length>hi())try{localStorage.setItem(HK,seq.length);}catch{} setTimeout(next,650); } } else { accept=false; playing=false; $('#si-msg').textContent='✗ wrong — round '+seq.length; $('#si-hi').textContent='best '+hi(); } });
+    $('#si-play').addEventListener('click',start);
+  }
+});
+
+/* ── typing test ───────────────────────────────────────────── */
+tool({
+  id:'typing', name:'Typing test', group:'Toys',
+  blurb:'Type the line as fast and accurately as you can. Live WPM and accuracy; a fresh set of words each run.',
+  html: `
+    <div class="toybar">
+      <button class="act" id="ty-new">New text</button>
+      <span class="score" id="ty-wpm">0 wpm</span>
+      <span class="score" id="ty-acc">100%</span>
+      <span class="score" id="ty-time">0.0s</span>
+    </div>
+    <div id="ty-text" style="font-family:var(--mono);font-size:1.05rem;line-height:1.8;background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:.8rem 1rem;margin-bottom:.6rem;min-height:3rem"></div>
+    <textarea id="ty-in" spellcheck="false" autocomplete="off" style="min-height:70px" placeholder="start typing here…"></textarea>`,
+  wire(){
+    const WORDS='the of and to a in is be that have it for not on with he as you do at this but his by from they we say her she or an will my one all would there their what so up out if about who get which go me when make can like time no just him know take people into year your good some could them see other than then now look only come its over think also back after use two how our work first well way even new want because any these give day most us able about above among great small large place where while there those think under begin point world group while right still life part'.split(' ');
+    const gen=()=>Array.from({length:32},()=>WORDS[rint(WORDS.length)]).join(' ');
+    const txt=$('#ty-text'), inp=$('#ty-in');
+    let target, started, raf;
+    const fresh=()=>{ target=gen(); inp.value=''; started=0; render(); cancelAnimationFrame(raf); $('#ty-wpm').textContent='0 wpm'; $('#ty-acc').textContent='100%'; $('#ty-time').textContent='0.0s'; };
+    const render=()=>{ const v=inp.value; let h=''; for(let i=0;i<target.length;i++){ const ch=target[i]; let col=''; if(i<v.length) col=v[i]===ch?'color:var(--good)':'background:#ffd9d4;color:var(--bad)'; else if(i===v.length) col='border-bottom:2px solid var(--accent)'; h+=`<span style="${col}">${ch===' '?'&nbsp;':esc(ch)}</span>`; } txt.innerHTML=h; };
+    const tick=()=>{ if(!started)return; const t=(Date.now()-started)/1000; $('#ty-time').textContent=t.toFixed(1)+'s'; const v=inp.value; const correct=[...v].filter((c,i)=>c===target[i]).length; const wpm=Math.round((correct/5)/(t/60)||0); $('#ty-wpm').textContent=wpm+' wpm'; const acc=v.length?Math.round(correct/v.length*100):100; $('#ty-acc').textContent=acc+'%'; if(v.length<target.length)raf=requestAnimationFrame(tick); };
+    inp.addEventListener('input',()=>{ if(!started){ started=Date.now(); raf=requestAnimationFrame(tick); } if(inp.value.length>target.length)inp.value=inp.value.slice(0,target.length); render(); if(inp.value.length>=target.length){ cancelAnimationFrame(raf); tick(); txt.innerHTML+=' <b style="color:var(--accent-2)">done!</b>'; } });
+    $('#ty-new').addEventListener('click',fresh); fresh();
+  }
+});
+
+/* ── word guess ────────────────────────────────────────────── */
+tool({
+  id:'wordguess', name:'Word guess', group:'Toys',
+  blurb:'Guess the hidden five-letter word in six tries. Green = right spot, yellow = wrong spot, grey = not in the word. A fresh word each game.',
+  html: `
+    <div class="toybar">
+      <button class="act" id="wg-new">New word</button>
+      <span class="score" id="wg-msg"></span>
+    </div>
+    <div id="wg-grid" style="display:grid;grid-template-rows:repeat(6,1fr);gap:6px;width:min(300px,80vw);margin-bottom:.7rem"></div>
+    <div class="row">
+      <input type="text" id="wg-in" maxlength="5" spellcheck="false" autocomplete="off" placeholder="type a word" style="text-transform:uppercase;letter-spacing:.3em;max-width:12rem">
+      <button class="act" id="wg-go">Guess</button>
+    </div>`,
+  wire(){
+    const ANS='about above abuse actor acute admit adopt adult after again agent agree ahead alarm album alert alike alive allow alone along alter among anger angle angry apart apple apply arena argue arise array aside asset audio audit avoid award aware badly basic beach began begin being below bench birth black blame blank blind block blood board boost booth bound brain brand brave bread break breed brief bring broad broke brown build built buyer cable carry catch cause chain chair chaos charm chart chase cheap check chest chief child china chose civil claim class clean clear click climb clock close cloud coach coast could count court cover craft crash crazy cream crime cross crowd crown crude curve cycle daily dance dated dealt death debut delay depth doing doubt dozen draft drama drawn dream dress drill drink drive drove dying eager early earth eight elite empty enemy enjoy enter entry equal error event every exact exist extra faith false fault fiber field fifth fifty fight final first fixed flash fleet floor fluid focus force forth forty forum found frame frank fraud fresh front fruit fully funny giant given glass globe grace grade grand grant grass great green gross group grown guard guess guest guide happy harsh heart heavy hence horse hotel house human ideal image index inner input issue joint judge known label large laser later laugh layer learn lease least leave legal level light limit local logic loose lower lucky lunch lying magic major maker march match maybe mayor meant media metal might minor minus mixed model money month moral motor mount mouse mouth movie music needs never newly night noise north noted novel nurse occur ocean offer often order other ought paint panel paper party peace phase phone photo piece pilot pitch place plain plane plant plate point pound power press price pride prime print prior prize proof proud prove queen quick quiet quite radio raise range rapid ratio reach ready refer right rival river rough round route royal rural scale scene scope score sense serve seven shall shape share sharp sheet shelf shell shift shirt shock shoot short shown sight since sixth sixty skill sleep slide small smart smile smoke solid solve sorry sound south space spare speak speed spend spent split spoke sport staff stage stake stand start state steam steel stick still stock stone stood store storm story strip stuck study stuff style sugar suite super sweet table taken taste teach teeth thank theft their theme there these thick thing think third those three threw throw tight times tired title today topic total touch tough tower track trade train treat trend trial tribe trick tried truck truly trust truth twice under undue union unity until upper upset urban usage usual valid value video virus visit vital voice waste watch water wheel where which while white whole whose woman women world worry worse worst worth would wound write wrong wrote young youth'.split(' ');
+    let answer, rows, msg=$('#wg-msg');
+    const grid=$('#wg-grid'), inp=$('#wg-in');
+    const render=()=>{
+      grid.innerHTML='';
+      for(let r=0;r<6;r++){ const row=document.createElement('div'); row.style.cssText='display:grid;grid-template-columns:repeat(5,1fr);gap:6px';
+        for(let c=0;c<5;c++){ const t=document.createElement('div'); const g=rows[r]; t.style.cssText='display:flex;align-items:center;justify-content:center;aspect-ratio:1;border-radius:6px;font-family:var(--mono);font-weight:700;font-size:1.4rem;text-transform:uppercase;'+(g?'color:#fff':'border:1px solid var(--border-2);color:var(--ink)');
+          if(g){ t.textContent=g.w[c]; t.style.background=g.s[c]==='g'?'#69a85c':g.s[c]==='y'?'#d6a740':'#8a8678'; }
+          row.appendChild(t); }
+        grid.appendChild(row); }
+    };
+    const score=w=>{ const s=Array(5).fill('x'); const a=answer.split(''); for(let i=0;i<5;i++)if(w[i]===a[i]){s[i]='g';a[i]=null;} for(let i=0;i<5;i++){ if(s[i]==='g')continue; const j=a.indexOf(w[i]); if(j>=0){s[i]='y';a[j]=null;} } return s; };
+    const guess=()=>{ const w=inp.value.toLowerCase(); if(!/^[a-z]{5}$/.test(w)){ msg.textContent='5 letters, please'; return; } const s=score(w); rows.push({w,s}); inp.value=''; render();
+      if(w===answer){ msg.textContent='🎉 got it in '+rows.length+'!'; inp.disabled=true; }
+      else if(rows.length>=6){ msg.textContent='out of tries — it was '+answer.toUpperCase(); inp.disabled=true; } else msg.textContent=''; };
+    const reset=()=>{ answer=ANS[rint(ANS.length)]; rows=[]; inp.disabled=false; inp.value=''; msg.textContent=''; render(); inp.focus(); };
+    $('#wg-go').addEventListener('click',guess);
+    inp.addEventListener('keydown',e=>{ if(e.key==='Enter')guess(); });
+    $('#wg-new').addEventListener('click',reset); reset();
+  }
+});
+
+/* ── mastermind ────────────────────────────────────────────── */
+tool({
+  id:'mastermind', name:'Mastermind', group:'Toys',
+  blurb:'Crack the secret code of four colours in ten guesses. ● = right colour, right spot; ○ = right colour, wrong spot.',
+  html: `
+    <div class="toybar">
+      <button class="act" id="mm-new">New game</button>
+      <span class="score" id="mm-msg"></span>
+    </div>
+    <div id="mm-history" style="display:flex;flex-direction:column;gap:6px;margin-bottom:.7rem"></div>
+    <div class="row" id="mm-palette" style="margin-bottom:.4rem"></div>
+    <div class="row">
+      <div id="mm-current" style="display:flex;gap:6px"></div>
+      <button class="ghost" id="mm-back">⌫</button>
+      <button class="act" id="mm-go">Submit</button>
+    </div>`,
+  wire(){
+    const COLORS=['#ff8787','#ffd43b','#69db7c','#4dabf7','#b197fc','#ffa94d'];
+    const dot=(col,sz=22)=>`<span style="width:${sz}px;height:${sz}px;border-radius:50%;background:${col};display:inline-block"></span>`;
+    let secret, cur, done;
+    const pal=$('#mm-palette'), curEl=$('#mm-current'), hist=$('#mm-history'), msg=$('#mm-msg');
+    pal.innerHTML=COLORS.map((c,i)=>`<button data-i="${i}" style="width:30px;height:30px;border-radius:50%;background:${c};border:1px solid var(--border-2);cursor:pointer"></button>`).join('');
+    const renderCur=()=>{ curEl.innerHTML=''; for(let i=0;i<4;i++){ const s=document.createElement('span'); s.style.cssText='width:26px;height:26px;border-radius:50%;border:1px dashed var(--border-2);display:inline-block;'+(cur[i]!=null?'background:'+COLORS[cur[i]]+';border-style:solid':''); curEl.appendChild(s); } };
+    const judge=g=>{ let black=0,white=0; const s=secret.slice(),x=g.slice(); for(let i=0;i<4;i++)if(x[i]===s[i]){black++;s[i]=x[i]=-1;} for(let i=0;i<4;i++){ if(x[i]<0)continue; const j=s.indexOf(x[i]); if(j>=0){white++;s[j]=-1;} } return {black,white}; };
+    const submit=()=>{ if(cur.length<4||done)return; const g=cur.slice(); const {black,white}=judge(g);
+      const row=document.createElement('div'); row.style.cssText='display:flex;align-items:center;gap:8px';
+      row.innerHTML=g.map(i=>dot(COLORS[i])).join('')+' &nbsp; '+'●'.repeat(black)+'○'.repeat(white)+(black+white===0?'·':'');
+      hist.appendChild(row); cur=[]; renderCur();
+      if(black===4){ msg.textContent='🎉 cracked in '+hist.children.length+'!'; done=true; }
+      else if(hist.children.length>=10){ msg.textContent='out of guesses — code was '; hist.appendChild(Object.assign(document.createElement('div'),{innerHTML:secret.map(i=>dot(COLORS[i],18)).join('')})); done=true; } };
+    const reset=()=>{ secret=Array.from({length:4},()=>rint(6)); cur=[]; done=false; hist.innerHTML=''; msg.textContent=''; renderCur(); };
+    pal.addEventListener('click',e=>{ const b=e.target.closest('[data-i]'); if(!b||done||cur.length>=4)return; cur.push(+b.dataset.i); renderCur(); });
+    $('#mm-back').addEventListener('click',()=>{ cur.pop(); renderCur(); });
+    $('#mm-go').addEventListener('click',submit);
+    $('#mm-new').addEventListener('click',reset); reset();
+  }
+});
+
+/* ── tic-tac-toe ───────────────────────────────────────────── */
+tool({
+  id:'ttt', name:'Tic-tac-toe', group:'Toys',
+  blurb:'You’re X against an unbeatable computer (minimax). The best you can hope for is a draw — try.',
+  html: `
+    <div class="toybar">
+      <button class="act" id="tc-new">New game</button>
+      <span class="score" id="tc-msg">your move</span>
+      <span class="score" id="tc-w"></span>
+    </div>
+    <div id="tc-board" style="display:grid;grid-template-columns:repeat(3,90px);grid-template-rows:repeat(3,90px);gap:6px"></div>`,
+  wire(){
+    let b, over; const board=$('#tc-board'), msg=$('#tc-msg');
+    const LINES=[[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+    const winner=s=>{ for(const[a,c,d]of LINES)if(s[a]&&s[a]===s[c]&&s[a]===s[d])return s[a]; return s.every(x=>x)?'draw':null; };
+    const minimax=(s,me)=>{ const w=winner(s); if(w==='O')return{sc:1}; if(w==='X')return{sc:-1}; if(w==='draw')return{sc:0};
+      let best={sc:me==='O'?-2:2,i:-1}; for(let i=0;i<9;i++){ if(s[i])continue; s[i]=me; const r=minimax(s,me==='O'?'X':'O'); s[i]=''; if((me==='O'&&r.sc>best.sc)||(me==='X'&&r.sc<best.sc))best={sc:r.sc,i}; } return best; };
+    const render=()=>{ board.innerHTML=''; b.forEach((v,i)=>{ const d=document.createElement('div'); d.style.cssText='display:flex;align-items:center;justify-content:center;background:var(--code-bg);border-radius:8px;font-size:2.6rem;font-weight:700;cursor:'+(v||over?'default':'pointer')+';color:'+(v==='X'?'var(--accent-2)':'var(--bad)'); d.textContent=v; d.dataset.i=i; board.appendChild(d); }); };
+    const end=()=>{ const w=winner(b); if(w){ over=true; msg.textContent=w==='draw'?'draw':w==='X'?'you win!':'computer wins'; } };
+    const ai=()=>{ const m=minimax(b,'O'); if(m.i>=0)b[m.i]='O'; end(); render(); if(!over)msg.textContent='your move'; };
+    const reset=()=>{ b=Array(9).fill(''); over=false; msg.textContent='your move'; render(); };
+    board.addEventListener('click',e=>{ const d=e.target.closest('[data-i]'); if(!d||over)return; const i=+d.dataset.i; if(b[i])return; b[i]='X'; end(); render(); if(!over){ msg.textContent='thinking…'; setTimeout(ai,120); } });
+    $('#tc-new').addEventListener('click',reset); reset();
+  }
+});
+
+/* ── connect four ──────────────────────────────────────────── */
+tool({
+  id:'connect4', name:'Connect Four', group:'Toys',
+  blurb:'Drop discs and line up four — vertically, horizontally or diagonally — before the computer does. Click a column to play.',
+  html: `
+    <div class="toybar">
+      <button class="act" id="c4-new">New game</button>
+      <span class="score" id="c4-msg">your move (red)</span>
+    </div>
+    <div id="c4-board" style="display:inline-grid;grid-template-columns:repeat(7,44px);gap:4px;background:var(--border-2);padding:6px;border-radius:10px"></div>`,
+  wire(){
+    const R=6,C=7; let g, over; const board=$('#c4-board'), msg=$('#c4-msg');
+    const at=(b,r,c)=>b[r*C+c];
+    const drop=(b,c,p)=>{ for(let r=R-1;r>=0;r--)if(!b[r*C+c]){ b[r*C+c]=p; return r; } return -1; };
+    const wins=(b,p)=>{ for(let r=0;r<R;r++)for(let c=0;c<C;c++){ if(b[r*C+c]!==p)continue;
+      for(const[dr,dc]of[[0,1],[1,0],[1,1],[1,-1]]){ let n=1,rr=r+dr,cc=c+dc; while(rr>=0&&rr<R&&cc>=0&&cc<C&&b[rr*C+cc]===p){n++;rr+=dr;cc+=dc;} if(n>=4)return true; } } return false; };
+    const full=b=>b.every(x=>x);
+    const valid=b=>{ const o=[]; for(let c=0;c<C;c++)if(!b[c])o.push(c); return o; };
+    const evalP=(b,p)=>{ // simple: prefer center
+      let s=0; for(let r=0;r<R;r++)if(b[r*C+3]===p)s+=2; return s; };
+    const nega=(b,depth,p,alpha,beta)=>{ if(wins(b,2))return{sc:1000+depth}; if(wins(b,1))return{sc:-1000-depth}; const mv=valid(b); if(!mv.length||depth===0)return{sc:evalP(b,2)-evalP(b,1)};
+      let best={sc:p===2?-1e9:1e9,c:mv[0]};
+      for(const c of mv){ const nb=b.slice(); drop(nb,c,p); const r=nega(nb,depth-1,p===2?1:2,alpha,beta);
+        if(p===2){ if(r.sc>best.sc)best={sc:r.sc,c}; alpha=Math.max(alpha,r.sc); } else { if(r.sc<best.sc)best={sc:r.sc,c}; beta=Math.min(beta,r.sc); }
+        if(beta<=alpha)break; }
+      return best; };
+    const render=()=>{ board.innerHTML=''; for(let i=0;i<R*C;i++){ const v=g[i]; const d=document.createElement('div'); d.style.cssText='width:44px;height:44px;border-radius:50%;cursor:'+(over?'default':'pointer')+';background:'+(v===1?'#ff6b6b':v===2?'#ffd43b':'var(--surface)'); d.dataset.c=i%C; board.appendChild(d); } };
+    const end=()=>{ if(wins(g,1)){over=true;msg.textContent='you win!';return true;} if(wins(g,2)){over=true;msg.textContent='computer wins';return true;} if(full(g)){over=true;msg.textContent='draw';return true;} return false; };
+    const play=c=>{ if(over||drop(g,c,1)<0)return; render(); if(end())return; msg.textContent='thinking…';
+      setTimeout(()=>{ const m=nega(g,5,2,-1e9,1e9); drop(g,m.c,2); render(); if(!end())msg.textContent='your move (red)'; },80); };
+    const reset=()=>{ g=Array(R*C).fill(0); over=false; msg.textContent='your move (red)'; render(); };
+    board.addEventListener('click',e=>{ const d=e.target.closest('[data-c]'); if(d)play(+d.dataset.c); });
+    $('#c4-new').addEventListener('click',reset); reset();
+  }
+});
+
 /* ── contrast checker ──────────────────────────────────────── */
 tool({
   id:'contrast', name:'Contrast check', group:'Convert',

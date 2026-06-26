@@ -1,6 +1,6 @@
 # powertoy — developer utilities
 
-A single-file webapp with 94 everyday utilities for developers and power users.
+A single-file webapp with 102 everyday utilities for developers and power users.
 Every tool shows its **shell equivalent** (bash / unix command) alongside the result.
 Works offline from a plain `file://` open — no build, no install, no server.
 
@@ -18,7 +18,7 @@ app release and shows the current version. See [PACKAGING.md](PACKAGING.md).
 ## Quality
 
 - **`tests.html`** — integration suite: drives every tool in a live iframe with
-  known-answer vectors (111 assertions across all 94 tools). Open it to see a pass/fail report.
+  known-answer vectors (119 assertions across all 102 tools). Open it to see a pass/fail report.
 - **`verify-commands.sh`** — runs each tool's documented shell command on your machine and
   confirms it matches the tool's output (43 checks).
 
@@ -120,6 +120,14 @@ app release and shows the current version. See [PACKAGING.md](PACKAGING.md).
 | Toys    | Sudoku            | `#sudoku` |
 | Toys    | Dice & pick       | `#roll`   |
 | Toys    | Metronome         | `#metro`  |
+| Toys    | Tetris            | `#tetris` |
+| Toys    | Breakout          | `#breakout` |
+| Toys    | Simon             | `#simon`  |
+| Toys    | Typing test       | `#typing` |
+| Toys    | Word guess        | `#wordguess` |
+| Toys    | Mastermind        | `#mastermind` |
+| Toys    | Tic-tac-toe       | `#ttt`    |
+| Toys    | Connect Four      | `#connect4` |
 
 ## Notes
 
