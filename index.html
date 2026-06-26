@@ -363,6 +363,22 @@ button.ghost:hover{color:var(--accent-2);border-color:var(--accent)}
 .sudoku input:focus{box-shadow:inset 0 0 0 2px var(--accent)}
 .beatdot{width:16px;height:16px;border-radius:50%;background:var(--border-2);display:inline-block;transition:background .05s}
 .beatdot.on{background:var(--accent)}.beatdot.accent.on{background:var(--bad)}
+/* cards */
+.card{width:46px;height:64px;border:1px solid var(--border-2);border-radius:5px;background:#fff;color:#1a1a1a;font-family:var(--mono);font-weight:700;font-size:.95rem;display:flex;align-items:center;justify-content:center;cursor:pointer;user-select:none;box-shadow:0 1px 2px rgba(0,0,0,.12)}
+.card.red{color:#c0392b}
+.card.back{background:repeating-linear-gradient(45deg,#4dabf7 0 5px,#3b8ed6 5px 10px);color:transparent;cursor:pointer}
+.card.sel{outline:2px solid var(--accent);outline-offset:1px}
+.card.empty{background:transparent;border:1px dashed var(--border-2);box-shadow:none;color:var(--faint);cursor:pointer}
+.cardstack{position:relative}
+/* chess */
+.chessbd{display:grid;grid-template-columns:repeat(8,clamp(34px,9vw,46px));grid-template-rows:repeat(8,clamp(34px,9vw,46px));border:2px solid var(--ink);border-radius:4px;overflow:hidden;width:max-content}
+.sq{display:flex;align-items:center;justify-content:center;font-size:clamp(1.6rem,6vw,2.1rem);cursor:pointer;line-height:1;position:relative}
+.sq.lt{background:#efe6d2}.sq.dk{background:#b58863}
+.sq.sel{box-shadow:inset 0 0 0 3px var(--accent)}
+.sq.mv::after{content:"";position:absolute;width:32%;height:32%;border-radius:50%;background:rgba(16,107,91,.45)}
+.sq.cap{box-shadow:inset 0 0 0 3px var(--bad)}
+.sq .wp{color:#fff;text-shadow:0 0 1px #000,0 0 2px #000}
+.sq .bp{color:#1a1a1a}
 </style>
 </head>
 <body>
@@ -6962,6 +6978,194 @@ tool({
     const reset=()=>{ g=Array(R*C).fill(0); over=false; msg.textContent='your move (red)'; render(); };
     board.addEventListener('click',e=>{ const d=e.target.closest('[data-c]'); if(d)play(+d.dataset.c); });
     $('#c4-new').addEventListener('click',reset); reset();
+  }
+});
+
+/* ── solitaire (klondike) ──────────────────────────────────── */
+tool({
+  id:'solitaire', name:'Solitaire', group:'Toys',
+  blurb:'Klondike, draw one. Click the stock to deal; click a card to pick it up, then click where it goes; double-click to send a card to the foundations. Aces up, build down by alternating colour.',
+  html: `
+    <div class="toybar"><button class="act" id="so-new">New deal</button><span class="score" id="so-msg"></span></div>
+    <div id="so-top" style="display:flex;gap:8px;margin-bottom:14px"></div>
+    <div id="so-tab" style="display:flex;gap:8px;align-items:flex-start"></div>`,
+  wire(){
+    const SUIT=['♠','♥','♦','♣'], RANK=['','A','2','3','4','5','6','7','8','9','10','J','Q','K'], red=s=>s===1||s===2;
+    let stock, waste, found, tab, sel;
+    const deck=()=>{ const d=[]; for(let s=0;s<4;s++)for(let r=1;r<=13;r++)d.push({r,s,up:false}); for(let i=d.length-1;i>0;i--){ const j=rint(i+1); [d[i],d[j]]=[d[j],d[i]]; } return d; };
+    const deal=()=>{ const d=deck(); tab=[[],[],[],[],[],[],[]]; for(let i=0;i<7;i++)for(let j=0;j<=i;j++){ const c=d.pop(); c.up=(j===i); tab[i].push(c); } stock=d; stock.forEach(c=>c.up=false); waste=[]; found=[[],[],[],[]]; sel=null; $('#so-msg').textContent=''; render(); };
+    const cardEl=(c,loc,idx,ph='')=>{ if(!c)return `<div class="card empty" data-loc="${loc}" data-idx="${idx}">${ph}</div>`; if(!c.up)return `<div class="card back" data-loc="${loc}" data-idx="${idx}"></div>`; const s=(sel&&sel.loc===loc&&idx>=sel.idx)?' sel':''; return `<div class="card${red(c.s)?' red':''}${s}" data-loc="${loc}" data-idx="${idx}">${RANK[c.r]}${SUIT[c.s]}</div>`; };
+    const render=()=>{
+      let h = `<div>` + (stock.length ? `<div class="card back" data-loc="stock" data-idx="-1"></div>` : `<div class="card empty" data-loc="stock" data-idx="-1">↻</div>`) + `</div>`;
+      h += cardEl(waste[waste.length-1]||null, 'waste', waste.length-1);
+      h += `<div style="width:46px"></div>`;
+      for (let f=0;f<4;f++) h += cardEl(found[f][found[f].length-1]||null, 'f'+f, found[f].length-1);
+      $('#so-top').innerHTML = h;
+      const tabEl = $('#so-tab'); tabEl.innerHTML = '';
+      tab.forEach((pile,p) => { const col = document.createElement('div'); col.style.cssText = 'display:flex;flex-direction:column;min-height:64px;width:46px'; col.dataset.loc = 't'+p; col.dataset.idx = -1;
+        if (!pile.length) col.innerHTML = `<div class="card empty" data-loc="t${p}" data-idx="0"></div>`;
+        pile.forEach((c,i) => { const w = document.createElement('div'); w.style.marginTop = i ? (c.up ? '-42px' : '-52px') : '0'; w.innerHTML = cardEl(c,'t'+p,i); col.appendChild(w.firstChild); });
+        tabEl.appendChild(col); });
+    };
+    const canFound=(c,f)=>{ const pile=found[f]; return pile.length ? (pile[pile.length-1].s===c.s && c.r===pile[pile.length-1].r+1) : c.r===1; };
+    const canTab=(c,p)=>{ const pile=tab[p]; if(!pile.length)return c.r===13; const t=pile[pile.length-1]; return t.up && red(t.s)!==red(c.s) && c.r===t.r-1; };
+    const flip=p=>{ const pile=tab[p]; if(pile.length && !pile[pile.length-1].up)pile[pile.length-1].up=true; };
+    const win=()=>{ if(found.every(f=>f.length===13))$('#so-msg').textContent='🎉 you win!'; };
+    const moveTo=loc=>{
+      if(!sel)return; let cards;
+      if(sel.loc==='waste')cards=[waste[waste.length-1]];
+      else cards=tab[+sel.loc.slice(1)].slice(sel.idx);
+      const c=cards[0]; let ok=false;
+      if(loc[0]==='f' && cards.length===1 && canFound(c,+loc.slice(1))){ found[+loc.slice(1)].push(c); ok=true; }
+      else if(loc[0]==='t' && canTab(c,+loc.slice(1))){ tab[+loc.slice(1)].push(...cards); ok=true; }
+      if(ok){ if(sel.loc==='waste')waste.pop(); else { const sp=+sel.loc.slice(1); tab[sp].splice(sel.idx); flip(sp); } win(); }
+      sel=null; render();
+    };
+    const autoFound=(loc,idx)=>{ let c; if(loc==='waste')c=waste[waste.length-1]; else if(loc[0]==='t'){ const p=+loc.slice(1); if(idx!==tab[p].length-1)return; c=tab[p][idx]; } else return; if(!c||!c.up)return; for(let f=0;f<4;f++)if(canFound(c,f)){ if(loc==='waste')waste.pop(); else { tab[+loc.slice(1)].pop(); flip(+loc.slice(1)); } found[f].push(c); win(); render(); return; } };
+    const click=e=>{ const el=e.target.closest('[data-loc]'); if(!el)return; const loc=el.dataset.loc, idx=+el.dataset.idx;
+      if(loc==='stock'){ if(stock.length){ const c=stock.pop(); c.up=true; waste.push(c); } else { stock=waste.reverse(); stock.forEach(c=>c.up=false); waste=[]; } sel=null; render(); return; }
+      if(!sel){ if(loc==='waste'&&waste.length)sel={loc,idx:waste.length-1}; else if(loc[0]==='t'){ const c=tab[+loc.slice(1)][idx]; if(c&&c.up)sel={loc,idx}; } render(); return; }
+      if(loc===sel.loc&&idx===sel.idx){ sel=null; render(); return; }
+      if(loc[0]==='t'||loc[0]==='f')moveTo(loc); else { sel=null; render(); }
+    };
+    $('#so-top').addEventListener('click',click); $('#so-tab').addEventListener('click',click);
+    $('#so-top').addEventListener('dblclick',e=>{ const el=e.target.closest('[data-loc]'); if(el&&el.dataset.loc==='waste')autoFound('waste',waste.length-1); });
+    $('#so-tab').addEventListener('dblclick',e=>{ const el=e.target.closest('[data-loc]'); if(el)autoFound(el.dataset.loc,+el.dataset.idx); });
+    $('#so-new').addEventListener('click',deal); deal();
+  }
+});
+
+/* ── blackjack ─────────────────────────────────────────────── */
+tool({
+  id:'blackjack', name:'Blackjack', group:'Toys',
+  blurb:'Beat the dealer to 21 without busting. Hit or stand; the dealer draws to 17. Aces count 1 or 11. Chips saved locally.',
+  html: `
+    <div class="toybar">
+      <button class="act" id="bj-deal">Deal</button>
+      <button class="ghost" id="bj-hit" disabled>Hit</button>
+      <button class="ghost" id="bj-stand" disabled>Stand</button>
+      <span class="score" id="bj-chips"></span>
+      <span class="score" id="bj-msg"></span>
+    </div>
+    <div class="score">Dealer</div><div id="bj-dealer" style="display:flex;gap:6px;margin:.3rem 0 .9rem"></div>
+    <div class="score">You <span id="bj-ptot"></span></div><div id="bj-player" style="display:flex;gap:6px;margin:.3rem 0"></div>`,
+  wire(){
+    const SUIT=['♠','♥','♦','♣'], RANK=['','A','2','3','4','5','6','7','8','9','10','J','Q','K'], HK='pt-bj-chips', red=s=>s===1||s===2;
+    let shoe=[], dealer=[], player=[], done=true, chips=+(localStorage.getItem(HK)||100);
+    const draw=()=>{ if(!shoe.length){ for(let s=0;s<4;s++)for(let r=1;r<=13;r++)shoe.push({r,s}); for(let i=shoe.length-1;i>0;i--){ const j=rint(i+1); [shoe[i],shoe[j]]=[shoe[j],shoe[i]]; } } return shoe.pop(); };
+    const val=h=>{ let t=0,a=0; h.forEach(c=>{ if(c.r===1){a++;t+=11;} else t+=Math.min(10,c.r); }); while(t>21&&a){ t-=10; a--; } return t; };
+    const ch=(c,hid)=> hid ? `<div class="card back"></div>` : `<div class="card${red(c.s)?' red':''}">${RANK[c.r]}${SUIT[c.s]}</div>`;
+    const render=()=>{ $('#bj-dealer').innerHTML=dealer.map((c,i)=>ch(c,!done&&i===1)).join(''); $('#bj-player').innerHTML=player.map(c=>ch(c)).join(''); $('#bj-ptot').textContent=player.length?'('+val(player)+')':''; $('#bj-chips').textContent=chips+' chips'; };
+    const btns=p=>{ $('#bj-hit').disabled=!p; $('#bj-stand').disabled=!p; $('#bj-deal').disabled=p; };
+    const settle=()=>{ done=true; const p=val(player), d=val(dealer); let m,delta; if(p>21){m='bust — you lose';delta=-10;} else if(d>21){m='dealer busts — you win';delta=10;} else if(p>d){m='you win';delta=10;} else if(p<d){m='you lose';delta=-10;} else {m='push';delta=0;} chips+=delta; try{localStorage.setItem(HK,chips);}catch{} $('#bj-msg').textContent=m+(delta>0?' (+10)':delta<0?' (-10)':''); btns(false); render(); };
+    const deal=()=>{ dealer=[draw(),draw()]; player=[draw(),draw()]; done=false; $('#bj-msg').textContent=''; render(); btns(true); if(val(player)===21)stand(); };
+    const hit=()=>{ player.push(draw()); render(); if(val(player)>21)settle(); };
+    const stand=()=>{ done=true; while(val(dealer)<17)dealer.push(draw()); settle(); };
+    $('#bj-deal').addEventListener('click',deal); $('#bj-hit').addEventListener('click',hit); $('#bj-stand').addEventListener('click',stand);
+    render();
+  }
+});
+
+/* ── chess ─────────────────────────────────────────────────── */
+tool({
+  id:'chess', name:'Chess', group:'Toys',
+  blurb:'You play White against a computer that looks a few moves ahead. Full rules — castling, en passant, promotion (auto-queen), check and mate. Click a piece, then its destination.',
+  html: `
+    <div class="toybar">
+      <button class="act" id="ch-new">New game</button>
+      <span class="score" id="ch-status">White to move</span>
+    </div>
+    <div class="chessbd" id="ch-board"></div>
+    <p class="note">Computer is club-beginner strength (3-ply search). You move first as White.</p>`,
+  wire(){
+    const GLY={k:'♚',q:'♛',r:'♜',b:'♝',n:'♞',p:'♟'}, VAL={p:100,n:320,b:330,r:500,q:900,k:0};
+    const START=('rnbqkbnr'+'pppppppp'+'........'.repeat(4)+'PPPPPPPP'+'RNBQKBNR').split('');
+    const PST=[0,5,5,0,0,5,5,0, 5,10,10,10,10,10,10,5, 5,10,15,20,20,15,10,5, 5,10,20,25,25,20,10,5, 5,10,20,25,25,20,10,5, 5,10,15,20,20,15,10,5, 5,10,10,10,10,10,10,5, 0,5,5,0,0,5,5,0];
+    const isW=p=>p!=='.'&&p===p.toUpperCase();
+    const col=p=>p==='.'?null:(isW(p)?'w':'b');
+    const inb=(r,f)=>r>=0&&r<8&&f>=0&&f<8;
+    let bd, turn, castle, ep, sel, legal, over;
+    const kpos=(b,c)=>b.indexOf(c==='w'?'K':'k');
+    const attacked=(b,t,by)=>{
+      const tr=Math.floor(t/8), tf=t%8;
+      for(const[dr,df]of[[-2,-1],[-2,1],[-1,-2],[-1,2],[1,-2],[1,2],[2,-1],[2,1]]){ const r=tr+dr,f=tf+df; if(inb(r,f)&&b[r*8+f]===(by==='w'?'N':'n'))return true; }
+      for(let dr=-1;dr<=1;dr++)for(let df=-1;df<=1;df++){ if(!dr&&!df)continue; const r=tr+dr,f=tf+df; if(inb(r,f)&&b[r*8+f]===(by==='w'?'K':'k'))return true; }
+      const pr=by==='w'?tr+1:tr-1; for(const df of[-1,1]){ if(inb(pr,tf+df)&&b[pr*8+tf+df]===(by==='w'?'P':'p'))return true; }
+      const slide=(dirs,types)=>{ for(const[dr,df]of dirs){ let r=tr+dr,f=tf+df; while(inb(r,f)){ const p=b[r*8+f]; if(p!=='.'){ if(col(p)===by&&types.includes(p.toLowerCase()))return true; break; } r+=dr;f+=df; } } return false; };
+      if(slide([[-1,-1],[-1,1],[1,-1],[1,1]],['b','q']))return true;
+      if(slide([[-1,0],[1,0],[0,-1],[0,1]],['r','q']))return true;
+      return false;
+    };
+    const pseudo=(b,c,cast,e)=>{
+      const mv=[], add=(from,to,o={})=>mv.push({from,to,...o});
+      for(let i=0;i<64;i++){ const p=b[i]; if(p==='.'||col(p)!==c)continue; const r=Math.floor(i/8),f=i%8,lc=p.toLowerCase();
+        if(lc==='p'){ const dir=c==='w'?-1:1, sr=c==='w'?6:1, pr=c==='w'?0:7;
+          if(inb(r+dir,f)&&b[(r+dir)*8+f]==='.'){ if(r+dir===pr)add(i,(r+dir)*8+f,{promo:1}); else add(i,(r+dir)*8+f); if(r===sr&&b[(r+2*dir)*8+f]==='.')add(i,(r+2*dir)*8+f,{dbl:1}); }
+          for(const df of[-1,1]){ const nr=r+dir,nf=f+df; if(!inb(nr,nf))continue; const t=nr*8+nf; if(b[t]!=='.'&&col(b[t])!==c){ if(nr===pr)add(i,t,{promo:1}); else add(i,t); } else if(t===e)add(i,t,{epcap:1}); }
+        } else if(lc==='n'){ for(const[dr,df]of[[-2,-1],[-2,1],[-1,-2],[-1,2],[1,-2],[1,2],[2,-1],[2,1]]){ const nr=r+dr,nf=f+df; if(inb(nr,nf)&&col(b[nr*8+nf])!==c)add(i,nr*8+nf); } }
+        else if(lc==='k'){ for(let dr=-1;dr<=1;dr++)for(let df=-1;df<=1;df++){ if(!dr&&!df)continue; const nr=r+dr,nf=f+df; if(inb(nr,nf)&&col(b[nr*8+nf])!==c)add(i,nr*8+nf); }
+          const opp=c==='w'?'b':'w', home=c==='w'?60:4;
+          if(i===home&&!attacked(b,home,opp)){
+            if((c==='w'?cast.wk:cast.bk)&&b[home+1]==='.'&&b[home+2]==='.'&&!attacked(b,home+1,opp)&&!attacked(b,home+2,opp))add(i,home+2,{castle:'k'});
+            if((c==='w'?cast.wq:cast.bq)&&b[home-1]==='.'&&b[home-2]==='.'&&b[home-3]==='.'&&!attacked(b,home-1,opp)&&!attacked(b,home-2,opp))add(i,home-2,{castle:'q'});
+          }
+        } else { const dirs=lc==='b'?[[-1,-1],[-1,1],[1,-1],[1,1]]:lc==='r'?[[-1,0],[1,0],[0,-1],[0,1]]:[[-1,-1],[-1,1],[1,-1],[1,1],[-1,0],[1,0],[0,-1],[0,1]];
+          for(const[dr,df]of dirs){ let nr=r+dr,nf=f+df; while(inb(nr,nf)){ const t=b[nr*8+nf]; if(t==='.')add(i,nr*8+nf); else { if(col(t)!==c)add(i,nr*8+nf); break; } nr+=dr;nf+=df; } } }
+      }
+      return mv;
+    };
+    const apply=(st,m)=>{
+      const b=st.bd.slice(), cast={...st.castle}; let e=-1;
+      const p=b[m.from], c=col(p); b[m.to]=p; b[m.from]='.';
+      if(m.epcap)b[m.to+(c==='w'?8:-8)]='.';
+      if(m.promo)b[m.to]=c==='w'?'Q':'q';
+      if(m.dbl)e=(m.from+m.to)/2;
+      if(m.castle){ const r=Math.floor(m.from/8); if(m.castle==='k'){ b[r*8+5]=b[r*8+7]; b[r*8+7]='.'; } else { b[r*8+3]=b[r*8+0]; b[r*8+0]='.'; } }
+      if(p==='K'){cast.wk=cast.wq=false;} if(p==='k'){cast.bk=cast.bq=false;}
+      if(m.from===63||m.to===63)cast.wk=false; if(m.from===56||m.to===56)cast.wq=false;
+      if(m.from===7||m.to===7)cast.bk=false; if(m.from===0||m.to===0)cast.bq=false;
+      return {bd:b,turn:st.turn==='w'?'b':'w',castle:cast,ep:e};
+    };
+    const legalFor=st=>pseudo(st.bd,st.turn,st.castle,st.ep).filter(m=>{ const ns=apply(st,m); return !attacked(ns.bd,kpos(ns.bd,st.turn),st.turn==='w'?'b':'w'); });
+    const evalB=b=>{ let s=0; for(let i=0;i<64;i++){ const p=b[i]; if(p==='.')continue; const v=VAL[p.toLowerCase()]+(p.toLowerCase()==='p'?PST[i]*0:PST[isW(p)?i:63-i]); s+=isW(p)?v:-v; } return s; };
+    const negamax=(st,d,a,bb)=>{
+      const moves=legalFor(st);
+      if(!moves.length)return attacked(st.bd,kpos(st.bd,st.turn),st.turn==='w'?'b':'w')?-100000-d:0;
+      if(d===0)return st.turn==='w'?evalB(st.bd):-evalB(st.bd);
+      moves.sort((x,y)=>(st.bd[y.to]!=='.'?VAL[st.bd[y.to].toLowerCase()]:0)-(st.bd[x.to]!=='.'?VAL[st.bd[x.to].toLowerCase()]:0));
+      let best=-1e9;
+      for(const m of moves){ const sc=-negamax(apply(st,m),d-1,-bb,-a); if(sc>best)best=sc; if(best>a)a=best; if(a>=bb)break; }
+      return best;
+    };
+    const aiMove=()=>{
+      const st={bd,turn,castle,ep}; const moves=legalFor(st); if(!moves.length){ finish(); return; }
+      let best=-1e9, pick=moves[0];
+      moves.sort((x,y)=>(bd[y.to]!=='.'?VAL[bd[y.to].toLowerCase()]:0)-(bd[x.to]!=='.'?VAL[bd[x.to].toLowerCase()]:0));
+      for(const m of moves){ const sc=-negamax(apply(st,m),2,-1e9,1e9)+rint(15); if(sc>best){best=sc;pick=m;} }
+      const ns=apply(st,pick); bd=ns.bd; turn=ns.turn; castle=ns.castle; ep=ns.ep; sel=null; legal=[]; render(); finish();
+    };
+    const finish=()=>{
+      const st={bd,turn,castle,ep}; const moves=legalFor(st); const chk=attacked(bd,kpos(bd,turn),turn==='w'?'b':'w');
+      if(!moves.length){ over=true; $('#ch-status').textContent= chk?(turn==='w'?'Checkmate — you lose':'Checkmate — you win!'):'Stalemate — draw'; }
+      else $('#ch-status').textContent=(turn==='w'?'White to move':'Black thinking…')+(chk?' · check!':'');
+    };
+    const render=()=>{
+      const el=$('#ch-board'); el.innerHTML='';
+      for(let i=0;i<64;i++){ const r=Math.floor(i/8),f=i%8; const d=document.createElement('div'); d.className='sq '+((r+f)%2?'dk':'lt'); d.dataset.i=i;
+        const p=bd[i]; if(p!=='.')d.innerHTML=`<span class="${isW(p)?'wp':'bp'}">${GLY[p.toLowerCase()]}</span>`;
+        if(sel===i)d.classList.add('sel');
+        if(legal.some(m=>m.to===i))d.classList.add(bd[i]!=='.'?'cap':'mv');
+        el.appendChild(d); }
+    };
+    const onClick=e=>{ if(over||turn!=='w')return; const sq=e.target.closest('[data-i]'); if(!sq)return; const i=+sq.dataset.i;
+      const mv=legal.find(m=>m.to===i);
+      if(mv){ const ns=apply({bd,turn,castle,ep},mv); bd=ns.bd; turn=ns.turn; castle=ns.castle; ep=ns.ep; sel=null; legal=[]; render(); finish(); if(!over){ $('#ch-status').textContent='Black thinking…'; setTimeout(aiMove,60); } return; }
+      if(bd[i]!=='.'&&col(bd[i])==='w'){ sel=i; legal=legalFor({bd,turn,castle,ep}).filter(m=>m.from===i); } else { sel=null; legal=[]; }
+      render();
+    };
+    const reset=()=>{ bd=START.slice(); turn='w'; castle={wk:true,wq:true,bk:true,bq:true}; ep=-1; sel=null; legal=[]; over=false; render(); $('#ch-status').textContent='White to move'; };
+    $('#ch-board').addEventListener('click',onClick);
+    $('#ch-new').addEventListener('click',reset); reset();
   }
 });
 

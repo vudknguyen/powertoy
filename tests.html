@@ -203,6 +203,10 @@ t('word guess', async () => { await go('wordguess'); $('#wg-new').click(); set('
 t('mastermind', async () => { await go('mastermind'); $('#mm-new').click(); eq($('#mm-palette').children.length,6); const pal=$$('#mm-palette [data-i]'); pal[0].click();pal[1].click();pal[2].click();pal[3].click(); $('#mm-go').click(); eq($('#mm-history').children.length,1); });
 t('tic-tac-toe', async () => { await go('ttt'); $('#tc-new').click(); eq($('#tc-board').children.length,9); $('#tc-board').children[0].click(); await wait(250); assert($$('#tc-board [data-i]').filter(d=>d.textContent).length>=2,'AI did not move'); });
 t('connect four', async () => { await go('connect4'); $('#c4-new').click(); eq($('#c4-board').children.length,42); $('#c4-board').querySelector('[data-c=\"3\"]').click(); await wait(400); const filled=$$('#c4-board [data-c]').filter(d=>{const bg=d.style.background;return bg&&!bg.includes('surface');}); assert(filled.length>=2,'no discs dropped'); });
+t('solitaire deal', async () => { await go('solitaire'); $('#so-new').click(); eq($('#so-tab').children.length, 7); eq($$('#so-tab .card').length, 28); $('#so-top [data-loc=stock]').click(); assert($('#so-top [data-loc=waste]'), 'no waste pile'); });
+t('blackjack deal', async () => { await go('blackjack'); $('#bj-deal').click(); eq($$('#bj-player .card').length, 2); eq($$('#bj-dealer .card').length, 2); });
+t('chess 20 opening moves', async () => { await go('chess'); $('#ch-new').click(); eq($$('#ch-board .sq').length, 64); let total=0; for (let i=0;i<64;i++){ const sq=$('#ch-board .sq[data-i=\"'+i+'\"]'); if(!sq.querySelector('.wp')) continue; sq.click(); total += $$('#ch-board .sq.mv, #ch-board .sq.cap').length; } eq(total, 20); });
+t('chess AI replies', async () => { await go('chess'); $('#ch-new').click(); const c=i=>$('#ch-board .sq[data-i=\"'+i+'\"]').click(); c(52); c(36); await wait(900); eq(txt('#ch-status'), 'White to move'); });
 
 /* ---------- run ---------- */
 async function run(){
