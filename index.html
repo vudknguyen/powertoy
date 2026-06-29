@@ -6960,25 +6960,29 @@ tool({
 /* ── tic-tac-toe ───────────────────────────────────────────── */
 tool({
   id:'ttt', name:'Tic-tac-toe', group:'Toys',
-  blurb:'You’re X against an unbeatable computer (minimax). The best you can hope for is a draw — try.',
+  blurb:'Get three in a row. Play the unbeatable computer (minimax) or pass-and-play two-player on one device.',
   html: `
     <div class="toybar">
       <button class="act" id="tc-new">New game</button>
+      <div class="seg" id="tc-mode"><button class="on" data-m="ai">vs Computer</button><button data-m="2p">2 players</button></div>
       <span class="score" id="tc-msg">your move</span>
-      <span class="score" id="tc-w"></span>
     </div>
     <div id="tc-board" style="display:grid;grid-template-columns:repeat(3,90px);grid-template-rows:repeat(3,90px);gap:6px"></div>`,
   wire(){
-    let b, over, busy, last=-1; const board=$('#tc-board'), msg=$('#tc-msg');
+    let b, over, busy, last=-1, mode='ai', cur='X'; const board=$('#tc-board'), msg=$('#tc-msg');
     const LINES=[[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
     const winner=s=>{ for(const[a,c,d]of LINES)if(s[a]&&s[a]===s[c]&&s[a]===s[d])return s[a]; return s.every(x=>x)?'draw':null; };
     const minimax=(s,me)=>{ const w=winner(s); if(w==='O')return{sc:1}; if(w==='X')return{sc:-1}; if(w==='draw')return{sc:0};
       let best={sc:me==='O'?-2:2,i:-1}; for(let i=0;i<9;i++){ if(s[i])continue; s[i]=me; const r=minimax(s,me==='O'?'X':'O'); s[i]=''; if((me==='O'&&r.sc>best.sc)||(me==='X'&&r.sc<best.sc))best={sc:r.sc,i}; } return best; };
     const render=()=>{ board.innerHTML=''; b.forEach((v,i)=>{ const d=document.createElement('div'); d.className=(v&&i===last)?'anim-pop':''; d.style.cssText='display:flex;align-items:center;justify-content:center;background:var(--code-bg);border-radius:8px;font-size:2.6rem;font-weight:700;cursor:'+(v||over?'default':'pointer')+';color:'+(v==='X'?'var(--accent-2)':'var(--bad)'); d.textContent=v; d.dataset.i=i; board.appendChild(d); }); };
-    const end=()=>{ const w=winner(b); if(w){ over=true; msg.textContent=w==='draw'?'draw':w==='X'?'you win!':'computer wins'; if(w==='X')confetti(); } };
+    const turnMsg=()=> mode==='2p' ? cur+' to move' : 'your move';
+    const end=()=>{ const w=winner(b); if(!w)return; over=true; if(mode==='2p'){ msg.textContent=w==='draw'?'draw':w+' wins!'; if(w!=='draw')confetti(); } else { msg.textContent=w==='draw'?'draw':w==='X'?'you win!':'computer wins'; if(w==='X')confetti(); } };
     const ai=()=>{ const m=minimax(b,'O'); if(m.i>=0){b[m.i]='O';last=m.i;} end(); render(); busy=false; if(!over)msg.textContent='your move'; };
-    const reset=()=>{ b=Array(9).fill(''); over=false; busy=false; last=-1; msg.textContent='your move'; render(); };
-    board.addEventListener('click',e=>{ const d=e.target.closest('[data-i]'); if(!d||over||busy)return; const i=+d.dataset.i; if(b[i])return; b[i]='X'; last=i; end(); render(); if(!over){ busy=true; msg.textContent='thinking…'; setTimeout(ai,140); } });
+    const reset=()=>{ b=Array(9).fill(''); over=false; busy=false; last=-1; cur='X'; msg.textContent=turnMsg(); render(); };
+    board.addEventListener('click',e=>{ const d=e.target.closest('[data-i]'); if(!d||over||busy)return; const i=+d.dataset.i; if(b[i])return;
+      if(mode==='2p'){ b[i]=cur; last=i; end(); if(!over){ cur=cur==='X'?'O':'X'; msg.textContent=turnMsg(); } render(); return; }
+      b[i]='X'; last=i; end(); render(); if(!over){ busy=true; msg.textContent='thinking…'; setTimeout(ai,140); } });
+    $$('#tc-mode button').forEach(btn=>btn.addEventListener('click',()=>{ $$('#tc-mode button').forEach(x=>x.classList.remove('on')); btn.classList.add('on'); mode=btn.dataset.m; reset(); }));
     $('#tc-new').addEventListener('click',reset); reset();
   }
 });
@@ -6990,11 +6994,12 @@ tool({
   html: `
     <div class="toybar">
       <button class="act" id="c4-new">New game</button>
+      <div class="seg" id="c4-mode"><button class="on" data-m="ai">vs Computer</button><button data-m="2p">2 players</button></div>
       <span class="score" id="c4-msg">your move (red)</span>
     </div>
     <div id="c4-board" style="display:inline-grid;grid-template-columns:repeat(7,44px);gap:4px;background:var(--border-2);padding:6px;border-radius:10px"></div>`,
   wire(){
-    const R=6,C=7; let g, over, busy, lastDrop=-1; const board=$('#c4-board'), msg=$('#c4-msg');
+    const R=6,C=7; let g, over, busy, lastDrop=-1, mode='ai', cur=1; const board=$('#c4-board'), msg=$('#c4-msg');
     const at=(b,r,c)=>b[r*C+c];
     const drop=(b,c,p)=>{ for(let r=R-1;r>=0;r--)if(!b[r*C+c]){ b[r*C+c]=p; return r; } return -1; };
     const wins=(b,p)=>{ for(let r=0;r<R;r++)for(let c=0;c<C;c++){ if(b[r*C+c]!==p)continue;
@@ -7010,11 +7015,15 @@ tool({
         if(beta<=alpha)break; }
       return best; };
     const render=()=>{ board.innerHTML=''; for(let i=0;i<R*C;i++){ const v=g[i]; const d=document.createElement('div'); d.className=(i===lastDrop)?'anim-drop':''; d.style.cssText='width:44px;height:44px;border-radius:50%;cursor:'+(over?'default':'pointer')+';background:'+(v===1?'#ff6b6b':v===2?'#ffd43b':'var(--surface)'); d.dataset.c=i%C; board.appendChild(d); } };
-    const end=()=>{ if(wins(g,1)){over=true;msg.textContent='you win!';confetti();return true;} if(wins(g,2)){over=true;msg.textContent='computer wins';return true;} if(full(g)){over=true;msg.textContent='draw';return true;} return false; };
-    const play=c=>{ if(over||busy)return; const pr=drop(g,c,1); if(pr<0)return; lastDrop=pr*C+c; render(); if(end())return; busy=true; msg.textContent='thinking…';
+    const turnMsg=()=> mode==='2p' ? (cur===1?'Red':'Yellow')+' to move' : 'your move (red)';
+    const end=()=>{ if(wins(g,1)){over=true;msg.textContent=mode==='2p'?'Red wins!':'you win!';confetti();return true;} if(wins(g,2)){over=true;msg.textContent=mode==='2p'?'Yellow wins!':'computer wins';if(mode==='2p')confetti();return true;} if(full(g)){over=true;msg.textContent='draw';return true;} return false; };
+    const play=c=>{ if(over||busy)return;
+      if(mode==='2p'){ const pr=drop(g,c,cur); if(pr<0)return; lastDrop=pr*C+c; if(!end()){ cur=cur===1?2:1; msg.textContent=turnMsg(); } render(); return; }
+      const pr=drop(g,c,1); if(pr<0)return; lastDrop=pr*C+c; render(); if(end())return; busy=true; msg.textContent='thinking…';
       setTimeout(()=>{ const m=nega(g,5,2,-1e9,1e9); const ar=drop(g,m.c,2); lastDrop=ar*C+m.c; render(); busy=false; if(!end())msg.textContent='your move (red)'; },80); };
-    const reset=()=>{ g=Array(R*C).fill(0); over=false; busy=false; lastDrop=-1; msg.textContent='your move (red)'; render(); };
+    const reset=()=>{ g=Array(R*C).fill(0); over=false; busy=false; lastDrop=-1; cur=1; msg.textContent=turnMsg(); render(); };
     board.addEventListener('click',e=>{ const d=e.target.closest('[data-c]'); if(d)play(+d.dataset.c); });
+    $$('#c4-mode button').forEach(btn=>btn.addEventListener('click',()=>{ $$('#c4-mode button').forEach(x=>x.classList.remove('on')); btn.classList.add('on'); mode=btn.dataset.m; reset(); }));
     $('#c4-new').addEventListener('click',reset); reset();
   }
 });
@@ -7111,10 +7120,11 @@ tool({
   html: `
     <div class="toybar">
       <button class="act" id="ch-new">New game</button>
+      <div class="seg" id="ch-mode"><button class="on" data-m="ai">vs Computer</button><button data-m="2p">2 players</button></div>
       <span class="score" id="ch-status">White to move</span>
     </div>
     <div class="chessbd" id="ch-board"></div>
-    <p class="note">Computer is club-beginner strength (3-ply search). You move first as White.</p>`,
+    <p class="note">Computer is club-beginner strength (3-ply search). You move first as White. In 2-player mode, take turns on one device.</p>`,
   wire(){
     const GLY={k:'♚',q:'♛',r:'♜',b:'♝',n:'♞',p:'♟'}, VAL={p:100,n:320,b:330,r:500,q:900,k:0};
     const START=('rnbqkbnr'+'pppppppp'+'........'.repeat(4)+'PPPPPPPP'+'RNBQKBNR').split('');
@@ -7122,7 +7132,7 @@ tool({
     const isW=p=>p!=='.'&&p===p.toUpperCase();
     const col=p=>p==='.'?null:(isW(p)?'w':'b');
     const inb=(r,f)=>r>=0&&r<8&&f>=0&&f<8;
-    let bd, turn, castle, ep, sel, legal, over;
+    let bd, turn, castle, ep, sel, legal, over, mode='ai';
     const kpos=(b,c)=>b.indexOf(c==='w'?'K':'k');
     const attacked=(b,t,by)=>{
       const tr=Math.floor(t/8), tf=t%8;
@@ -7184,8 +7194,10 @@ tool({
     };
     const finish=()=>{
       const st={bd,turn,castle,ep}; const moves=legalFor(st); const chk=attacked(bd,kpos(bd,turn),turn==='w'?'b':'w');
-      if(!moves.length){ over=true; $('#ch-status').textContent= chk?(turn==='w'?'Checkmate — you lose':'Checkmate — you win!'):'Stalemate — draw'; if(chk&&turn==='b')confetti(); }
-      else $('#ch-status').textContent=(turn==='w'?'White to move':'Black thinking…')+(chk?' · check!':'');
+      if(!moves.length){ over=true;
+        if(chk){ const winMsg = mode==='2p' ? 'Checkmate — '+(turn==='w'?'Black':'White')+' wins!' : (turn==='w'?'Checkmate — you lose':'Checkmate — you win!'); $('#ch-status').textContent=winMsg; if(mode==='2p'||turn==='b')confetti(); }
+        else $('#ch-status').textContent='Stalemate — draw'; }
+      else { const mover=turn==='w'?'White to move':(mode==='2p'?'Black to move':'Black thinking…'); $('#ch-status').textContent=mover+(chk?' · check!':''); }
     };
     const render=()=>{
       const el=$('#ch-board'); el.innerHTML='';
@@ -7195,15 +7207,17 @@ tool({
         if(legal.some(m=>m.to===i))d.classList.add(bd[i]!=='.'?'cap':'mv');
         el.appendChild(d); }
     };
-    const onClick=e=>{ if(over||turn!=='w')return; const sq=e.target.closest('[data-i]'); if(!sq)return; const i=+sq.dataset.i;
+    const onClick=e=>{ if(over)return; if(mode==='ai'&&turn!=='w')return; const sq=e.target.closest('[data-i]'); if(!sq)return; const i=+sq.dataset.i;
       const mv=legal.find(m=>m.to===i);
-      if(mv){ const ns=apply({bd,turn,castle,ep},mv); bd=ns.bd; turn=ns.turn; castle=ns.castle; ep=ns.ep; sel=null; legal=[]; render(); finish(); if(!over){ $('#ch-status').textContent='Black thinking…'; setTimeout(aiMove,60); } return; }
-      if(bd[i]!=='.'&&col(bd[i])==='w'){ sel=i; legal=legalFor({bd,turn,castle,ep}).filter(m=>m.from===i); } else { sel=null; legal=[]; }
+      if(mv){ const ns=apply({bd,turn,castle,ep},mv); bd=ns.bd; turn=ns.turn; castle=ns.castle; ep=ns.ep; sel=null; legal=[]; render(); finish(); if(!over&&mode==='ai'){ $('#ch-status').textContent='Black thinking…'; setTimeout(aiMove,60); } return; }
+      if(bd[i]!=='.'&&col(bd[i])===turn){ sel=i; legal=legalFor({bd,turn,castle,ep}).filter(m=>m.from===i); } else { sel=null; legal=[]; }
       render();
     };
     const reset=()=>{ bd=START.slice(); turn='w'; castle={wk:true,wq:true,bk:true,bq:true}; ep=-1; sel=null; legal=[]; over=false; render(); $('#ch-status').textContent='White to move'; };
     $('#ch-board').addEventListener('click',onClick);
-    $('#ch-new').addEventListener('click',reset); reset();
+    $('#ch-new').addEventListener('click',reset);
+    $('#ch-mode').addEventListener('click',e=>{ const b=e.target.closest('[data-m]'); if(!b)return; mode=b.dataset.m; [...$('#ch-mode').children].forEach(x=>x.classList.toggle('on',x===b)); reset(); });
+    reset();
   }
 });
 
