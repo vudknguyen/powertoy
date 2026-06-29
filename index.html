@@ -404,6 +404,13 @@ details.rules li{margin:.15rem 0}
 #pt-confetti{position:fixed;inset:0;pointer-events:none;z-index:300;overflow:hidden}
 .pt-conf{position:absolute;top:-12px;width:9px;height:9px;border-radius:1px;will-change:transform,opacity}
 @keyframes confFall{to{transform:translateY(106vh) rotate(720deg);opacity:.2}}
+/* netplay (serverless P2P) panel */
+.netplay{margin:.7rem 0;padding:.8rem;border:1px solid var(--border-2);border-radius:10px;background:var(--surface);max-width:560px}
+.netrow{display:flex;gap:.5rem;align-items:center;margin:.35rem 0}
+.netlbl{display:block;font-size:.82rem;color:var(--ink);font-weight:600;margin-top:.55rem}
+.netlbl .muted{font-weight:400;color:var(--muted)}
+.netstat{flex:1}
+.netcode{flex:1;min-width:0;height:3.1rem;resize:vertical;font-family:var(--mono);font-size:.78rem;padding:.45rem .55rem;border:1px solid var(--border-2);border-radius:7px;background:var(--bg);color:var(--ink);word-break:break-all}
 </style>
 </head>
 <body>
@@ -6463,6 +6470,109 @@ function confetti(){
   setTimeout(() => { box.innerHTML = ''; }, 3200);
 }
 
+/* ── serverless P2P (WebRTC, manual copy-paste signaling, LAN-only) ──
+   No STUN/TURN servers: ICE gathers only host/mDNS candidates, which connect
+   directly between two machines on the same network. The SDP (offer/answer,
+   candidates included) is deflated + base64'd into a short code the two players
+   copy-paste to each other. Keeps the 100%-offline guarantee — no signaling server. */
+async function ptDeflate(str){
+  const cs = new CompressionStream('deflate-raw');
+  const w = cs.writable.getWriter(); w.write(new TextEncoder().encode(str)); w.close();
+  const buf = new Uint8Array(await new Response(cs.readable).arrayBuffer());
+  let s=''; for(let i=0;i<buf.length;i++) s+=String.fromCharCode(buf[i]);
+  return 'PT1'+btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+}
+async function ptInflate(code){
+  const b64 = code.replace(/^PT1/,'').replace(/-/g,'+').replace(/_/g,'/');
+  const bytes = Uint8Array.from(atob(b64), c=>c.charCodeAt(0));
+  const ds = new DecompressionStream('deflate-raw');
+  const w = ds.writable.getWriter(); w.write(bytes); w.close();
+  return await new Response(ds.readable).text();
+}
+function ptPeer({onMessage, onState}){
+  const pc = new RTCPeerConnection();   // no iceServers → LAN host/mDNS candidates only
+  let dc;
+  const iceDone = () => new Promise(res => {
+    if (pc.iceGatheringState === 'complete') return res();
+    const chk = () => { if (pc.iceGatheringState === 'complete'){ pc.removeEventListener('icegatheringstatechange', chk); res(); } };
+    pc.addEventListener('icegatheringstatechange', chk);
+    setTimeout(res, 3000);   // emit whatever we gathered if it stalls
+  });
+  const wireDC = ch => {
+    dc = ch;
+    dc.onopen = () => onState('open');
+    dc.onclose = () => onState('closed');
+    dc.onmessage = e => { try { onMessage(JSON.parse(e.data)); } catch {} };
+  };
+  pc.onconnectionstatechange = () => { const s = pc.connectionState; if (s==='failed'||s==='disconnected') onState(s); };
+  const pack = async d => ptDeflate(JSON.stringify({t:d.type, s:d.sdp}));
+  const unpack = async code => { const o = JSON.parse(await ptInflate(code.trim())); return {type:o.t, sdp:o.s}; };
+  return {
+    async host(){ wireDC(pc.createDataChannel('game')); await pc.setLocalDescription(await pc.createOffer()); await iceDone(); return pack(pc.localDescription); },
+    async join(code){ pc.ondatachannel = e => wireDC(e.channel); await pc.setRemoteDescription(await unpack(code)); await pc.setLocalDescription(await pc.createAnswer()); await iceDone(); return pack(pc.localDescription); },
+    async connect(code){ await pc.setRemoteDescription(await unpack(code)); },
+    send(m){ if (dc && dc.readyState==='open') dc.send(JSON.stringify(m)); },
+    isOpen(){ return dc && dc.readyState==='open'; },
+    close(){ try{ dc&&dc.close(); }catch{} try{ pc.close(); }catch{} }
+  };
+}
+/* Reusable copy-paste connection panel shared by the online games. */
+function ptNetPanel(p){ return `
+  <div class="netplay" id="${p}-net" style="display:none">
+    <div class="netrow">
+      <button class="act" id="${p}-host">Host game</button>
+      <button class="act" id="${p}-join">Join game</button>
+      <span class="score netstat" id="${p}-nstat">Host a game, or join one</span>
+    </div>
+    <label class="netlbl">Your code <span class="muted">— send this to your opponent</span></label>
+    <div class="netrow"><textarea class="netcode" id="${p}-mine" placeholder="appears after you Host / Join" readonly></textarea><button class="act" id="${p}-copy">Copy</button></div>
+    <label class="netlbl">Opponent's code <span class="muted">— paste it here, then Apply</span></label>
+    <div class="netrow"><textarea class="netcode" id="${p}-their" placeholder="paste the code your opponent sent you"></textarea><button class="act" id="${p}-apply">Apply</button></div>
+  </div>`; }
+function ptWireNet(p, hooks){
+  const $n = s => $('#'+p+'-'+s);
+  const stat = t => $n('nstat').textContent = t;
+  let peer = null, role = null;
+  const mkPeer = () => ptPeer({
+    onMessage: m => hooks.onMessage(m),
+    onState: s => {
+      if (s === 'open'){ stat('Connected — you play '+(role==='host'?hooks.hostLabel:hooks.guestLabel)); hooks.onConnect(role); }
+      else if (s==='failed'||s==='disconnected'||s==='closed'){ stat('Disconnected'); hooks.onClose && hooks.onClose(); }
+    }
+  });
+  $n('host').addEventListener('click', async () => {
+    peer && peer.close(); peer = mkPeer(); role = 'host';
+    stat('Generating your code…'); $n('their').value=''; $n('mine').value='';
+    try { $n('mine').value = await peer.host(); stat('Send your code, then paste the reply below'); }
+    catch(e){ stat('Error: '+(e.message||e)); }
+  });
+  $n('join').addEventListener('click', () => {
+    peer && peer.close(); peer = mkPeer(); role = 'guest';
+    $n('mine').value=''; $n('their').value=''; stat('Paste the host’s code below, then Apply');
+  });
+  $n('apply').addEventListener('click', async () => {
+    const code = $n('their').value.trim();
+    if (!code){ stat('Paste a code first'); return; }
+    if (!role){ stat('Choose Host or Join first'); return; }
+    try {
+      if (role === 'guest'){ stat('Joining…'); $n('mine').value = await peer.join(code); stat('Send this reply code back to the host'); }
+      else { stat('Connecting…'); await peer.connect(code); }
+    } catch(e){ stat('Bad code — '+(e.message||e)); }
+  });
+  $n('copy').addEventListener('click', () => {
+    const v = $n('mine').value; if (!v) return;
+    navigator.clipboard && navigator.clipboard.writeText(v); stat('Copied — send it to your opponent');
+  });
+  return {
+    send: m => peer && peer.send(m),
+    isOpen: () => peer && peer.isOpen(),
+    role: () => role,
+    show: () => { $n('net').style.display=''; },
+    hide: () => { $n('net').style.display='none'; },
+    reset: () => { peer && peer.close(); peer = null; role = null; $n('mine').value=''; $n('their').value=''; stat('Host a game, or join one'); }
+  };
+}
+
 /* ── snake ─────────────────────────────────────────────────── */
 tool({
   id:'snake', name:'Snake', group:'Toys',
@@ -6994,12 +7104,13 @@ tool({
   html: `
     <div class="toybar">
       <button class="act" id="c4-new">New game</button>
-      <div class="seg" id="c4-mode"><button class="on" data-m="ai">vs Computer</button><button data-m="2p">2 players</button></div>
+      <div class="seg" id="c4-mode"><button class="on" data-m="ai">vs Computer</button><button data-m="2p">2 players</button><button data-m="online">Online</button></div>
       <span class="score" id="c4-msg">your move (red)</span>
     </div>
+    ${ptNetPanel('c4')}
     <div id="c4-board" style="display:inline-grid;grid-template-columns:repeat(7,44px);gap:4px;background:var(--border-2);padding:6px;border-radius:10px"></div>`,
   wire(){
-    const R=6,C=7; let g, over, busy, lastDrop=-1, mode='ai', cur=1; const board=$('#c4-board'), msg=$('#c4-msg');
+    const R=6,C=7; let g, over, busy, lastDrop=-1, mode='ai', cur=1, net=null, myP=0; const board=$('#c4-board'), msg=$('#c4-msg');
     const at=(b,r,c)=>b[r*C+c];
     const drop=(b,c,p)=>{ for(let r=R-1;r>=0;r--)if(!b[r*C+c]){ b[r*C+c]=p; return r; } return -1; };
     const wins=(b,p)=>{ for(let r=0;r<R;r++)for(let c=0;c<C;c++){ if(b[r*C+c]!==p)continue;
@@ -7015,15 +7126,30 @@ tool({
         if(beta<=alpha)break; }
       return best; };
     const render=()=>{ board.innerHTML=''; for(let i=0;i<R*C;i++){ const v=g[i]; const d=document.createElement('div'); d.className=(i===lastDrop)?'anim-drop':''; d.style.cssText='width:44px;height:44px;border-radius:50%;cursor:'+(over?'default':'pointer')+';background:'+(v===1?'#ff6b6b':v===2?'#ffd43b':'var(--surface)'); d.dataset.c=i%C; board.appendChild(d); } };
-    const turnMsg=()=> mode==='2p' ? (cur===1?'Red':'Yellow')+' to move' : 'your move (red)';
-    const end=()=>{ if(wins(g,1)){over=true;msg.textContent=mode==='2p'?'Red wins!':'you win!';confetti();return true;} if(wins(g,2)){over=true;msg.textContent=mode==='2p'?'Yellow wins!':'computer wins';if(mode==='2p')confetti();return true;} if(full(g)){over=true;msg.textContent='draw';return true;} return false; };
+    const turnMsg=()=> mode==='2p' ? (cur===1?'Red':'Yellow')+' to move'
+      : mode==='online' ? (!net||!net.isOpen() ? 'connect to play' : (cur===myP ? 'your move ('+(myP===1?'red':'yellow')+')' : 'opponent’s move'))
+      : 'your move (red)';
+    const end=()=>{ let w=0; if(wins(g,1))w=1; else if(wins(g,2))w=2;
+      if(w){ over=true;
+        if(mode==='online'){ msg.textContent=w===myP?'you win!':'opponent wins'; if(w===myP)confetti(); }
+        else if(mode==='2p'){ msg.textContent=(w===1?'Red':'Yellow')+' wins!'; confetti(); }
+        else { msg.textContent=w===1?'you win!':'computer wins'; if(w===1)confetti(); }
+        return true; }
+      if(full(g)){ over=true; msg.textContent='draw'; return true; } return false; };
     const play=c=>{ if(over||busy)return;
+      if(mode==='online'){ if(!net||!net.isOpen()||cur!==myP)return; const pr=drop(g,c,cur); if(pr<0)return; lastDrop=pr*C+c; net.send({type:'move',c}); if(!end()){ cur=cur===1?2:1; msg.textContent=turnMsg(); } render(); return; }
       if(mode==='2p'){ const pr=drop(g,c,cur); if(pr<0)return; lastDrop=pr*C+c; if(!end()){ cur=cur===1?2:1; msg.textContent=turnMsg(); } render(); return; }
       const pr=drop(g,c,1); if(pr<0)return; lastDrop=pr*C+c; render(); if(end())return; busy=true; msg.textContent='thinking…';
       setTimeout(()=>{ const m=nega(g,5,2,-1e9,1e9); const ar=drop(g,m.c,2); lastDrop=ar*C+m.c; render(); busy=false; if(!end())msg.textContent='your move (red)'; },80); };
-    const reset=()=>{ g=Array(R*C).fill(0); over=false; busy=false; lastDrop=-1; cur=1; msg.textContent=turnMsg(); render(); };
+    const doReset=broadcast=>{ g=Array(R*C).fill(0); over=false; busy=false; lastDrop=-1; cur=1; msg.textContent=turnMsg(); render(); if(broadcast&&net&&net.isOpen())net.send({type:'reset'}); };
+    const reset=()=>doReset(mode==='online');
+    net=ptWireNet('c4',{ hostLabel:'Red (move first)', guestLabel:'Yellow',
+      onConnect:role=>{ myP=role==='host'?1:2; doReset(false); },
+      onMessage:m=>{ if(m.type==='reset'){ doReset(false); return; }
+        if(m.type==='move'){ if(over)return; const pr=drop(g,m.c,cur); if(pr<0)return; lastDrop=pr*C+m.c; if(!end()){ cur=cur===1?2:1; msg.textContent=turnMsg(); } render(); } },
+      onClose:()=>{ if(mode==='online'){ msg.textContent='opponent disconnected'; over=true; } } });
     board.addEventListener('click',e=>{ const d=e.target.closest('[data-c]'); if(d)play(+d.dataset.c); });
-    $$('#c4-mode button').forEach(btn=>btn.addEventListener('click',()=>{ $$('#c4-mode button').forEach(x=>x.classList.remove('on')); btn.classList.add('on'); mode=btn.dataset.m; reset(); }));
+    $$('#c4-mode button').forEach(btn=>btn.addEventListener('click',()=>{ $$('#c4-mode button').forEach(x=>x.classList.remove('on')); btn.classList.add('on'); mode=btn.dataset.m; if(mode==='online'){ net.show(); } else { net.hide(); net.reset(); } reset(); }));
     $('#c4-new').addEventListener('click',reset); reset();
   }
 });
@@ -7120,11 +7246,12 @@ tool({
   html: `
     <div class="toybar">
       <button class="act" id="ch-new">New game</button>
-      <div class="seg" id="ch-mode"><button class="on" data-m="ai">vs Computer</button><button data-m="2p">2 players</button></div>
+      <div class="seg" id="ch-mode"><button class="on" data-m="ai">vs Computer</button><button data-m="2p">2 players</button><button data-m="online">Online</button></div>
       <span class="score" id="ch-status">White to move</span>
     </div>
+    ${ptNetPanel('ch')}
     <div class="chessbd" id="ch-board"></div>
-    <p class="note">Computer is club-beginner strength (3-ply search). You move first as White. In 2-player mode, take turns on one device.</p>`,
+    <p class="note">Computer is club-beginner strength (3-ply search). You move first as White. In 2-player mode, take turns on one device; Online connects two devices on the same network.</p>`,
   wire(){
     const GLY={k:'♚',q:'♛',r:'♜',b:'♝',n:'♞',p:'♟'}, VAL={p:100,n:320,b:330,r:500,q:900,k:0};
     const START=('rnbqkbnr'+'pppppppp'+'........'.repeat(4)+'PPPPPPPP'+'RNBQKBNR').split('');
@@ -7132,7 +7259,7 @@ tool({
     const isW=p=>p!=='.'&&p===p.toUpperCase();
     const col=p=>p==='.'?null:(isW(p)?'w':'b');
     const inb=(r,f)=>r>=0&&r<8&&f>=0&&f<8;
-    let bd, turn, castle, ep, sel, legal, over, mode='ai';
+    let bd, turn, castle, ep, sel, legal, over, mode='ai', net=null, myColor=null;
     const kpos=(b,c)=>b.indexOf(c==='w'?'K':'k');
     const attacked=(b,t,by)=>{
       const tr=Math.floor(t/8), tf=t%8;
@@ -7195,9 +7322,17 @@ tool({
     const finish=()=>{
       const st={bd,turn,castle,ep}; const moves=legalFor(st); const chk=attacked(bd,kpos(bd,turn),turn==='w'?'b':'w');
       if(!moves.length){ over=true;
-        if(chk){ const winMsg = mode==='2p' ? 'Checkmate — '+(turn==='w'?'Black':'White')+' wins!' : (turn==='w'?'Checkmate — you lose':'Checkmate — you win!'); $('#ch-status').textContent=winMsg; if(mode==='2p'||turn==='b')confetti(); }
+        if(chk){ let winMsg, party;
+          if(mode==='online'){ const lost=turn===myColor; winMsg='Checkmate — '+(lost?'you lose':'you win!'); party=!lost; }
+          else if(mode==='2p'){ winMsg='Checkmate — '+(turn==='w'?'Black':'White')+' wins!'; party=true; }
+          else { winMsg=turn==='w'?'Checkmate — you lose':'Checkmate — you win!'; party=turn==='b'; }
+          $('#ch-status').textContent=winMsg; if(party)confetti(); }
         else $('#ch-status').textContent='Stalemate — draw'; }
-      else { const mover=turn==='w'?'White to move':(mode==='2p'?'Black to move':'Black thinking…'); $('#ch-status').textContent=mover+(chk?' · check!':''); }
+      else {
+        let mover;
+        if(mode==='online') mover = !net||!net.isOpen() ? 'connect to play' : (turn===myColor?'your move':'opponent to move');
+        else mover = turn==='w'?'White to move':(mode==='2p'?'Black to move':'Black thinking…');
+        $('#ch-status').textContent=mover+(chk?' · check!':''); }
     };
     const render=()=>{
       const el=$('#ch-board'); el.innerHTML='';
@@ -7207,16 +7342,24 @@ tool({
         if(legal.some(m=>m.to===i))d.classList.add(bd[i]!=='.'?'cap':'mv');
         el.appendChild(d); }
     };
-    const onClick=e=>{ if(over)return; if(mode==='ai'&&turn!=='w')return; const sq=e.target.closest('[data-i]'); if(!sq)return; const i=+sq.dataset.i;
+    const onClick=e=>{ if(over)return; if(mode==='ai'&&turn!=='w')return; if(mode==='online'&&(!net||!net.isOpen()||turn!==myColor))return; const sq=e.target.closest('[data-i]'); if(!sq)return; const i=+sq.dataset.i;
       const mv=legal.find(m=>m.to===i);
-      if(mv){ const ns=apply({bd,turn,castle,ep},mv); bd=ns.bd; turn=ns.turn; castle=ns.castle; ep=ns.ep; sel=null; legal=[]; render(); finish(); if(!over&&mode==='ai'){ $('#ch-status').textContent='Black thinking…'; setTimeout(aiMove,60); } return; }
+      if(mv){ const ns=apply({bd,turn,castle,ep},mv); bd=ns.bd; turn=ns.turn; castle=ns.castle; ep=ns.ep; sel=null; legal=[]; render(); finish();
+        if(mode==='online')net.send({type:'move',mv});
+        if(!over&&mode==='ai'){ $('#ch-status').textContent='Black thinking…'; setTimeout(aiMove,60); } return; }
       if(bd[i]!=='.'&&col(bd[i])===turn){ sel=i; legal=legalFor({bd,turn,castle,ep}).filter(m=>m.from===i); } else { sel=null; legal=[]; }
       render();
     };
-    const reset=()=>{ bd=START.slice(); turn='w'; castle={wk:true,wq:true,bk:true,bq:true}; ep=-1; sel=null; legal=[]; over=false; render(); $('#ch-status').textContent='White to move'; };
+    const applyRemote=mv=>{ const ns=apply({bd,turn,castle,ep},mv); bd=ns.bd; turn=ns.turn; castle=ns.castle; ep=ns.ep; sel=null; legal=[]; render(); finish(); };
+    const doReset=broadcast=>{ bd=START.slice(); turn='w'; castle={wk:true,wq:true,bk:true,bq:true}; ep=-1; sel=null; legal=[]; over=false; render(); finish(); if(broadcast&&net&&net.isOpen())net.send({type:'reset'}); };
+    const reset=()=>doReset(mode==='online');
+    net=ptWireNet('ch',{ hostLabel:'White (move first)', guestLabel:'Black',
+      onConnect:role=>{ myColor=role==='host'?'w':'b'; doReset(false); },
+      onMessage:m=>{ if(m.type==='reset'){ doReset(false); return; } if(m.type==='move'&&!over)applyRemote(m.mv); },
+      onClose:()=>{ if(mode==='online'){ over=true; $('#ch-status').textContent='opponent disconnected'; } } });
     $('#ch-board').addEventListener('click',onClick);
     $('#ch-new').addEventListener('click',reset);
-    $('#ch-mode').addEventListener('click',e=>{ const b=e.target.closest('[data-m]'); if(!b)return; mode=b.dataset.m; [...$('#ch-mode').children].forEach(x=>x.classList.toggle('on',x===b)); reset(); });
+    $('#ch-mode').addEventListener('click',e=>{ const b=e.target.closest('[data-m]'); if(!b)return; mode=b.dataset.m; [...$('#ch-mode').children].forEach(x=>x.classList.toggle('on',x===b)); if(mode==='online'){ net.show(); } else { net.hide(); net.reset(); } reset(); });
     reset();
   }
 });

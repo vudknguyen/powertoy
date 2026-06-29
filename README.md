@@ -18,7 +18,7 @@ app release and shows the current version. See [PACKAGING.md](PACKAGING.md).
 ## Quality
 
 - **`tests.html`** — integration suite: drives every tool in a live iframe with
-  known-answer vectors (123 assertions across all 105 tools). Open it to see a pass/fail report.
+  known-answer vectors (127 assertions across all 105 tools). Open it to see a pass/fail report.
 - **`verify-commands.sh`** — runs each tool's documented shell command on your machine and
   confirms it matches the tool's output (43 checks).
 
@@ -145,3 +145,7 @@ app release and shows the current version. See [PACKAGING.md](PACKAGING.md).
 - Tool chaining: every result has a **Send to →** button that pipes its output into another tool's input (e.g. Base64 decode → JSON format → JSON query).
 - Dark mode: toggle in the header (follows your OS preference by default).
 - The last-used tool and your inputs are remembered locally between sessions.
+- Multiplayer games: Tic-tac-toe, Connect Four and Chess offer **2 players** (pass-and-play on
+  one device) and Connect Four / Chess add **Online** — serverless peer-to-peer over WebRTC.
+  No signaling server: the two players copy-paste a short connection code to each other, and
+  the games connect directly on the same network (LAN-only, keeping the offline guarantee).
