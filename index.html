@@ -411,6 +411,8 @@ details.rules li{margin:.15rem 0}
 .netlbl .muted{font-weight:400;color:var(--muted)}
 .netstat{flex:1}
 .netcode{flex:1;min-width:0;height:3.1rem;resize:vertical;font-family:var(--mono);font-size:.78rem;padding:.45rem .55rem;border:1px solid var(--border-2);border-radius:7px;background:var(--bg);color:var(--ink);word-break:break-all}
+.netqr{margin:.4rem 0;border:1px solid var(--border-2);border-radius:7px;background:#fff;image-rendering:pixelated;max-width:240px;height:auto}
+.netcam{margin:.4rem 0;width:260px;max-width:100%;border:1px solid var(--border-2);border-radius:7px;background:#000}
 </style>
 </head>
 <body>
@@ -4546,175 +4548,6 @@ tool({
       {why:'straight into the terminal', cmd:`qrencode -t ansiutf8 'https://example.com'`},
     ])}`,
   wire(){
-    /* GF(256) for Reed-Solomon */
-    const EXPT = new Uint8Array(512), LOGT = new Uint8Array(256);
-    { let x = 1;
-      for (let i = 0; i < 255; i++){ EXPT[i] = x; LOGT[x] = i; x <<= 1; if (x & 0x100) x ^= 0x11d; }
-      for (let i = 255; i < 512; i++) EXPT[i] = EXPT[i - 255]; }
-    const gmul = (a, b) => (a && b) ? EXPT[LOGT[a] + LOGT[b]] : 0;
-    const rsEC = (data, n) => {
-      let g = [1];
-      for (let i = 0; i < n; i++){
-        const r = EXPT[i], ng = [...g, 0];
-        for (let j = 0; j < g.length; j++) ng[j + 1] ^= gmul(g[j], r);
-        g = ng;
-      }
-      const res = new Uint8Array(data.length + n);
-      res.set(data);
-      for (let i = 0; i < data.length; i++){
-        const f = res[i];
-        if (f) for (let j = 1; j < g.length; j++) res[i + j] ^= gmul(g[j], f);
-      }
-      return res.slice(data.length);
-    };
-    /* EC level M block structure per version: [ecPerBlock, [[blocks, dataLen]...]] */
-    const ECB = { 1:[10,[[1,16]]], 2:[16,[[1,28]]], 3:[26,[[1,44]]], 4:[18,[[2,32]]], 5:[24,[[2,43]]],
-      6:[16,[[4,27]]], 7:[18,[[4,31]]], 8:[22,[[2,38],[2,39]]], 9:[22,[[3,36],[2,37]]], 10:[26,[[4,43],[1,44]]] };
-    const ALIGN = { 1:[], 2:[6,18], 3:[6,22], 4:[6,26], 5:[6,30], 6:[6,34], 7:[6,22,38], 8:[6,24,42], 9:[6,26,46], 10:[6,28,50] };
-    const MASKS = [
-      (r,c) => (r + c) % 2 === 0, (r,c) => r % 2 === 0, (r,c) => c % 3 === 0, (r,c) => (r + c) % 3 === 0,
-      (r,c) => (Math.floor(r/2) + Math.floor(c/3)) % 2 === 0, (r,c) => (r*c) % 2 + (r*c) % 3 === 0,
-      (r,c) => ((r*c) % 2 + (r*c) % 3) % 2 === 0, (r,c) => ((r + c) % 2 + (r*c) % 3) % 2 === 0,
-    ];
-    const blen = n => { let l = 0; while (n){ l++; n >>>= 1; } return l; };
-    const bch = (data, poly, shift) => {            // append BCH remainder of (data << shift)
-      let d = data << shift;
-      while (blen(d) >= blen(poly)) d ^= poly << (blen(d) - blen(poly));
-      return (data << shift) | d;
-    };
-    const fmtBits = mask => bch((0 << 3) | mask, 0b10100110111, 10) ^ 0b101010000010010;  // EC M
-    const verBits = v => bch(v, 0b1111100100101, 12);
-    function makeCodewords(bytes){
-      let v = 0;
-      for (let i = 1; i <= 10; i++){
-        const total = ECB[i][1].reduce((s, [n, c]) => s + n*c, 0);
-        if (4 + (i < 10 ? 8 : 16) + 8*bytes.length <= total*8){ v = i; break; }
-      }
-      if (!v) throw 'Content too long for version 10-M (~210 bytes)';
-      const total = ECB[v][1].reduce((s, [n, c]) => s + n*c, 0);
-      const bits = [];
-      const push = (val, len) => { for (let i = len-1; i >= 0; i--) bits.push((val >> i) & 1); };
-      push(4, 4); push(bytes.length, v < 10 ? 8 : 16);
-      bytes.forEach(b => push(b, 8));
-      push(0, Math.min(4, total*8 - bits.length));
-      while (bits.length % 8) bits.push(0);
-      let pi = 0;
-      while (bits.length < total*8){ push(pi % 2 ? 0x11 : 0xEC, 8); pi++; }
-      const cw = new Uint8Array(total);
-      for (let i = 0; i < total; i++){ let b = 0; for (let j = 0; j < 8; j++) b = (b << 1) | bits[i*8 + j]; cw[i] = b; }
-      const [ecn, groups] = ECB[v];
-      const blocks = []; let off = 0;
-      for (const [n, len] of groups) for (let i = 0; i < n; i++){ blocks.push(cw.slice(off, off + len)); off += len; }
-      const ecs = blocks.map(b => rsEC(b, ecn));
-      const out = [];
-      const maxd = Math.max(...blocks.map(b => b.length));
-      for (let i = 0; i < maxd; i++) for (const b of blocks) if (i < b.length) out.push(b[i]);
-      for (let i = 0; i < ecn; i++) for (const e of ecs) out.push(e[i]);
-      return { v, data: out };
-    }
-    function buildBase(v){
-      const N = 17 + 4*v;
-      const m = Array.from({ length: N }, () => new Int8Array(N).fill(-1));
-      const finder = (r0, c0) => {
-        for (let i = -1; i <= 7; i++) for (let j = -1; j <= 7; j++){
-          const r = r0+i, c = c0+j;
-          if (r < 0 || c < 0 || r >= N || c >= N) continue;
-          m[r][c] = (i >= 0 && i <= 6 && j >= 0 && j <= 6 &&
-            (i === 0 || i === 6 || j === 0 || j === 6 || (i >= 2 && i <= 4 && j >= 2 && j <= 4))) ? 1 : 0;
-        }
-      };
-      finder(0, 0); finder(0, N-7); finder(N-7, 0);
-      for (let i = 8; i < N-8; i++){
-        if (m[6][i] === -1) m[6][i] = i % 2 ? 0 : 1;
-        if (m[i][6] === -1) m[i][6] = i % 2 ? 0 : 1;
-      }
-      const ap = ALIGN[v];
-      for (const r of ap) for (const c of ap){
-        // skip only the three finder corners; centers on the timing pattern are legitimate
-        if ((r === 6 && c === 6) || (r === 6 && c === N-7) || (r === N-7 && c === 6)) continue;
-        for (let i = -2; i <= 2; i++) for (let j = -2; j <= 2; j++)
-          m[r+i][c+j] = Math.max(Math.abs(i), Math.abs(j)) !== 1 ? 1 : 0;
-      }
-      m[N-8][8] = 1;                                   // dark module
-      for (let i = 0; i < 9; i++){ if (m[8][i] === -1) m[8][i] = 0; if (m[i][8] === -1) m[i][8] = 0; }
-      for (let i = N-8; i < N; i++){ if (m[8][i] === -1) m[8][i] = 0; if (m[i][8] === -1) m[i][8] = 0; }
-      if (v >= 7){
-        const vb = verBits(v);
-        for (let i = 0; i < 18; i++){
-          const bit = (vb >> i) & 1;
-          m[Math.floor(i/3)][i % 3 + N - 11] = bit;
-          m[i % 3 + N - 11][Math.floor(i/3)] = bit;
-        }
-      }
-      return { m, N };
-    }
-    function fill(base, data, mk){
-      const N = base.N, m = base.m.map(row => Int8Array.from(row));
-      // format-info bits: BCH(15,5)-encoded EC level + mask, written to both copies
-      const fb = fmtBits(mk);
-      for (let i = 0; i < 15; i++){
-        const mod = ((fb >> i) & 1);
-        if (i < 6) m[i][8] = mod;
-        else if (i < 8) m[i + 1][8] = mod;
-        else m[N - 15 + i][8] = mod;
-        if (i < 8) m[8][N - i - 1] = mod;
-        else if (i < 9) m[8][15 - i - 1 + 1] = mod;
-        else m[8][15 - i - 1] = mod;
-      }
-      m[N-8][8] = 1;
-      let inc = -1, row = N - 1, bitIndex = 7, byteIndex = 0;
-      for (let col = N - 1; col > 0; col -= 2){
-        if (col === 6) col--;
-        while (true){
-          for (let c = 0; c < 2; c++){
-            if (m[row][col - c] === -1){
-              let dark = false;
-              if (byteIndex < data.length) dark = ((data[byteIndex] >>> bitIndex) & 1) === 1;
-              if (MASKS[mk](row, col - c)) dark = !dark;
-              m[row][col - c] = dark ? 1 : 0;
-              bitIndex--;
-              if (bitIndex === -1){ byteIndex++; bitIndex = 7; }
-            }
-          }
-          row += inc;
-          if (row < 0 || N <= row){ row -= inc; inc = -inc; break; }
-        }
-      }
-      return m;
-    }
-    function penalty(m, N){
-      let p = 0;
-      const runScore = get => {
-        for (let a = 0; a < N; a++){
-          let run = 1;
-          for (let b = 1; b < N; b++){
-            if (get(a, b) === get(a, b-1)) run++;
-            else { if (run >= 5) p += 3 + run - 5; run = 1; }
-          }
-          if (run >= 5) p += 3 + run - 5;
-        }
-      };
-      runScore((a, b) => m[a][b]); runScore((a, b) => m[b][a]);
-      for (let r = 0; r < N-1; r++) for (let c = 0; c < N-1; c++)
-        if (m[r][c] === m[r][c+1] && m[r][c] === m[r+1][c] && m[r][c] === m[r+1][c+1]) p += 3;
-      const P1 = [1,0,1,1,1,0,1,0,0,0,0], P2 = [0,0,0,0,1,0,1,1,1,0,1];
-      const scan = get => {
-        for (let a = 0; a < N; a++) for (let b = 0; b <= N - 11; b++){
-          let ok1 = true, ok2 = true;
-          for (let k = 0; k < 11; k++){
-            const x = get(a, b + k);
-            if (x !== P1[k]) ok1 = false;
-            if (x !== P2[k]) ok2 = false;
-          }
-          if (ok1 || ok2) p += 40;
-        }
-      };
-      scan((a, b) => m[a][b]); scan((a, b) => m[b][a]);
-      let dark = 0;
-      for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) dark += m[r][c];
-      p += Math.floor(Math.abs(dark * 100 / (N*N) - 50) / 5) * 10;
-      return p;
-    }
     const inp = $('#qr-in'), err = $('#qr-err'), cv = $('#qr-cv'), dl = $('#qr-dl');
     let timer = null;
     const run = () => {
@@ -4722,22 +4555,8 @@ tool({
       const v = inp.value;
       if (!v){ cv.width = cv.height = 0; dl.disabled = true; $('#qr-meta').textContent = '—'; return; }
       try {
-        const { v: ver, data } = makeCodewords(te.encode(v));
-        const base = buildBase(ver);
-        let best = null, bestP = Infinity, bestMk = 0;
-        for (let mk = 0; mk < 8; mk++){
-          const m = fill(base, data, mk);
-          const p = penalty(m, base.N);
-          if (p < bestP){ bestP = p; best = m; bestMk = mk; }
-        }
-        const N = base.N, scale = Math.min(16, Math.max(2, +$('#qr-px').value || 6)), quiet = 4;
-        cv.width = cv.height = (N + quiet*2) * scale;
-        const cx = cv.getContext('2d');
-        cx.fillStyle = '#fff'; cx.fillRect(0, 0, cv.width, cv.height);
-        cx.fillStyle = '#000';
-        for (let r = 0; r < N; r++) for (let c = 0; c < N; c++)
-          if (best[r][c] === 1) cx.fillRect((c + quiet)*scale, (r + quiet)*scale, scale, scale);
-        $('#qr-meta').textContent = `version ${ver} · ${N}×${N} modules · EC level M · mask ${bestMk} · ${te.encode(v).length} bytes`;
+        const r = ptQR.toCanvas(cv, v, +$('#qr-px').value || 6);
+        $('#qr-meta').textContent = `version ${r.v} · ${r.N}×${r.N} modules · EC level M · mask ${r.mask} · ${r.bytes} bytes`;
         dl.disabled = false;
         setSh('qr', 0, `qrencode -o qr.png ${shq(shTrim(v, 60))}`);
         setSh('qr', 1, `qrencode -t ansiutf8 ${shq(shTrim(v, 60))}`);
@@ -6480,14 +6299,48 @@ async function ptDeflate(str){
   const w = cs.writable.getWriter(); w.write(new TextEncoder().encode(str)); w.close();
   const buf = new Uint8Array(await new Response(cs.readable).arrayBuffer());
   let s=''; for(let i=0;i<buf.length;i++) s+=String.fromCharCode(buf[i]);
-  return 'PT1'+btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+  return 'PT2'+btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
 }
 async function ptInflate(code){
-  const b64 = code.replace(/^PT1/,'').replace(/-/g,'+').replace(/_/g,'/');
+  const b64 = code.replace(/^PT\d+/,'').replace(/-/g,'+').replace(/_/g,'/');
   const bytes = Uint8Array.from(atob(b64), c=>c.charCodeAt(0));
   const ds = new DecompressionStream('deflate-raw');
   const w = ds.writable.getWriter(); w.write(bytes); w.close();
   return await new Response(ds.readable).text();
+}
+/* Keep the code short: a data-channel SDP is almost entirely boilerplate. Extract
+   only the unique bits (DTLS fingerprint, ICE ufrag/pwd, UDP candidates) and rebuild
+   the rest from a fixed template on the other side — ~5× shorter than the raw SDP. */
+function ptPackSDP(desc){
+  const sdp = desc.sdp, grab = re => { const m = sdp.match(re); return m ? m[1] : ''; };
+  return {
+    t: desc.type === 'offer' ? 'o' : 'a',
+    u: grab(/a=ice-ufrag:(\S+)/),
+    p: grab(/a=ice-pwd:(\S+)/),
+    f: grab(/a=fingerprint:sha-256 ([0-9A-Fa-f:]+)/i).replace(/:/g,''),
+    // host UDP candidates only (no STUN/relay on a serverless LAN). Foundation and
+    // priority are local-only ICE hints, so keep just address+port and resynthesise
+    // the rest — this is what keeps the code short enough to fit a scannable QR.
+    c: [...sdp.matchAll(/a=candidate:(\S.*)/g)].map(m => m[1].trim())
+         .filter(s => / udp /i.test(s) && / typ host/i.test(s))
+         .map(s => { const t = s.split(/\s+/); return t[4]+' '+t[5]; })   // "address port"
+         .slice(0, 2)
+  };
+}
+function ptUnpackSDP(o){
+  const type = o.t === 'o' ? 'offer' : 'answer';
+  const fp = o.f.replace(/(..)(?=.)/g, '$1:');
+  const sdp = [
+    'v=0','o=- 1 2 IN IP4 127.0.0.1','s=-','t=0 0',
+    'a=group:BUNDLE 0','a=extmap-allow-mixed','a=msid-semantic: WMS',
+    'm=application 9 UDP/DTLS/SCTP webrtc-datachannel','c=IN IP4 0.0.0.0',
+    'a=ice-ufrag:'+o.u, 'a=ice-pwd:'+o.p, 'a=ice-options:trickle',
+    'a=fingerprint:sha-256 '+fp, 'a=setup:'+(type==='offer'?'actpass':'active'),
+    'a=mid:0', 'a=sctp-port:5000', 'a=max-message-size:262144',
+    ...(o.c||[]).map((c,i) => { const [addr,port] = c.split(' '); return `a=candidate:${i+1} 1 udp ${2113937151-i} ${addr} ${port} typ host`; }),
+    'a=end-of-candidates', ''
+  ].join('\r\n');
+  return { type, sdp };
 }
 function ptPeer({onMessage, onState}){
   const pc = new RTCPeerConnection();   // no iceServers → LAN host/mDNS candidates only
@@ -6505,8 +6358,8 @@ function ptPeer({onMessage, onState}){
     dc.onmessage = e => { try { onMessage(JSON.parse(e.data)); } catch {} };
   };
   pc.onconnectionstatechange = () => { const s = pc.connectionState; if (s==='failed'||s==='disconnected') onState(s); };
-  const pack = async d => ptDeflate(JSON.stringify({t:d.type, s:d.sdp}));
-  const unpack = async code => { const o = JSON.parse(await ptInflate(code.trim())); return {type:o.t, sdp:o.s}; };
+  const pack = async d => ptDeflate(JSON.stringify(ptPackSDP(d)));
+  const unpack = async code => ptUnpackSDP(JSON.parse(await ptInflate(code.trim())));
   return {
     async host(){ wireDC(pc.createDataChannel('game')); await pc.setLocalDescription(await pc.createOffer()); await iceDone(); return pack(pc.localDescription); },
     async join(code){ pc.ondatachannel = e => wireDC(e.channel); await pc.setRemoteDescription(await unpack(code)); await pc.setLocalDescription(await pc.createAnswer()); await iceDone(); return pack(pc.localDescription); },
@@ -6524,15 +6377,19 @@ function ptNetPanel(p){ return `
       <button class="act" id="${p}-join">Join game</button>
       <span class="score netstat" id="${p}-nstat">Host a game, or join one</span>
     </div>
-    <label class="netlbl">Your code <span class="muted">— send this to your opponent</span></label>
+    <label class="netlbl">Your code <span class="muted">— send it, or let your opponent scan the QR</span></label>
     <div class="netrow"><textarea class="netcode" id="${p}-mine" placeholder="appears after you Host / Join" readonly></textarea><button class="act" id="${p}-copy">Copy</button></div>
-    <label class="netlbl">Opponent's code <span class="muted">— paste it here, then Apply</span></label>
-    <div class="netrow"><textarea class="netcode" id="${p}-their" placeholder="paste the code your opponent sent you"></textarea><button class="act" id="${p}-apply">Apply</button></div>
+    <canvas class="netqr" id="${p}-myqr" style="display:none"></canvas>
+    <label class="netlbl">Opponent's code <span class="muted">— paste it, or scan their QR</span></label>
+    <div class="netrow"><textarea class="netcode" id="${p}-their" placeholder="paste the code your opponent sent you"></textarea><button class="act" id="${p}-apply">Apply</button><button class="act" id="${p}-scan" style="display:none">Scan QR</button></div>
+    <video class="netcam" id="${p}-cam" style="display:none" playsinline muted></video>
   </div>`; }
 function ptWireNet(p, hooks){
   const $n = s => $('#'+p+'-'+s);
   const stat = t => $n('nstat').textContent = t;
-  let peer = null, role = null;
+  let peer = null, role = null, stream = null;
+  const showMyQR = code => { const cv = $n('myqr'); if (!code){ cv.style.display='none'; return; } try { ptQR.toCanvas(cv, code, 4, 'L'); cv.style.display=''; } catch { cv.style.display='none'; } };
+  const stopCam = () => { if (stream){ stream.getTracks().forEach(t=>t.stop()); stream=null; } $n('cam').style.display='none'; };
   const mkPeer = () => ptPeer({
     onMessage: m => hooks.onMessage(m),
     onState: s => {
@@ -6542,20 +6399,20 @@ function ptWireNet(p, hooks){
   });
   $n('host').addEventListener('click', async () => {
     peer && peer.close(); peer = mkPeer(); role = 'host';
-    stat('Generating your code…'); $n('their').value=''; $n('mine').value='';
-    try { $n('mine').value = await peer.host(); stat('Send your code, then paste the reply below'); }
+    stat('Generating your code…'); $n('their').value=''; $n('mine').value=''; showMyQR('');
+    try { const code = await peer.host(); $n('mine').value = code; showMyQR(code); stat('Send your code, then paste the reply below'); }
     catch(e){ stat('Error: '+(e.message||e)); }
   });
   $n('join').addEventListener('click', () => {
     peer && peer.close(); peer = mkPeer(); role = 'guest';
-    $n('mine').value=''; $n('their').value=''; stat('Paste the host’s code below, then Apply');
+    $n('mine').value=''; $n('their').value=''; showMyQR(''); stat('Paste the host’s code below, then Apply');
   });
   $n('apply').addEventListener('click', async () => {
     const code = $n('their').value.trim();
     if (!code){ stat('Paste a code first'); return; }
     if (!role){ stat('Choose Host or Join first'); return; }
     try {
-      if (role === 'guest'){ stat('Joining…'); $n('mine').value = await peer.join(code); stat('Send this reply code back to the host'); }
+      if (role === 'guest'){ stat('Joining…'); const ans = await peer.join(code); $n('mine').value = ans; showMyQR(ans); stat('Send this reply code back to the host'); }
       else { stat('Connecting…'); await peer.connect(code); }
     } catch(e){ stat('Bad code — '+(e.message||e)); }
   });
@@ -6563,15 +6420,147 @@ function ptWireNet(p, hooks){
     const v = $n('mine').value; if (!v) return;
     navigator.clipboard && navigator.clipboard.writeText(v); stat('Copied — send it to your opponent');
   });
+  if ('BarcodeDetector' in window && navigator.mediaDevices && navigator.mediaDevices.getUserMedia){
+    $n('scan').style.display = '';
+    $n('scan').addEventListener('click', async () => {
+      if (stream){ stopCam(); stat('Scan cancelled'); return; }
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:'environment' } });
+        const cam = $n('cam'); cam.srcObject = stream; cam.style.display = ''; await cam.play();
+        const det = new BarcodeDetector({ formats:['qr_code'] });
+        stat('Point the camera at your opponent’s QR…');
+        const tick = async () => {
+          if (!stream) return;
+          try { const found = await det.detect(cam); if (found.length){ $n('their').value = found[0].rawValue; stopCam(); stat('Scanned — applying…'); $n('apply').click(); return; } } catch {}
+          requestAnimationFrame(tick);
+        };
+        tick();
+      } catch(e){ stopCam(); stat('Camera unavailable — paste the code instead'); }
+    });
+  }
   return {
     send: m => peer && peer.send(m),
     isOpen: () => peer && peer.isOpen(),
     role: () => role,
     show: () => { $n('net').style.display=''; },
     hide: () => { $n('net').style.display='none'; },
-    reset: () => { peer && peer.close(); peer = null; role = null; $n('mine').value=''; $n('their').value=''; stat('Host a game, or join one'); }
+    reset: () => { peer && peer.close(); peer = null; role = null; stopCam(); $n('mine').value=''; $n('their').value=''; showMyQR(''); stat('Host a game, or join one'); }
   };
 }
+/* Reusable QR encoder (byte mode, versions 1–10, EC level M or L). Shared by the QR
+   code tool and the netplay panel (which uses level L for the extra capacity). */
+const ptQR = (() => {
+  const EXPT = new Uint8Array(512), LOGT = new Uint8Array(256);
+  { let x = 1;
+    for (let i = 0; i < 255; i++){ EXPT[i] = x; LOGT[x] = i; x <<= 1; if (x & 0x100) x ^= 0x11d; }
+    for (let i = 255; i < 512; i++) EXPT[i] = EXPT[i - 255]; }
+  const gmul = (a, b) => (a && b) ? EXPT[LOGT[a] + LOGT[b]] : 0;
+  const rsEC = (data, n) => {
+    let g = [1];
+    for (let i = 0; i < n; i++){ const r = EXPT[i], ng = [...g, 0]; for (let j = 0; j < g.length; j++) ng[j + 1] ^= gmul(g[j], r); g = ng; }
+    const res = new Uint8Array(data.length + n); res.set(data);
+    for (let i = 0; i < data.length; i++){ const f = res[i]; if (f) for (let j = 1; j < g.length; j++) res[i + j] ^= gmul(g[j], f); }
+    return res.slice(data.length);
+  };
+  /* [ecPerBlock, [[blocks, dataLen]...]] per version, per EC level */
+  const ECB = {
+    M:{ 1:[10,[[1,16]]], 2:[16,[[1,28]]], 3:[26,[[1,44]]], 4:[18,[[2,32]]], 5:[24,[[2,43]]],
+        6:[16,[[4,27]]], 7:[18,[[4,31]]], 8:[22,[[2,38],[2,39]]], 9:[22,[[3,36],[2,37]]], 10:[26,[[4,43],[1,44]]] },
+    L:{ 1:[7,[[1,19]]], 2:[10,[[1,34]]], 3:[15,[[1,55]]], 4:[20,[[1,80]]], 5:[26,[[1,108]]],
+        6:[18,[[2,68]]], 7:[20,[[2,78]]], 8:[24,[[2,97]]], 9:[30,[[2,116]]], 10:[18,[[2,68],[2,69]]] }
+  };
+  const ECVAL = { M:0, L:1 };   // EC-level field in the format-info bits
+  const ALIGN = { 1:[], 2:[6,18], 3:[6,22], 4:[6,26], 5:[6,30], 6:[6,34], 7:[6,22,38], 8:[6,24,42], 9:[6,26,46], 10:[6,28,50] };
+  const MASKS = [
+    (r,c) => (r + c) % 2 === 0, (r,c) => r % 2 === 0, (r,c) => c % 3 === 0, (r,c) => (r + c) % 3 === 0,
+    (r,c) => (Math.floor(r/2) + Math.floor(c/3)) % 2 === 0, (r,c) => (r*c) % 2 + (r*c) % 3 === 0,
+    (r,c) => ((r*c) % 2 + (r*c) % 3) % 2 === 0, (r,c) => ((r + c) % 2 + (r*c) % 3) % 2 === 0,
+  ];
+  const blen = n => { let l = 0; while (n){ l++; n >>>= 1; } return l; };
+  const bch = (data, poly, shift) => { let d = data << shift; while (blen(d) >= blen(poly)) d ^= poly << (blen(d) - blen(poly)); return (data << shift) | d; };
+  const fmtBits = (lvl, mask) => bch((ECVAL[lvl] << 3) | mask, 0b10100110111, 10) ^ 0b101010000010010;
+  const verBits = v => bch(v, 0b1111100100101, 12);
+  const te = new TextEncoder();
+  function makeCodewords(bytes, lvl){
+    const tbl = ECB[lvl]; let v = 0;
+    for (let i = 1; i <= 10; i++){
+      const total = tbl[i][1].reduce((s, [n, c]) => s + n*c, 0);
+      if (4 + (i < 10 ? 8 : 16) + 8*bytes.length <= total*8){ v = i; break; }
+    }
+    if (!v) throw 'Content too long for version 10 (~'+(lvl==='L'?271:213)+' bytes)';
+    const total = tbl[v][1].reduce((s, [n, c]) => s + n*c, 0);
+    const bits = []; const push = (val, len) => { for (let i = len-1; i >= 0; i--) bits.push((val >> i) & 1); };
+    push(4, 4); push(bytes.length, v < 10 ? 8 : 16);
+    bytes.forEach(b => push(b, 8));
+    push(0, Math.min(4, total*8 - bits.length));
+    while (bits.length % 8) bits.push(0);
+    let pi = 0;
+    while (bits.length < total*8){ push(pi % 2 ? 0x11 : 0xEC, 8); pi++; }
+    const cw = new Uint8Array(total);
+    for (let i = 0; i < total; i++){ let b = 0; for (let j = 0; j < 8; j++) b = (b << 1) | bits[i*8 + j]; cw[i] = b; }
+    const [ecn, groups] = tbl[v];
+    const blocks = []; let off = 0;
+    for (const [n, len] of groups) for (let i = 0; i < n; i++){ blocks.push(cw.slice(off, off + len)); off += len; }
+    const ecs = blocks.map(b => rsEC(b, ecn));
+    const out = []; const maxd = Math.max(...blocks.map(b => b.length));
+    for (let i = 0; i < maxd; i++) for (const b of blocks) if (i < b.length) out.push(b[i]);
+    for (let i = 0; i < ecn; i++) for (const e of ecs) out.push(e[i]);
+    return { v, data: out };
+  }
+  function buildBase(v){
+    const N = 17 + 4*v;
+    const m = Array.from({ length: N }, () => new Int8Array(N).fill(-1));
+    const finder = (r0, c0) => { for (let i = -1; i <= 7; i++) for (let j = -1; j <= 7; j++){ const r = r0+i, c = c0+j; if (r < 0 || c < 0 || r >= N || c >= N) continue; m[r][c] = (i >= 0 && i <= 6 && j >= 0 && j <= 6 && (i === 0 || i === 6 || j === 0 || j === 6 || (i >= 2 && i <= 4 && j >= 2 && j <= 4))) ? 1 : 0; } };
+    finder(0, 0); finder(0, N-7); finder(N-7, 0);
+    for (let i = 8; i < N-8; i++){ if (m[6][i] === -1) m[6][i] = i % 2 ? 0 : 1; if (m[i][6] === -1) m[i][6] = i % 2 ? 0 : 1; }
+    const ap = ALIGN[v];
+    for (const r of ap) for (const c of ap){ if ((r === 6 && c === 6) || (r === 6 && c === N-7) || (r === N-7 && c === 6)) continue; for (let i = -2; i <= 2; i++) for (let j = -2; j <= 2; j++) m[r+i][c+j] = Math.max(Math.abs(i), Math.abs(j)) !== 1 ? 1 : 0; }
+    m[N-8][8] = 1;
+    for (let i = 0; i < 9; i++){ if (m[8][i] === -1) m[8][i] = 0; if (m[i][8] === -1) m[i][8] = 0; }
+    for (let i = N-8; i < N; i++){ if (m[8][i] === -1) m[8][i] = 0; if (m[i][8] === -1) m[i][8] = 0; }
+    if (v >= 7){ const vb = verBits(v); for (let i = 0; i < 18; i++){ const bit = (vb >> i) & 1; m[Math.floor(i/3)][i % 3 + N - 11] = bit; m[i % 3 + N - 11][Math.floor(i/3)] = bit; } }
+    return { m, N };
+  }
+  function fill(base, data, mk, lvl){
+    const N = base.N, m = base.m.map(row => Int8Array.from(row));
+    const fb = fmtBits(lvl, mk);
+    for (let i = 0; i < 15; i++){ const mod = ((fb >> i) & 1); if (i < 6) m[i][8] = mod; else if (i < 8) m[i + 1][8] = mod; else m[N - 15 + i][8] = mod; if (i < 8) m[8][N - i - 1] = mod; else if (i < 9) m[8][15 - i - 1 + 1] = mod; else m[8][15 - i - 1] = mod; }
+    m[N-8][8] = 1;
+    let inc = -1, row = N - 1, bitIndex = 7, byteIndex = 0;
+    for (let col = N - 1; col > 0; col -= 2){ if (col === 6) col--;
+      while (true){ for (let c = 0; c < 2; c++){ if (m[row][col - c] === -1){ let dark = false; if (byteIndex < data.length) dark = ((data[byteIndex] >>> bitIndex) & 1) === 1; if (MASKS[mk](row, col - c)) dark = !dark; m[row][col - c] = dark ? 1 : 0; bitIndex--; if (bitIndex === -1){ byteIndex++; bitIndex = 7; } } }
+        row += inc; if (row < 0 || N <= row){ row -= inc; inc = -inc; break; } } }
+    return m;
+  }
+  function penalty(m, N){
+    let p = 0;
+    const runScore = get => { for (let a = 0; a < N; a++){ let run = 1; for (let b = 1; b < N; b++){ if (get(a, b) === get(a, b-1)) run++; else { if (run >= 5) p += 3 + run - 5; run = 1; } } if (run >= 5) p += 3 + run - 5; } };
+    runScore((a, b) => m[a][b]); runScore((a, b) => m[b][a]);
+    for (let r = 0; r < N-1; r++) for (let c = 0; c < N-1; c++) if (m[r][c] === m[r][c+1] && m[r][c] === m[r+1][c] && m[r][c] === m[r+1][c+1]) p += 3;
+    const P1 = [1,0,1,1,1,0,1,0,0,0,0], P2 = [0,0,0,0,1,0,1,1,1,0,1];
+    const scan = get => { for (let a = 0; a < N; a++) for (let b = 0; b <= N - 11; b++){ let ok1 = true, ok2 = true; for (let k = 0; k < 11; k++){ const x = get(a, b + k); if (x !== P1[k]) ok1 = false; if (x !== P2[k]) ok2 = false; } if (ok1 || ok2) p += 40; } };
+    scan((a, b) => m[a][b]); scan((a, b) => m[b][a]);
+    let dark = 0; for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) dark += m[r][c];
+    p += Math.floor(Math.abs(dark * 100 / (N*N) - 50) / 5) * 10;
+    return p;
+  }
+  function encode(text, lvl='M'){
+    const { v, data } = makeCodewords(te.encode(text), lvl);
+    const base = buildBase(v);
+    let best = null, bestP = Infinity, bestMk = 0;
+    for (let mk = 0; mk < 8; mk++){ const m = fill(base, data, mk, lvl); const p = penalty(m, base.N); if (p < bestP){ bestP = p; best = m; bestMk = mk; } }
+    return { m: best, N: base.N, v, mask: bestMk, bytes: te.encode(text).length, lvl };
+  }
+  function toCanvas(cv, text, scale, lvl='M', quiet=4){
+    const r = encode(text, lvl);
+    scale = Math.min(16, Math.max(2, scale || 6));
+    cv.width = cv.height = (r.N + quiet*2) * scale;
+    const cx = cv.getContext('2d'); cx.fillStyle = '#fff'; cx.fillRect(0, 0, cv.width, cv.height); cx.fillStyle = '#000';
+    for (let row = 0; row < r.N; row++) for (let col = 0; col < r.N; col++) if (r.m[row][col] === 1) cx.fillRect((col + quiet)*scale, (row + quiet)*scale, scale, scale);
+    return r;
+  }
+  return { encode, toCanvas };
+})();
 
 /* ── snake ─────────────────────────────────────────────────── */
 tool({
