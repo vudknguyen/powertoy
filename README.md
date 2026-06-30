@@ -147,7 +147,10 @@ app release and shows the current version. See [PACKAGING.md](PACKAGING.md).
 - The last-used tool and your inputs are remembered locally between sessions.
 - Multiplayer games: Tic-tac-toe, Connect Four and Chess offer **2 players** (pass-and-play on
   one device) and Connect Four / Chess add **Online** — serverless peer-to-peer over WebRTC.
-  No signaling server: each side gets a compact connection code (the WebRTC SDP, stripped to
-  its unique bits and deflate-packed) shown both as text and as a **QR code**. Players paste
-  the code or scan the QR with their camera (where `BarcodeDetector` is available), and the
-  games connect directly on the same network (LAN-only, keeping the offline guarantee).
+  No signaling server: each side gets a compact connection code shown both as text and as a
+  **QR code**. The code is just the irreducible WebRTC handshake bits — the 32-byte DTLS
+  fingerprint, the ICE ufrag/pwd, and up to two host candidates — packed as raw binary and
+  base64url'd (~140 chars, about the crypto floor for a serverless code; a shorter numeric PIN
+  would require a rendezvous server). Players paste the code or scan the QR with their camera
+  (where `BarcodeDetector` is available), and the games connect directly on the same network
+  (LAN-only, keeping the offline guarantee).
