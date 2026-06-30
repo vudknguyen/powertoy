@@ -349,7 +349,12 @@ button.ghost:hover{color:var(--accent-2);border-color:var(--accent)}
 /* ── toys ─────────────────────────────────────────────────── */
 .toybar{display:flex;gap:.6rem;align-items:center;flex-wrap:wrap;margin:.2rem 0 .8rem}
 .score{font-family:var(--mono);color:var(--muted);font-size:.9rem}
-.game-cv{border:1px solid var(--border-2);border-radius:8px;background:var(--surface);display:block;touch-action:none}
+.game-cv{border:1px solid var(--border-2);border-radius:8px;background:var(--surface);display:block;touch-action:none;max-width:100%;height:auto}
+/* scale game canvases up on big screens and down to fit small ones, keeping aspect ratio */
+#sn-cv{width:min(92vw,72vh,520px)}
+#tt-cv{width:auto;height:min(74vh,620px)}
+#bk-cv{width:min(94vw,680px)}
+#sn-cv,#tt-cv{image-rendering:pixelated}
 .g2048{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;background:var(--border-2);padding:8px;border-radius:10px;width:min(360px,92vw);aspect-ratio:1}
 .g2048 .cell{display:flex;align-items:center;justify-content:center;border-radius:6px;background:var(--code-bg);font-family:var(--mono);font-weight:700;font-size:clamp(1rem,5vw,1.5rem);color:#5b574a;transition:background .08s}
 .ms-grid{display:grid;gap:2px;background:var(--border-2);padding:2px;border-radius:8px;width:max-content;user-select:none;max-width:100%;overflow:auto}
@@ -371,7 +376,7 @@ button.ghost:hover{color:var(--accent-2);border-color:var(--accent)}
 .card.empty{background:transparent;border:1px dashed var(--border-2);box-shadow:none;color:var(--faint);cursor:pointer}
 .cardstack{position:relative}
 /* chess */
-.chessbd{display:grid;grid-template-columns:repeat(8,clamp(34px,9vw,46px));grid-template-rows:repeat(8,clamp(34px,9vw,46px));border:2px solid var(--ink);border-radius:4px;overflow:hidden;width:max-content}
+.chessbd{display:grid;grid-template-columns:repeat(8,clamp(34px,10.5vw,56px));grid-template-rows:repeat(8,clamp(34px,10.5vw,56px));border:2px solid var(--ink);border-radius:4px;overflow:hidden;width:max-content}
 .sq{display:flex;align-items:center;justify-content:center;font-size:clamp(1.6rem,6vw,2.1rem);cursor:pointer;line-height:1;position:relative}
 .sq.lt{background:#efe6d2}.sq.dk{background:#b58863}
 .sq.sel{box-shadow:inset 0 0 0 3px var(--accent)}
@@ -404,6 +409,34 @@ details.rules li{margin:.15rem 0}
 #pt-confetti{position:fixed;inset:0;pointer-events:none;z-index:300;overflow:hidden}
 .pt-conf{position:absolute;top:-12px;width:9px;height:9px;border-radius:1px;will-change:transform,opacity}
 @keyframes confFall{to{transform:translateY(106vh) rotate(720deg);opacity:.2}}
+/* netplay (serverless P2P) panel */
+.netplay{margin:.7rem 0;padding:.8rem;border:1px solid var(--border-2);border-radius:10px;background:var(--surface);max-width:560px}
+.netrow{display:flex;gap:.5rem;align-items:center;margin:.35rem 0}
+.netlbl{display:block;font-size:.82rem;color:var(--ink);font-weight:600;margin-top:.55rem}
+.netlbl .muted{font-weight:400;color:var(--muted)}
+.netstat{flex:1}
+.netcode{flex:1;min-width:0;height:3.1rem;resize:vertical;font-family:var(--mono);font-size:.78rem;padding:.45rem .55rem;border:1px solid var(--border-2);border-radius:7px;background:var(--bg);color:var(--ink);word-break:break-all}
+.netqr{margin:.4rem 0;border:1px solid var(--border-2);border-radius:7px;background:#fff;image-rendering:pixelated;max-width:240px;height:auto}
+.netcam{margin:.4rem 0;width:260px;max-width:100%;border:1px solid var(--border-2);border-radius:7px;background:#000}
+/* full-screen game mode */
+.fsbtn{background:none;border:1px solid var(--border-2);border-radius:6px;color:var(--muted);cursor:pointer;font-size:1rem;line-height:1;padding:.18rem .42rem}
+.fsbtn:hover{color:var(--accent);border-color:var(--accent)}
+.tool:fullscreen{background:var(--bg);overflow:auto;padding:1.4rem;display:flex;flex-direction:column;align-items:center}
+.tool:fullscreen .tool-head{width:100%;max-width:920px}
+.tool:fullscreen .blurb,.tool:fullscreen details.rules{max-width:920px}
+/* boards that scale with vw/vh: lift their caps so they fill the screen */
+#tool-snake:fullscreen #sn-cv{width:min(96vw,90vh)}
+#tool-tetris:fullscreen #tt-cv{height:min(94vh,96vw);width:auto}
+#tool-breakout:fullscreen #bk-cv{width:min(96vw,128vh)}
+#tool-g2048:fullscreen .g2048{width:min(92vh,92vw)}
+#tool-sudoku:fullscreen .sudoku{width:min(92vh,92vw)}
+#tool-chess:fullscreen .chessbd{grid-template-columns:repeat(8,min(10.5vh,11vw));grid-template-rows:repeat(8,min(10.5vh,11vw))}
+#tool-ttt:fullscreen #tc-board{grid-template-columns:repeat(3,min(26vh,26vw));grid-template-rows:repeat(3,min(26vh,26vw))}
+#tool-connect4:fullscreen #c4-board{grid-template-columns:repeat(7,min(11.5vh,12vw))}
+#tool-simon:fullscreen #si-pads{width:min(74vh,80vw)}
+#tool-wordguess:fullscreen #wg-grid{width:min(60vh,86vw)}
+/* px-based games: a uniform zoom for a bigger, centred view */
+#tool-mines:fullscreen,#tool-solitaire:fullscreen,#tool-blackjack:fullscreen,#tool-typing:fullscreen,#tool-mastermind:fullscreen,#tool-roll:fullscreen,#tool-metro:fullscreen{zoom:1.7}
 </style>
 </head>
 <body>
@@ -4539,175 +4572,6 @@ tool({
       {why:'straight into the terminal', cmd:`qrencode -t ansiutf8 'https://example.com'`},
     ])}`,
   wire(){
-    /* GF(256) for Reed-Solomon */
-    const EXPT = new Uint8Array(512), LOGT = new Uint8Array(256);
-    { let x = 1;
-      for (let i = 0; i < 255; i++){ EXPT[i] = x; LOGT[x] = i; x <<= 1; if (x & 0x100) x ^= 0x11d; }
-      for (let i = 255; i < 512; i++) EXPT[i] = EXPT[i - 255]; }
-    const gmul = (a, b) => (a && b) ? EXPT[LOGT[a] + LOGT[b]] : 0;
-    const rsEC = (data, n) => {
-      let g = [1];
-      for (let i = 0; i < n; i++){
-        const r = EXPT[i], ng = [...g, 0];
-        for (let j = 0; j < g.length; j++) ng[j + 1] ^= gmul(g[j], r);
-        g = ng;
-      }
-      const res = new Uint8Array(data.length + n);
-      res.set(data);
-      for (let i = 0; i < data.length; i++){
-        const f = res[i];
-        if (f) for (let j = 1; j < g.length; j++) res[i + j] ^= gmul(g[j], f);
-      }
-      return res.slice(data.length);
-    };
-    /* EC level M block structure per version: [ecPerBlock, [[blocks, dataLen]...]] */
-    const ECB = { 1:[10,[[1,16]]], 2:[16,[[1,28]]], 3:[26,[[1,44]]], 4:[18,[[2,32]]], 5:[24,[[2,43]]],
-      6:[16,[[4,27]]], 7:[18,[[4,31]]], 8:[22,[[2,38],[2,39]]], 9:[22,[[3,36],[2,37]]], 10:[26,[[4,43],[1,44]]] };
-    const ALIGN = { 1:[], 2:[6,18], 3:[6,22], 4:[6,26], 5:[6,30], 6:[6,34], 7:[6,22,38], 8:[6,24,42], 9:[6,26,46], 10:[6,28,50] };
-    const MASKS = [
-      (r,c) => (r + c) % 2 === 0, (r,c) => r % 2 === 0, (r,c) => c % 3 === 0, (r,c) => (r + c) % 3 === 0,
-      (r,c) => (Math.floor(r/2) + Math.floor(c/3)) % 2 === 0, (r,c) => (r*c) % 2 + (r*c) % 3 === 0,
-      (r,c) => ((r*c) % 2 + (r*c) % 3) % 2 === 0, (r,c) => ((r + c) % 2 + (r*c) % 3) % 2 === 0,
-    ];
-    const blen = n => { let l = 0; while (n){ l++; n >>>= 1; } return l; };
-    const bch = (data, poly, shift) => {            // append BCH remainder of (data << shift)
-      let d = data << shift;
-      while (blen(d) >= blen(poly)) d ^= poly << (blen(d) - blen(poly));
-      return (data << shift) | d;
-    };
-    const fmtBits = mask => bch((0 << 3) | mask, 0b10100110111, 10) ^ 0b101010000010010;  // EC M
-    const verBits = v => bch(v, 0b1111100100101, 12);
-    function makeCodewords(bytes){
-      let v = 0;
-      for (let i = 1; i <= 10; i++){
-        const total = ECB[i][1].reduce((s, [n, c]) => s + n*c, 0);
-        if (4 + (i < 10 ? 8 : 16) + 8*bytes.length <= total*8){ v = i; break; }
-      }
-      if (!v) throw 'Content too long for version 10-M (~210 bytes)';
-      const total = ECB[v][1].reduce((s, [n, c]) => s + n*c, 0);
-      const bits = [];
-      const push = (val, len) => { for (let i = len-1; i >= 0; i--) bits.push((val >> i) & 1); };
-      push(4, 4); push(bytes.length, v < 10 ? 8 : 16);
-      bytes.forEach(b => push(b, 8));
-      push(0, Math.min(4, total*8 - bits.length));
-      while (bits.length % 8) bits.push(0);
-      let pi = 0;
-      while (bits.length < total*8){ push(pi % 2 ? 0x11 : 0xEC, 8); pi++; }
-      const cw = new Uint8Array(total);
-      for (let i = 0; i < total; i++){ let b = 0; for (let j = 0; j < 8; j++) b = (b << 1) | bits[i*8 + j]; cw[i] = b; }
-      const [ecn, groups] = ECB[v];
-      const blocks = []; let off = 0;
-      for (const [n, len] of groups) for (let i = 0; i < n; i++){ blocks.push(cw.slice(off, off + len)); off += len; }
-      const ecs = blocks.map(b => rsEC(b, ecn));
-      const out = [];
-      const maxd = Math.max(...blocks.map(b => b.length));
-      for (let i = 0; i < maxd; i++) for (const b of blocks) if (i < b.length) out.push(b[i]);
-      for (let i = 0; i < ecn; i++) for (const e of ecs) out.push(e[i]);
-      return { v, data: out };
-    }
-    function buildBase(v){
-      const N = 17 + 4*v;
-      const m = Array.from({ length: N }, () => new Int8Array(N).fill(-1));
-      const finder = (r0, c0) => {
-        for (let i = -1; i <= 7; i++) for (let j = -1; j <= 7; j++){
-          const r = r0+i, c = c0+j;
-          if (r < 0 || c < 0 || r >= N || c >= N) continue;
-          m[r][c] = (i >= 0 && i <= 6 && j >= 0 && j <= 6 &&
-            (i === 0 || i === 6 || j === 0 || j === 6 || (i >= 2 && i <= 4 && j >= 2 && j <= 4))) ? 1 : 0;
-        }
-      };
-      finder(0, 0); finder(0, N-7); finder(N-7, 0);
-      for (let i = 8; i < N-8; i++){
-        if (m[6][i] === -1) m[6][i] = i % 2 ? 0 : 1;
-        if (m[i][6] === -1) m[i][6] = i % 2 ? 0 : 1;
-      }
-      const ap = ALIGN[v];
-      for (const r of ap) for (const c of ap){
-        // skip only the three finder corners; centers on the timing pattern are legitimate
-        if ((r === 6 && c === 6) || (r === 6 && c === N-7) || (r === N-7 && c === 6)) continue;
-        for (let i = -2; i <= 2; i++) for (let j = -2; j <= 2; j++)
-          m[r+i][c+j] = Math.max(Math.abs(i), Math.abs(j)) !== 1 ? 1 : 0;
-      }
-      m[N-8][8] = 1;                                   // dark module
-      for (let i = 0; i < 9; i++){ if (m[8][i] === -1) m[8][i] = 0; if (m[i][8] === -1) m[i][8] = 0; }
-      for (let i = N-8; i < N; i++){ if (m[8][i] === -1) m[8][i] = 0; if (m[i][8] === -1) m[i][8] = 0; }
-      if (v >= 7){
-        const vb = verBits(v);
-        for (let i = 0; i < 18; i++){
-          const bit = (vb >> i) & 1;
-          m[Math.floor(i/3)][i % 3 + N - 11] = bit;
-          m[i % 3 + N - 11][Math.floor(i/3)] = bit;
-        }
-      }
-      return { m, N };
-    }
-    function fill(base, data, mk){
-      const N = base.N, m = base.m.map(row => Int8Array.from(row));
-      // format-info bits: BCH(15,5)-encoded EC level + mask, written to both copies
-      const fb = fmtBits(mk);
-      for (let i = 0; i < 15; i++){
-        const mod = ((fb >> i) & 1);
-        if (i < 6) m[i][8] = mod;
-        else if (i < 8) m[i + 1][8] = mod;
-        else m[N - 15 + i][8] = mod;
-        if (i < 8) m[8][N - i - 1] = mod;
-        else if (i < 9) m[8][15 - i - 1 + 1] = mod;
-        else m[8][15 - i - 1] = mod;
-      }
-      m[N-8][8] = 1;
-      let inc = -1, row = N - 1, bitIndex = 7, byteIndex = 0;
-      for (let col = N - 1; col > 0; col -= 2){
-        if (col === 6) col--;
-        while (true){
-          for (let c = 0; c < 2; c++){
-            if (m[row][col - c] === -1){
-              let dark = false;
-              if (byteIndex < data.length) dark = ((data[byteIndex] >>> bitIndex) & 1) === 1;
-              if (MASKS[mk](row, col - c)) dark = !dark;
-              m[row][col - c] = dark ? 1 : 0;
-              bitIndex--;
-              if (bitIndex === -1){ byteIndex++; bitIndex = 7; }
-            }
-          }
-          row += inc;
-          if (row < 0 || N <= row){ row -= inc; inc = -inc; break; }
-        }
-      }
-      return m;
-    }
-    function penalty(m, N){
-      let p = 0;
-      const runScore = get => {
-        for (let a = 0; a < N; a++){
-          let run = 1;
-          for (let b = 1; b < N; b++){
-            if (get(a, b) === get(a, b-1)) run++;
-            else { if (run >= 5) p += 3 + run - 5; run = 1; }
-          }
-          if (run >= 5) p += 3 + run - 5;
-        }
-      };
-      runScore((a, b) => m[a][b]); runScore((a, b) => m[b][a]);
-      for (let r = 0; r < N-1; r++) for (let c = 0; c < N-1; c++)
-        if (m[r][c] === m[r][c+1] && m[r][c] === m[r+1][c] && m[r][c] === m[r+1][c+1]) p += 3;
-      const P1 = [1,0,1,1,1,0,1,0,0,0,0], P2 = [0,0,0,0,1,0,1,1,1,0,1];
-      const scan = get => {
-        for (let a = 0; a < N; a++) for (let b = 0; b <= N - 11; b++){
-          let ok1 = true, ok2 = true;
-          for (let k = 0; k < 11; k++){
-            const x = get(a, b + k);
-            if (x !== P1[k]) ok1 = false;
-            if (x !== P2[k]) ok2 = false;
-          }
-          if (ok1 || ok2) p += 40;
-        }
-      };
-      scan((a, b) => m[a][b]); scan((a, b) => m[b][a]);
-      let dark = 0;
-      for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) dark += m[r][c];
-      p += Math.floor(Math.abs(dark * 100 / (N*N) - 50) / 5) * 10;
-      return p;
-    }
     const inp = $('#qr-in'), err = $('#qr-err'), cv = $('#qr-cv'), dl = $('#qr-dl');
     let timer = null;
     const run = () => {
@@ -4715,22 +4579,8 @@ tool({
       const v = inp.value;
       if (!v){ cv.width = cv.height = 0; dl.disabled = true; $('#qr-meta').textContent = '—'; return; }
       try {
-        const { v: ver, data } = makeCodewords(te.encode(v));
-        const base = buildBase(ver);
-        let best = null, bestP = Infinity, bestMk = 0;
-        for (let mk = 0; mk < 8; mk++){
-          const m = fill(base, data, mk);
-          const p = penalty(m, base.N);
-          if (p < bestP){ bestP = p; best = m; bestMk = mk; }
-        }
-        const N = base.N, scale = Math.min(16, Math.max(2, +$('#qr-px').value || 6)), quiet = 4;
-        cv.width = cv.height = (N + quiet*2) * scale;
-        const cx = cv.getContext('2d');
-        cx.fillStyle = '#fff'; cx.fillRect(0, 0, cv.width, cv.height);
-        cx.fillStyle = '#000';
-        for (let r = 0; r < N; r++) for (let c = 0; c < N; c++)
-          if (best[r][c] === 1) cx.fillRect((c + quiet)*scale, (r + quiet)*scale, scale, scale);
-        $('#qr-meta').textContent = `version ${ver} · ${N}×${N} modules · EC level M · mask ${bestMk} · ${te.encode(v).length} bytes`;
+        const r = ptQR.toCanvas(cv, v, +$('#qr-px').value || 6);
+        $('#qr-meta').textContent = `version ${r.v} · ${r.N}×${r.N} modules · EC level M · mask ${r.mask} · ${r.bytes} bytes`;
         dl.disabled = false;
         setSh('qr', 0, `qrencode -o qr.png ${shq(shTrim(v, 60))}`);
         setSh('qr', 1, `qrencode -t ansiutf8 ${shq(shTrim(v, 60))}`);
@@ -6463,6 +6313,285 @@ function confetti(){
   setTimeout(() => { box.innerHTML = ''; }, 3200);
 }
 
+/* ── serverless P2P (WebRTC, manual copy-paste signaling, LAN-only) ──
+   No STUN/TURN servers: ICE gathers only host/mDNS candidates, which connect
+   directly between two machines on the same network. The SDP boilerplate is
+   rebuilt from a fixed template; only the irreducible bits travel in the code —
+   the 32-byte DTLS fingerprint, the ICE ufrag/pwd, and up to two host candidates.
+   These are packed as raw binary (not text) and base64url'd, which is about as
+   short as a serverless code can get: ~135 chars, near the crypto floor.
+   Keeps the 100%-offline guarantee — no signaling server. */
+const ptB64url = bytes => { let s=''; for(let i=0;i<bytes.length;i++) s+=String.fromCharCode(bytes[i]); return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''); };
+const ptUnb64url = str => Uint8Array.from(atob(str.replace(/-/g,'+').replace(/_/g,'/')), c=>c.charCodeAt(0));
+function ptPackSDP(desc){
+  const sdp = desc.sdp, grab = re => { const m = sdp.match(re); return m ? m[1] : ''; };
+  const enc = new TextEncoder();
+  const uf = enc.encode(grab(/a=ice-ufrag:(\S+)/)), pw = enc.encode(grab(/a=ice-pwd:(\S+)/));
+  const fpHex = grab(/a=fingerprint:sha-256 ([0-9A-Fa-f:]+)/i).replace(/:/g,'');
+  const fp = new Uint8Array(32); for (let i=0;i<32;i++) fp[i] = parseInt(fpHex.substr(i*2,2),16);
+  const cands = [...sdp.matchAll(/a=candidate:(\S.*)/g)].map(m => m[1].trim())
+    .filter(s => / udp /i.test(s) && / typ host/i.test(s))
+    .map(s => { const t = s.split(/\s+/); return { addr:t[4], port:+t[5] }; }).slice(0, 2);
+  const parts = [], B = (...a) => parts.push(Uint8Array.from(a));
+  B((desc.type==='offer'?0:1) | (cands.length<<1));   // flags: bit0 type, bits1-2 candidate count
+  parts.push(fp); B(uf.length); parts.push(uf); B(pw.length); parts.push(pw);
+  for (const c of cands){
+    const port = Uint8Array.from([(c.port>>8)&255, c.port&255]);
+    const uuid = c.addr.match(/^([0-9a-f]{8})-([0-9a-f]{4})-([0-9a-f]{4})-([0-9a-f]{4})-([0-9a-f]{12})\.local$/i);
+    const ip4 = c.addr.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+    if (uuid){ const h = c.addr.replace(/[^0-9a-f]/gi,'').slice(0,32); const u = new Uint8Array(16); for (let i=0;i<16;i++) u[i]=parseInt(h.substr(i*2,2),16); B(0); parts.push(u); parts.push(port); }
+    else if (ip4){ B(1); B(+ip4[1],+ip4[2],+ip4[3],+ip4[4]); parts.push(port); }   // IPv4
+    else { const a = enc.encode(c.addr); B(2, a.length); parts.push(a); parts.push(port); }   // raw (IPv6 etc.)
+  }
+  let len=0; parts.forEach(p=>len+=p.length); const out=new Uint8Array(len); let o=0; parts.forEach(p=>{ out.set(p,o); o+=p.length; });
+  return out;
+}
+function ptUnpackSDP(u8){
+  let o = 0; const dec = new TextDecoder();
+  const flags = u8[o++], type = (flags&1) ? 'answer' : 'offer', nc = (flags>>1)&3;
+  const fp = [...u8.slice(o,o+32)].map(b=>b.toString(16).padStart(2,'0')).join(':'); o+=32;
+  const ul = u8[o++], uf = dec.decode(u8.slice(o,o+ul)); o+=ul;
+  const pl = u8[o++], pw = dec.decode(u8.slice(o,o+pl)); o+=pl;
+  const cands = [];
+  for (let i=0;i<nc;i++){
+    const ct = u8[o++]; let addr;
+    if (ct===0){ const h=[...u8.slice(o,o+16)].map(b=>b.toString(16).padStart(2,'0')).join(''); o+=16; addr=`${h.slice(0,8)}-${h.slice(8,12)}-${h.slice(12,16)}-${h.slice(16,20)}-${h.slice(20,32)}.local`; }
+    else if (ct===1){ addr=`${u8[o]}.${u8[o+1]}.${u8[o+2]}.${u8[o+3]}`; o+=4; }
+    else { const l=u8[o++]; addr=dec.decode(u8.slice(o,o+l)); o+=l; }
+    const port = (u8[o]<<8)|u8[o+1]; o+=2; cands.push({addr,port});
+  }
+  const sdp = [
+    'v=0','o=- 1 2 IN IP4 127.0.0.1','s=-','t=0 0',
+    'a=group:BUNDLE 0','a=extmap-allow-mixed','a=msid-semantic: WMS',
+    'm=application 9 UDP/DTLS/SCTP webrtc-datachannel','c=IN IP4 0.0.0.0',
+    'a=ice-ufrag:'+uf, 'a=ice-pwd:'+pw, 'a=ice-options:trickle',
+    'a=fingerprint:sha-256 '+fp, 'a=setup:'+(type==='offer'?'actpass':'active'),
+    'a=mid:0', 'a=sctp-port:5000', 'a=max-message-size:262144',
+    ...cands.map((c,i) => `a=candidate:${i+1} 1 udp ${2113937151-i} ${c.addr} ${c.port} typ host`),
+    'a=end-of-candidates', ''
+  ].join('\r\n');
+  return { type, sdp };
+}
+function ptPeer({onMessage, onState}){
+  const pc = new RTCPeerConnection();   // no iceServers → LAN host/mDNS candidates only
+  let dc;
+  const iceDone = () => new Promise(res => {
+    if (pc.iceGatheringState === 'complete') return res();
+    const chk = () => { if (pc.iceGatheringState === 'complete'){ pc.removeEventListener('icegatheringstatechange', chk); res(); } };
+    pc.addEventListener('icegatheringstatechange', chk);
+    setTimeout(res, 3000);   // emit whatever we gathered if it stalls
+  });
+  const wireDC = ch => {
+    dc = ch;
+    dc.onopen = () => onState('open');
+    dc.onclose = () => onState('closed');
+    dc.onmessage = e => { try { onMessage(JSON.parse(e.data)); } catch {} };
+  };
+  pc.onconnectionstatechange = () => { const s = pc.connectionState; if (s==='failed'||s==='disconnected') onState(s); };
+  const pack = d => 'PT3' + ptB64url(ptPackSDP(d));
+  const unpack = code => ptUnpackSDP(ptUnb64url(code.trim().replace(/^PT3/,'')));
+  return {
+    async host(){ wireDC(pc.createDataChannel('game')); await pc.setLocalDescription(await pc.createOffer()); await iceDone(); return pack(pc.localDescription); },
+    async join(code){ pc.ondatachannel = e => wireDC(e.channel); await pc.setRemoteDescription(await unpack(code)); await pc.setLocalDescription(await pc.createAnswer()); await iceDone(); return pack(pc.localDescription); },
+    async connect(code){ await pc.setRemoteDescription(await unpack(code)); },
+    send(m){ if (dc && dc.readyState==='open') dc.send(JSON.stringify(m)); },
+    isOpen(){ return dc && dc.readyState==='open'; },
+    close(){ try{ dc&&dc.close(); }catch{} try{ pc.close(); }catch{} }
+  };
+}
+/* Reusable copy-paste connection panel shared by the online games. */
+function ptNetPanel(p){ return `
+  <div class="netplay" id="${p}-net" style="display:none">
+    <div class="netrow">
+      <button class="act" id="${p}-host">Host game</button>
+      <button class="act" id="${p}-join">Join game</button>
+      <span class="score netstat" id="${p}-nstat">Host a game, or join one</span>
+    </div>
+    <label class="netlbl">Your code <span class="muted">— send it, or let your opponent scan the QR</span></label>
+    <div class="netrow"><textarea class="netcode" id="${p}-mine" placeholder="appears after you Host / Join" readonly></textarea><button class="act" id="${p}-copy">Copy</button></div>
+    <canvas class="netqr" id="${p}-myqr" style="display:none"></canvas>
+    <label class="netlbl">Opponent's code <span class="muted">— paste it, or scan their QR</span></label>
+    <div class="netrow"><textarea class="netcode" id="${p}-their" placeholder="paste the code your opponent sent you"></textarea><button class="act" id="${p}-apply">Apply</button><button class="act" id="${p}-scan" style="display:none">Scan QR</button></div>
+    <video class="netcam" id="${p}-cam" style="display:none" playsinline muted></video>
+  </div>`; }
+function ptWireNet(p, hooks){
+  const $n = s => $('#'+p+'-'+s);
+  const stat = t => $n('nstat').textContent = t;
+  let peer = null, role = null, stream = null;
+  const showMyQR = code => { const cv = $n('myqr'); if (!code){ cv.style.display='none'; return; } try { ptQR.toCanvas(cv, code, 4, 'L'); cv.style.display=''; } catch { cv.style.display='none'; } };
+  const stopCam = () => { if (stream){ stream.getTracks().forEach(t=>t.stop()); stream=null; } $n('cam').style.display='none'; };
+  const mkPeer = () => ptPeer({
+    onMessage: m => hooks.onMessage(m),
+    onState: s => {
+      if (s === 'open'){ stat('Connected — you play '+(role==='host'?hooks.hostLabel:hooks.guestLabel)); hooks.onConnect(role); }
+      else if (s==='failed'||s==='disconnected'||s==='closed'){ stat('Disconnected'); hooks.onClose && hooks.onClose(); }
+    }
+  });
+  $n('host').addEventListener('click', async () => {
+    peer && peer.close(); peer = mkPeer(); role = 'host';
+    stat('Generating your code…'); $n('their').value=''; $n('mine').value=''; showMyQR('');
+    try { const code = await peer.host(); $n('mine').value = code; showMyQR(code); stat('Send your code, then paste the reply below'); }
+    catch(e){ stat('Error: '+(e.message||e)); }
+  });
+  $n('join').addEventListener('click', () => {
+    peer && peer.close(); peer = mkPeer(); role = 'guest';
+    $n('mine').value=''; $n('their').value=''; showMyQR(''); stat('Paste the host’s code below, then Apply');
+  });
+  $n('apply').addEventListener('click', async () => {
+    const code = $n('their').value.trim();
+    if (!code){ stat('Paste a code first'); return; }
+    if (!role){ stat('Choose Host or Join first'); return; }
+    try {
+      if (role === 'guest'){ stat('Joining…'); const ans = await peer.join(code); $n('mine').value = ans; showMyQR(ans); stat('Send this reply code back to the host'); }
+      else { stat('Connecting…'); await peer.connect(code); }
+    } catch(e){ stat('Bad code — '+(e.message||e)); }
+  });
+  $n('copy').addEventListener('click', () => {
+    const v = $n('mine').value; if (!v) return;
+    navigator.clipboard && navigator.clipboard.writeText(v); stat('Copied — send it to your opponent');
+  });
+  if ('BarcodeDetector' in window && navigator.mediaDevices && navigator.mediaDevices.getUserMedia){
+    $n('scan').style.display = '';
+    $n('scan').addEventListener('click', async () => {
+      if (stream){ stopCam(); stat('Scan cancelled'); return; }
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:'environment' } });
+        const cam = $n('cam'); cam.srcObject = stream; cam.style.display = ''; await cam.play();
+        const det = new BarcodeDetector({ formats:['qr_code'] });
+        stat('Point the camera at your opponent’s QR…');
+        const tick = async () => {
+          if (!stream) return;
+          try { const found = await det.detect(cam); if (found.length){ $n('their').value = found[0].rawValue; stopCam(); stat('Scanned — applying…'); $n('apply').click(); return; } } catch {}
+          requestAnimationFrame(tick);
+        };
+        tick();
+      } catch(e){ stopCam(); stat('Camera unavailable — paste the code instead'); }
+    });
+  }
+  return {
+    send: m => peer && peer.send(m),
+    isOpen: () => peer && peer.isOpen(),
+    role: () => role,
+    show: () => { $n('net').style.display=''; },
+    hide: () => { $n('net').style.display='none'; },
+    reset: () => { peer && peer.close(); peer = null; role = null; stopCam(); $n('mine').value=''; $n('their').value=''; showMyQR(''); stat('Host a game, or join one'); }
+  };
+}
+/* Reusable QR encoder (byte mode, versions 1–10, EC level M or L). Shared by the QR
+   code tool and the netplay panel (which uses level L for the extra capacity). */
+const ptQR = (() => {
+  const EXPT = new Uint8Array(512), LOGT = new Uint8Array(256);
+  { let x = 1;
+    for (let i = 0; i < 255; i++){ EXPT[i] = x; LOGT[x] = i; x <<= 1; if (x & 0x100) x ^= 0x11d; }
+    for (let i = 255; i < 512; i++) EXPT[i] = EXPT[i - 255]; }
+  const gmul = (a, b) => (a && b) ? EXPT[LOGT[a] + LOGT[b]] : 0;
+  const rsEC = (data, n) => {
+    let g = [1];
+    for (let i = 0; i < n; i++){ const r = EXPT[i], ng = [...g, 0]; for (let j = 0; j < g.length; j++) ng[j + 1] ^= gmul(g[j], r); g = ng; }
+    const res = new Uint8Array(data.length + n); res.set(data);
+    for (let i = 0; i < data.length; i++){ const f = res[i]; if (f) for (let j = 1; j < g.length; j++) res[i + j] ^= gmul(g[j], f); }
+    return res.slice(data.length);
+  };
+  /* [ecPerBlock, [[blocks, dataLen]...]] per version, per EC level */
+  const ECB = {
+    M:{ 1:[10,[[1,16]]], 2:[16,[[1,28]]], 3:[26,[[1,44]]], 4:[18,[[2,32]]], 5:[24,[[2,43]]],
+        6:[16,[[4,27]]], 7:[18,[[4,31]]], 8:[22,[[2,38],[2,39]]], 9:[22,[[3,36],[2,37]]], 10:[26,[[4,43],[1,44]]] },
+    L:{ 1:[7,[[1,19]]], 2:[10,[[1,34]]], 3:[15,[[1,55]]], 4:[20,[[1,80]]], 5:[26,[[1,108]]],
+        6:[18,[[2,68]]], 7:[20,[[2,78]]], 8:[24,[[2,97]]], 9:[30,[[2,116]]], 10:[18,[[2,68],[2,69]]] }
+  };
+  const ECVAL = { M:0, L:1 };   // EC-level field in the format-info bits
+  const ALIGN = { 1:[], 2:[6,18], 3:[6,22], 4:[6,26], 5:[6,30], 6:[6,34], 7:[6,22,38], 8:[6,24,42], 9:[6,26,46], 10:[6,28,50] };
+  const MASKS = [
+    (r,c) => (r + c) % 2 === 0, (r,c) => r % 2 === 0, (r,c) => c % 3 === 0, (r,c) => (r + c) % 3 === 0,
+    (r,c) => (Math.floor(r/2) + Math.floor(c/3)) % 2 === 0, (r,c) => (r*c) % 2 + (r*c) % 3 === 0,
+    (r,c) => ((r*c) % 2 + (r*c) % 3) % 2 === 0, (r,c) => ((r + c) % 2 + (r*c) % 3) % 2 === 0,
+  ];
+  const blen = n => { let l = 0; while (n){ l++; n >>>= 1; } return l; };
+  const bch = (data, poly, shift) => { let d = data << shift; while (blen(d) >= blen(poly)) d ^= poly << (blen(d) - blen(poly)); return (data << shift) | d; };
+  const fmtBits = (lvl, mask) => bch((ECVAL[lvl] << 3) | mask, 0b10100110111, 10) ^ 0b101010000010010;
+  const verBits = v => bch(v, 0b1111100100101, 12);
+  const te = new TextEncoder();
+  function makeCodewords(bytes, lvl){
+    const tbl = ECB[lvl]; let v = 0;
+    for (let i = 1; i <= 10; i++){
+      const total = tbl[i][1].reduce((s, [n, c]) => s + n*c, 0);
+      if (4 + (i < 10 ? 8 : 16) + 8*bytes.length <= total*8){ v = i; break; }
+    }
+    if (!v) throw 'Content too long for version 10 (~'+(lvl==='L'?271:213)+' bytes)';
+    const total = tbl[v][1].reduce((s, [n, c]) => s + n*c, 0);
+    const bits = []; const push = (val, len) => { for (let i = len-1; i >= 0; i--) bits.push((val >> i) & 1); };
+    push(4, 4); push(bytes.length, v < 10 ? 8 : 16);
+    bytes.forEach(b => push(b, 8));
+    push(0, Math.min(4, total*8 - bits.length));
+    while (bits.length % 8) bits.push(0);
+    let pi = 0;
+    while (bits.length < total*8){ push(pi % 2 ? 0x11 : 0xEC, 8); pi++; }
+    const cw = new Uint8Array(total);
+    for (let i = 0; i < total; i++){ let b = 0; for (let j = 0; j < 8; j++) b = (b << 1) | bits[i*8 + j]; cw[i] = b; }
+    const [ecn, groups] = tbl[v];
+    const blocks = []; let off = 0;
+    for (const [n, len] of groups) for (let i = 0; i < n; i++){ blocks.push(cw.slice(off, off + len)); off += len; }
+    const ecs = blocks.map(b => rsEC(b, ecn));
+    const out = []; const maxd = Math.max(...blocks.map(b => b.length));
+    for (let i = 0; i < maxd; i++) for (const b of blocks) if (i < b.length) out.push(b[i]);
+    for (let i = 0; i < ecn; i++) for (const e of ecs) out.push(e[i]);
+    return { v, data: out };
+  }
+  function buildBase(v){
+    const N = 17 + 4*v;
+    const m = Array.from({ length: N }, () => new Int8Array(N).fill(-1));
+    const finder = (r0, c0) => { for (let i = -1; i <= 7; i++) for (let j = -1; j <= 7; j++){ const r = r0+i, c = c0+j; if (r < 0 || c < 0 || r >= N || c >= N) continue; m[r][c] = (i >= 0 && i <= 6 && j >= 0 && j <= 6 && (i === 0 || i === 6 || j === 0 || j === 6 || (i >= 2 && i <= 4 && j >= 2 && j <= 4))) ? 1 : 0; } };
+    finder(0, 0); finder(0, N-7); finder(N-7, 0);
+    for (let i = 8; i < N-8; i++){ if (m[6][i] === -1) m[6][i] = i % 2 ? 0 : 1; if (m[i][6] === -1) m[i][6] = i % 2 ? 0 : 1; }
+    const ap = ALIGN[v];
+    for (const r of ap) for (const c of ap){ if ((r === 6 && c === 6) || (r === 6 && c === N-7) || (r === N-7 && c === 6)) continue; for (let i = -2; i <= 2; i++) for (let j = -2; j <= 2; j++) m[r+i][c+j] = Math.max(Math.abs(i), Math.abs(j)) !== 1 ? 1 : 0; }
+    m[N-8][8] = 1;
+    for (let i = 0; i < 9; i++){ if (m[8][i] === -1) m[8][i] = 0; if (m[i][8] === -1) m[i][8] = 0; }
+    for (let i = N-8; i < N; i++){ if (m[8][i] === -1) m[8][i] = 0; if (m[i][8] === -1) m[i][8] = 0; }
+    if (v >= 7){ const vb = verBits(v); for (let i = 0; i < 18; i++){ const bit = (vb >> i) & 1; m[Math.floor(i/3)][i % 3 + N - 11] = bit; m[i % 3 + N - 11][Math.floor(i/3)] = bit; } }
+    return { m, N };
+  }
+  function fill(base, data, mk, lvl){
+    const N = base.N, m = base.m.map(row => Int8Array.from(row));
+    const fb = fmtBits(lvl, mk);
+    for (let i = 0; i < 15; i++){ const mod = ((fb >> i) & 1); if (i < 6) m[i][8] = mod; else if (i < 8) m[i + 1][8] = mod; else m[N - 15 + i][8] = mod; if (i < 8) m[8][N - i - 1] = mod; else if (i < 9) m[8][15 - i - 1 + 1] = mod; else m[8][15 - i - 1] = mod; }
+    m[N-8][8] = 1;
+    let inc = -1, row = N - 1, bitIndex = 7, byteIndex = 0;
+    for (let col = N - 1; col > 0; col -= 2){ if (col === 6) col--;
+      while (true){ for (let c = 0; c < 2; c++){ if (m[row][col - c] === -1){ let dark = false; if (byteIndex < data.length) dark = ((data[byteIndex] >>> bitIndex) & 1) === 1; if (MASKS[mk](row, col - c)) dark = !dark; m[row][col - c] = dark ? 1 : 0; bitIndex--; if (bitIndex === -1){ byteIndex++; bitIndex = 7; } } }
+        row += inc; if (row < 0 || N <= row){ row -= inc; inc = -inc; break; } } }
+    return m;
+  }
+  function penalty(m, N){
+    let p = 0;
+    const runScore = get => { for (let a = 0; a < N; a++){ let run = 1; for (let b = 1; b < N; b++){ if (get(a, b) === get(a, b-1)) run++; else { if (run >= 5) p += 3 + run - 5; run = 1; } } if (run >= 5) p += 3 + run - 5; } };
+    runScore((a, b) => m[a][b]); runScore((a, b) => m[b][a]);
+    for (let r = 0; r < N-1; r++) for (let c = 0; c < N-1; c++) if (m[r][c] === m[r][c+1] && m[r][c] === m[r+1][c] && m[r][c] === m[r+1][c+1]) p += 3;
+    const P1 = [1,0,1,1,1,0,1,0,0,0,0], P2 = [0,0,0,0,1,0,1,1,1,0,1];
+    const scan = get => { for (let a = 0; a < N; a++) for (let b = 0; b <= N - 11; b++){ let ok1 = true, ok2 = true; for (let k = 0; k < 11; k++){ const x = get(a, b + k); if (x !== P1[k]) ok1 = false; if (x !== P2[k]) ok2 = false; } if (ok1 || ok2) p += 40; } };
+    scan((a, b) => m[a][b]); scan((a, b) => m[b][a]);
+    let dark = 0; for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) dark += m[r][c];
+    p += Math.floor(Math.abs(dark * 100 / (N*N) - 50) / 5) * 10;
+    return p;
+  }
+  function encode(text, lvl='M'){
+    const { v, data } = makeCodewords(te.encode(text), lvl);
+    const base = buildBase(v);
+    let best = null, bestP = Infinity, bestMk = 0;
+    for (let mk = 0; mk < 8; mk++){ const m = fill(base, data, mk, lvl); const p = penalty(m, base.N); if (p < bestP){ bestP = p; best = m; bestMk = mk; } }
+    return { m: best, N: base.N, v, mask: bestMk, bytes: te.encode(text).length, lvl };
+  }
+  function toCanvas(cv, text, scale, lvl='M', quiet=4){
+    const r = encode(text, lvl);
+    scale = Math.min(16, Math.max(2, scale || 6));
+    cv.width = cv.height = (r.N + quiet*2) * scale;
+    const cx = cv.getContext('2d'); cx.fillStyle = '#fff'; cx.fillRect(0, 0, cv.width, cv.height); cx.fillStyle = '#000';
+    for (let row = 0; row < r.N; row++) for (let col = 0; col < r.N; col++) if (r.m[row][col] === 1) cx.fillRect((col + quiet)*scale, (row + quiet)*scale, scale, scale);
+    return r;
+  }
+  return { encode, toCanvas };
+})();
+
 /* ── snake ─────────────────────────────────────────────────── */
 tool({
   id:'snake', name:'Snake', group:'Toys',
@@ -6820,7 +6949,9 @@ tool({
     };
     const loop=()=>{ cancelAnimationFrame(raf); const run=()=>{ if($('#tool-breakout').classList.contains('active')){ if(!over)step(); else draw(); } raf=requestAnimationFrame(run); }; raf=requestAnimationFrame(run); };
     const cv=$('#bk-cv');
-    cv.addEventListener('mousemove',e=>{ const r=cv.getBoundingClientRect(); paddle.x=Math.max(0,Math.min(W-paddle.w,e.clientX-r.left-paddle.w/2)); });
+    const aimX=clientX=>{ const r=cv.getBoundingClientRect(); const x=(clientX-r.left)*(W/r.width); paddle.x=Math.max(0,Math.min(W-paddle.w,x-paddle.w/2)); };
+    cv.addEventListener('mousemove',e=>aimX(e.clientX));
+    cv.addEventListener('touchmove',e=>{ if(e.touches[0]){ e.preventDefault(); aimX(e.touches[0].clientX); } },{passive:false});
     cv.addEventListener('click',launch);
     document.addEventListener('keydown',e=>{ if(!$('#tool-breakout').classList.contains('active'))return; if(e.key==='ArrowLeft'){e.preventDefault();paddle.x=Math.max(0,paddle.x-24);} else if(e.key==='ArrowRight'){e.preventDefault();paddle.x=Math.min(W-paddle.w,paddle.x+24);} else if(e.key===' '){e.preventDefault();launch();} });
     $('#bk-play').addEventListener('click',reset); reset();
@@ -6922,10 +7053,11 @@ tool({
 /* ── mastermind ────────────────────────────────────────────── */
 tool({
   id:'mastermind', name:'Mastermind', group:'Toys',
-  blurb:'Crack the secret code of four colours in ten guesses. ● = right colour, right spot; ○ = right colour, wrong spot.',
+  blurb:'Crack the secret code of four colours in ten guesses. ● = right colour, right spot; ○ = right colour, wrong spot. Play against a random code, or have a friend set it.',
   html: `
     <div class="toybar">
       <button class="act" id="mm-new">New game</button>
+      <div class="seg" id="mm-mode"><button class="on" data-m="ai">vs Computer</button><button data-m="2p">2 players</button></div>
       <span class="score" id="mm-msg"></span>
     </div>
     <div id="mm-history" style="display:flex;flex-direction:column;gap:6px;margin-bottom:.7rem"></div>
@@ -6938,21 +7070,26 @@ tool({
   wire(){
     const COLORS=['#ff8787','#ffd43b','#69db7c','#4dabf7','#b197fc','#ffa94d'];
     const dot=(col,sz=22)=>`<span style="width:${sz}px;height:${sz}px;border-radius:50%;background:${col};display:inline-block"></span>`;
-    let secret, cur, done;
-    const pal=$('#mm-palette'), curEl=$('#mm-current'), hist=$('#mm-history'), msg=$('#mm-msg');
+    let secret, cur, done, mode='ai', phase='play';
+    const pal=$('#mm-palette'), curEl=$('#mm-current'), hist=$('#mm-history'), msg=$('#mm-msg'), go=$('#mm-go');
     pal.innerHTML=COLORS.map((c,i)=>`<button data-i="${i}" style="width:30px;height:30px;border-radius:50%;background:${c};border:1px solid var(--border-2);cursor:pointer"></button>`).join('');
     const renderCur=()=>{ curEl.innerHTML=''; for(let i=0;i<4;i++){ const s=document.createElement('span'); s.style.cssText='width:26px;height:26px;border-radius:50%;border:1px dashed var(--border-2);display:inline-block;'+(cur[i]!=null?'background:'+COLORS[cur[i]]+';border-style:solid':''); curEl.appendChild(s); } };
     const judge=g=>{ let black=0,white=0; const s=secret.slice(),x=g.slice(); for(let i=0;i<4;i++)if(x[i]===s[i]){black++;s[i]=x[i]=-1;} for(let i=0;i<4;i++){ if(x[i]<0)continue; const j=s.indexOf(x[i]); if(j>=0){white++;s[j]=-1;} } return {black,white}; };
-    const submit=()=>{ if(cur.length<4||done)return; const g=cur.slice(); const {black,white}=judge(g);
+    const guess=()=>{ if(cur.length<4||done)return; const g=cur.slice(); const {black,white}=judge(g);
       const row=document.createElement('div'); row.style.cssText='display:flex;align-items:center;gap:8px';
       row.innerHTML=g.map(i=>dot(COLORS[i])).join('')+' &nbsp; '+'●'.repeat(black)+'○'.repeat(white)+(black+white===0?'·':'');
       hist.appendChild(row); cur=[]; renderCur();
-      if(black===4){ msg.textContent='🎉 cracked in '+hist.children.length+'!'; done=true; }
-      else if(hist.children.length>=10){ msg.textContent='out of guesses — code was '; hist.appendChild(Object.assign(document.createElement('div'),{innerHTML:secret.map(i=>dot(COLORS[i],18)).join('')})); done=true; } };
-    const reset=()=>{ secret=Array.from({length:4},()=>rint(6)); cur=[]; done=false; hist.innerHTML=''; msg.textContent=''; renderCur(); };
+      if(black===4){ msg.textContent=(mode==='2p'?'🎉 Codebreaker cracked it in ':'🎉 cracked in ')+hist.children.length+'!'; done=true; confetti(); }
+      else if(hist.children.length>=10){ msg.textContent=(mode==='2p'?'Codemaker wins — code was ':'out of guesses — code was '); hist.appendChild(Object.assign(document.createElement('div'),{innerHTML:secret.map(i=>dot(COLORS[i],18)).join('')})); done=true; } };
+    const setSecret=()=>{ if(cur.length<4)return; secret=cur.slice(); cur=[]; phase='play'; go.textContent='Submit'; msg.textContent='Player 2: crack the code!'; renderCur(); };
+    const action=()=> phase==='setup' ? setSecret() : guess();
+    const reset=()=>{ cur=[]; done=false; hist.innerHTML=''; renderCur();
+      if(mode==='2p'){ phase='setup'; secret=null; go.textContent='Set code'; msg.textContent='Player 1: pick a 4-colour secret, then Set code'; }
+      else { phase='play'; secret=Array.from({length:4},()=>rint(6)); go.textContent='Submit'; msg.textContent=''; } };
     pal.addEventListener('click',e=>{ const b=e.target.closest('[data-i]'); if(!b||done||cur.length>=4)return; cur.push(+b.dataset.i); renderCur(); });
     $('#mm-back').addEventListener('click',()=>{ cur.pop(); renderCur(); });
-    $('#mm-go').addEventListener('click',submit);
+    go.addEventListener('click',action);
+    $$('#mm-mode button').forEach(btn=>btn.addEventListener('click',()=>{ $$('#mm-mode button').forEach(x=>x.classList.remove('on')); btn.classList.add('on'); mode=btn.dataset.m; reset(); }));
     $('#mm-new').addEventListener('click',reset); reset();
   }
 });
@@ -6960,25 +7097,29 @@ tool({
 /* ── tic-tac-toe ───────────────────────────────────────────── */
 tool({
   id:'ttt', name:'Tic-tac-toe', group:'Toys',
-  blurb:'You’re X against an unbeatable computer (minimax). The best you can hope for is a draw — try.',
+  blurb:'Get three in a row. Play the unbeatable computer (minimax) or pass-and-play two-player on one device.',
   html: `
     <div class="toybar">
       <button class="act" id="tc-new">New game</button>
+      <div class="seg" id="tc-mode"><button class="on" data-m="ai">vs Computer</button><button data-m="2p">2 players</button></div>
       <span class="score" id="tc-msg">your move</span>
-      <span class="score" id="tc-w"></span>
     </div>
-    <div id="tc-board" style="display:grid;grid-template-columns:repeat(3,90px);grid-template-rows:repeat(3,90px);gap:6px"></div>`,
+    <div id="tc-board" style="display:inline-grid;grid-template-columns:repeat(3,clamp(64px,26vw,120px));grid-template-rows:repeat(3,clamp(64px,26vw,120px));gap:6px"></div>`,
   wire(){
-    let b, over, busy, last=-1; const board=$('#tc-board'), msg=$('#tc-msg');
+    let b, over, busy, last=-1, mode='ai', cur='X'; const board=$('#tc-board'), msg=$('#tc-msg');
     const LINES=[[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
     const winner=s=>{ for(const[a,c,d]of LINES)if(s[a]&&s[a]===s[c]&&s[a]===s[d])return s[a]; return s.every(x=>x)?'draw':null; };
     const minimax=(s,me)=>{ const w=winner(s); if(w==='O')return{sc:1}; if(w==='X')return{sc:-1}; if(w==='draw')return{sc:0};
       let best={sc:me==='O'?-2:2,i:-1}; for(let i=0;i<9;i++){ if(s[i])continue; s[i]=me; const r=minimax(s,me==='O'?'X':'O'); s[i]=''; if((me==='O'&&r.sc>best.sc)||(me==='X'&&r.sc<best.sc))best={sc:r.sc,i}; } return best; };
     const render=()=>{ board.innerHTML=''; b.forEach((v,i)=>{ const d=document.createElement('div'); d.className=(v&&i===last)?'anim-pop':''; d.style.cssText='display:flex;align-items:center;justify-content:center;background:var(--code-bg);border-radius:8px;font-size:2.6rem;font-weight:700;cursor:'+(v||over?'default':'pointer')+';color:'+(v==='X'?'var(--accent-2)':'var(--bad)'); d.textContent=v; d.dataset.i=i; board.appendChild(d); }); };
-    const end=()=>{ const w=winner(b); if(w){ over=true; msg.textContent=w==='draw'?'draw':w==='X'?'you win!':'computer wins'; if(w==='X')confetti(); } };
+    const turnMsg=()=> mode==='2p' ? cur+' to move' : 'your move';
+    const end=()=>{ const w=winner(b); if(!w)return; over=true; if(mode==='2p'){ msg.textContent=w==='draw'?'draw':w+' wins!'; if(w!=='draw')confetti(); } else { msg.textContent=w==='draw'?'draw':w==='X'?'you win!':'computer wins'; if(w==='X')confetti(); } };
     const ai=()=>{ const m=minimax(b,'O'); if(m.i>=0){b[m.i]='O';last=m.i;} end(); render(); busy=false; if(!over)msg.textContent='your move'; };
-    const reset=()=>{ b=Array(9).fill(''); over=false; busy=false; last=-1; msg.textContent='your move'; render(); };
-    board.addEventListener('click',e=>{ const d=e.target.closest('[data-i]'); if(!d||over||busy)return; const i=+d.dataset.i; if(b[i])return; b[i]='X'; last=i; end(); render(); if(!over){ busy=true; msg.textContent='thinking…'; setTimeout(ai,140); } });
+    const reset=()=>{ b=Array(9).fill(''); over=false; busy=false; last=-1; cur='X'; msg.textContent=turnMsg(); render(); };
+    board.addEventListener('click',e=>{ const d=e.target.closest('[data-i]'); if(!d||over||busy)return; const i=+d.dataset.i; if(b[i])return;
+      if(mode==='2p'){ b[i]=cur; last=i; end(); if(!over){ cur=cur==='X'?'O':'X'; msg.textContent=turnMsg(); } render(); return; }
+      b[i]='X'; last=i; end(); render(); if(!over){ busy=true; msg.textContent='thinking…'; setTimeout(ai,140); } });
+    $$('#tc-mode button').forEach(btn=>btn.addEventListener('click',()=>{ $$('#tc-mode button').forEach(x=>x.classList.remove('on')); btn.classList.add('on'); mode=btn.dataset.m; reset(); }));
     $('#tc-new').addEventListener('click',reset); reset();
   }
 });
@@ -6990,11 +7131,13 @@ tool({
   html: `
     <div class="toybar">
       <button class="act" id="c4-new">New game</button>
+      <div class="seg" id="c4-mode"><button class="on" data-m="ai">vs Computer</button><button data-m="2p">2 players</button><button data-m="online">Online</button></div>
       <span class="score" id="c4-msg">your move (red)</span>
     </div>
-    <div id="c4-board" style="display:inline-grid;grid-template-columns:repeat(7,44px);gap:4px;background:var(--border-2);padding:6px;border-radius:10px"></div>`,
+    ${ptNetPanel('c4')}
+    <div id="c4-board" style="display:inline-grid;grid-template-columns:repeat(7,clamp(34px,11.5vw,60px));gap:4px;background:var(--border-2);padding:6px;border-radius:10px"></div>`,
   wire(){
-    const R=6,C=7; let g, over, busy, lastDrop=-1; const board=$('#c4-board'), msg=$('#c4-msg');
+    const R=6,C=7; let g, over, busy, lastDrop=-1, mode='ai', cur=1, net=null, myP=0; const board=$('#c4-board'), msg=$('#c4-msg');
     const at=(b,r,c)=>b[r*C+c];
     const drop=(b,c,p)=>{ for(let r=R-1;r>=0;r--)if(!b[r*C+c]){ b[r*C+c]=p; return r; } return -1; };
     const wins=(b,p)=>{ for(let r=0;r<R;r++)for(let c=0;c<C;c++){ if(b[r*C+c]!==p)continue;
@@ -7009,12 +7152,31 @@ tool({
         if(p===2){ if(r.sc>best.sc)best={sc:r.sc,c}; alpha=Math.max(alpha,r.sc); } else { if(r.sc<best.sc)best={sc:r.sc,c}; beta=Math.min(beta,r.sc); }
         if(beta<=alpha)break; }
       return best; };
-    const render=()=>{ board.innerHTML=''; for(let i=0;i<R*C;i++){ const v=g[i]; const d=document.createElement('div'); d.className=(i===lastDrop)?'anim-drop':''; d.style.cssText='width:44px;height:44px;border-radius:50%;cursor:'+(over?'default':'pointer')+';background:'+(v===1?'#ff6b6b':v===2?'#ffd43b':'var(--surface)'); d.dataset.c=i%C; board.appendChild(d); } };
-    const end=()=>{ if(wins(g,1)){over=true;msg.textContent='you win!';confetti();return true;} if(wins(g,2)){over=true;msg.textContent='computer wins';return true;} if(full(g)){over=true;msg.textContent='draw';return true;} return false; };
-    const play=c=>{ if(over||busy)return; const pr=drop(g,c,1); if(pr<0)return; lastDrop=pr*C+c; render(); if(end())return; busy=true; msg.textContent='thinking…';
+    const render=()=>{ board.innerHTML=''; for(let i=0;i<R*C;i++){ const v=g[i]; const d=document.createElement('div'); d.className=(i===lastDrop)?'anim-drop':''; d.style.cssText='width:100%;aspect-ratio:1;border-radius:50%;cursor:'+(over?'default':'pointer')+';background:'+(v===1?'#ff6b6b':v===2?'#ffd43b':'var(--surface)'); d.dataset.c=i%C; board.appendChild(d); } };
+    const turnMsg=()=> mode==='2p' ? (cur===1?'Red':'Yellow')+' to move'
+      : mode==='online' ? (!net||!net.isOpen() ? 'connect to play' : (cur===myP ? 'your move ('+(myP===1?'red':'yellow')+')' : 'opponent’s move'))
+      : 'your move (red)';
+    const end=()=>{ let w=0; if(wins(g,1))w=1; else if(wins(g,2))w=2;
+      if(w){ over=true;
+        if(mode==='online'){ msg.textContent=w===myP?'you win!':'opponent wins'; if(w===myP)confetti(); }
+        else if(mode==='2p'){ msg.textContent=(w===1?'Red':'Yellow')+' wins!'; confetti(); }
+        else { msg.textContent=w===1?'you win!':'computer wins'; if(w===1)confetti(); }
+        return true; }
+      if(full(g)){ over=true; msg.textContent='draw'; return true; } return false; };
+    const play=c=>{ if(over||busy)return;
+      if(mode==='online'){ if(!net||!net.isOpen()||cur!==myP)return; const pr=drop(g,c,cur); if(pr<0)return; lastDrop=pr*C+c; net.send({type:'move',c}); if(!end()){ cur=cur===1?2:1; msg.textContent=turnMsg(); } render(); return; }
+      if(mode==='2p'){ const pr=drop(g,c,cur); if(pr<0)return; lastDrop=pr*C+c; if(!end()){ cur=cur===1?2:1; msg.textContent=turnMsg(); } render(); return; }
+      const pr=drop(g,c,1); if(pr<0)return; lastDrop=pr*C+c; render(); if(end())return; busy=true; msg.textContent='thinking…';
       setTimeout(()=>{ const m=nega(g,5,2,-1e9,1e9); const ar=drop(g,m.c,2); lastDrop=ar*C+m.c; render(); busy=false; if(!end())msg.textContent='your move (red)'; },80); };
-    const reset=()=>{ g=Array(R*C).fill(0); over=false; busy=false; lastDrop=-1; msg.textContent='your move (red)'; render(); };
+    const doReset=broadcast=>{ g=Array(R*C).fill(0); over=false; busy=false; lastDrop=-1; cur=1; msg.textContent=turnMsg(); render(); if(broadcast&&net&&net.isOpen())net.send({type:'reset'}); };
+    const reset=()=>doReset(mode==='online');
+    net=ptWireNet('c4',{ hostLabel:'Red (move first)', guestLabel:'Yellow',
+      onConnect:role=>{ myP=role==='host'?1:2; doReset(false); },
+      onMessage:m=>{ if(m.type==='reset'){ doReset(false); return; }
+        if(m.type==='move'){ if(over)return; const pr=drop(g,m.c,cur); if(pr<0)return; lastDrop=pr*C+m.c; if(!end()){ cur=cur===1?2:1; msg.textContent=turnMsg(); } render(); } },
+      onClose:()=>{ if(mode==='online'){ msg.textContent='opponent disconnected'; over=true; } } });
     board.addEventListener('click',e=>{ const d=e.target.closest('[data-c]'); if(d)play(+d.dataset.c); });
+    $$('#c4-mode button').forEach(btn=>btn.addEventListener('click',()=>{ $$('#c4-mode button').forEach(x=>x.classList.remove('on')); btn.classList.add('on'); mode=btn.dataset.m; if(mode==='online'){ net.show(); } else { net.hide(); net.reset(); } reset(); }));
     $('#c4-new').addEventListener('click',reset); reset();
   }
 });
@@ -7111,10 +7273,12 @@ tool({
   html: `
     <div class="toybar">
       <button class="act" id="ch-new">New game</button>
+      <div class="seg" id="ch-mode"><button class="on" data-m="ai">vs Computer</button><button data-m="2p">2 players</button><button data-m="online">Online</button></div>
       <span class="score" id="ch-status">White to move</span>
     </div>
+    ${ptNetPanel('ch')}
     <div class="chessbd" id="ch-board"></div>
-    <p class="note">Computer is club-beginner strength (3-ply search). You move first as White.</p>`,
+    <p class="note">Computer is club-beginner strength (3-ply search). You move first as White. In 2-player mode, take turns on one device; Online connects two devices on the same network.</p>`,
   wire(){
     const GLY={k:'♚',q:'♛',r:'♜',b:'♝',n:'♞',p:'♟'}, VAL={p:100,n:320,b:330,r:500,q:900,k:0};
     const START=('rnbqkbnr'+'pppppppp'+'........'.repeat(4)+'PPPPPPPP'+'RNBQKBNR').split('');
@@ -7122,7 +7286,7 @@ tool({
     const isW=p=>p!=='.'&&p===p.toUpperCase();
     const col=p=>p==='.'?null:(isW(p)?'w':'b');
     const inb=(r,f)=>r>=0&&r<8&&f>=0&&f<8;
-    let bd, turn, castle, ep, sel, legal, over;
+    let bd, turn, castle, ep, sel, legal, over, mode='ai', net=null, myColor=null;
     const kpos=(b,c)=>b.indexOf(c==='w'?'K':'k');
     const attacked=(b,t,by)=>{
       const tr=Math.floor(t/8), tf=t%8;
@@ -7184,8 +7348,18 @@ tool({
     };
     const finish=()=>{
       const st={bd,turn,castle,ep}; const moves=legalFor(st); const chk=attacked(bd,kpos(bd,turn),turn==='w'?'b':'w');
-      if(!moves.length){ over=true; $('#ch-status').textContent= chk?(turn==='w'?'Checkmate — you lose':'Checkmate — you win!'):'Stalemate — draw'; if(chk&&turn==='b')confetti(); }
-      else $('#ch-status').textContent=(turn==='w'?'White to move':'Black thinking…')+(chk?' · check!':'');
+      if(!moves.length){ over=true;
+        if(chk){ let winMsg, party;
+          if(mode==='online'){ const lost=turn===myColor; winMsg='Checkmate — '+(lost?'you lose':'you win!'); party=!lost; }
+          else if(mode==='2p'){ winMsg='Checkmate — '+(turn==='w'?'Black':'White')+' wins!'; party=true; }
+          else { winMsg=turn==='w'?'Checkmate — you lose':'Checkmate — you win!'; party=turn==='b'; }
+          $('#ch-status').textContent=winMsg; if(party)confetti(); }
+        else $('#ch-status').textContent='Stalemate — draw'; }
+      else {
+        let mover;
+        if(mode==='online') mover = !net||!net.isOpen() ? 'connect to play' : (turn===myColor?'your move':'opponent to move');
+        else mover = turn==='w'?'White to move':(mode==='2p'?'Black to move':'Black thinking…');
+        $('#ch-status').textContent=mover+(chk?' · check!':''); }
     };
     const render=()=>{
       const el=$('#ch-board'); el.innerHTML='';
@@ -7195,15 +7369,25 @@ tool({
         if(legal.some(m=>m.to===i))d.classList.add(bd[i]!=='.'?'cap':'mv');
         el.appendChild(d); }
     };
-    const onClick=e=>{ if(over||turn!=='w')return; const sq=e.target.closest('[data-i]'); if(!sq)return; const i=+sq.dataset.i;
+    const onClick=e=>{ if(over)return; if(mode==='ai'&&turn!=='w')return; if(mode==='online'&&(!net||!net.isOpen()||turn!==myColor))return; const sq=e.target.closest('[data-i]'); if(!sq)return; const i=+sq.dataset.i;
       const mv=legal.find(m=>m.to===i);
-      if(mv){ const ns=apply({bd,turn,castle,ep},mv); bd=ns.bd; turn=ns.turn; castle=ns.castle; ep=ns.ep; sel=null; legal=[]; render(); finish(); if(!over){ $('#ch-status').textContent='Black thinking…'; setTimeout(aiMove,60); } return; }
-      if(bd[i]!=='.'&&col(bd[i])==='w'){ sel=i; legal=legalFor({bd,turn,castle,ep}).filter(m=>m.from===i); } else { sel=null; legal=[]; }
+      if(mv){ const ns=apply({bd,turn,castle,ep},mv); bd=ns.bd; turn=ns.turn; castle=ns.castle; ep=ns.ep; sel=null; legal=[]; render(); finish();
+        if(mode==='online')net.send({type:'move',mv});
+        if(!over&&mode==='ai'){ $('#ch-status').textContent='Black thinking…'; setTimeout(aiMove,60); } return; }
+      if(bd[i]!=='.'&&col(bd[i])===turn){ sel=i; legal=legalFor({bd,turn,castle,ep}).filter(m=>m.from===i); } else { sel=null; legal=[]; }
       render();
     };
-    const reset=()=>{ bd=START.slice(); turn='w'; castle={wk:true,wq:true,bk:true,bq:true}; ep=-1; sel=null; legal=[]; over=false; render(); $('#ch-status').textContent='White to move'; };
+    const applyRemote=mv=>{ const ns=apply({bd,turn,castle,ep},mv); bd=ns.bd; turn=ns.turn; castle=ns.castle; ep=ns.ep; sel=null; legal=[]; render(); finish(); };
+    const doReset=broadcast=>{ bd=START.slice(); turn='w'; castle={wk:true,wq:true,bk:true,bq:true}; ep=-1; sel=null; legal=[]; over=false; render(); finish(); if(broadcast&&net&&net.isOpen())net.send({type:'reset'}); };
+    const reset=()=>doReset(mode==='online');
+    net=ptWireNet('ch',{ hostLabel:'White (move first)', guestLabel:'Black',
+      onConnect:role=>{ myColor=role==='host'?'w':'b'; doReset(false); },
+      onMessage:m=>{ if(m.type==='reset'){ doReset(false); return; } if(m.type==='move'&&!over)applyRemote(m.mv); },
+      onClose:()=>{ if(mode==='online'){ over=true; $('#ch-status').textContent='opponent disconnected'; } } });
     $('#ch-board').addEventListener('click',onClick);
-    $('#ch-new').addEventListener('click',reset); reset();
+    $('#ch-new').addEventListener('click',reset);
+    $('#ch-mode').addEventListener('click',e=>{ const b=e.target.closest('[data-m]'); if(!b)return; mode=b.dataset.m; [...$('#ch-mode').children].forEach(x=>x.classList.toggle('on',x===b)); if(mode==='online'){ net.show(); } else { net.hide(); net.reset(); } reset(); });
+    reset();
   }
 });
 
@@ -7475,7 +7659,7 @@ const RULES = {
   simon:'<ul><li>Watch the pads flash a sequence, then repeat it by clicking.</li><li>Each round adds one more step.</li><li>One wrong pad ends the run — how long a sequence can you remember?</li></ul>',
   typing:'<ul><li>Type the shown words as fast and accurately as you can.</li><li>Live WPM and accuracy update as you go; the timer starts on your first keystroke.</li><li>New text gives a fresh random set of words.</li></ul>',
   wordguess:'<ul><li>Guess the hidden five-letter word in six tries.</li><li><b style="color:#69a85c">Green</b> = right letter, right spot; <b style="color:#d6a740">yellow</b> = in the word, wrong spot; grey = not in the word.</li></ul>',
-  mastermind:'<ul><li>Crack the secret code of four colours in ten guesses.</li><li>Click colours to build a guess (⌫ to undo), then Submit.</li><li>● = right colour in the right spot; ○ = right colour, wrong spot.</li></ul>',
+  mastermind:'<ul><li>Crack the secret code of four colours in ten guesses.</li><li>Click colours to build a guess (⌫ to undo), then Submit.</li><li>● = right colour in the right spot; ○ = right colour, wrong spot.</li><li><b>2 players:</b> Player 1 picks the secret and clicks Set code (look away, Player 2!), then Player 2 has ten guesses to crack it.</li></ul>',
   ttt:'<ul><li>Click a square to place your X. Get three in a row to win.</li><li>vs Computer uses a perfect (minimax) player — a draw is the best you can force.</li></ul>',
   connect4:'<ul><li>Click a column to drop your disc; it falls to the lowest free slot.</li><li>Line up four in a row — horizontal, vertical or diagonal — before the opponent.</li></ul>',
   solitaire:'<ul><li>Build the four foundations up by suit, Ace to King.</li><li>On the tableau, build down in alternating colours; only a King fills an empty column.</li><li>Click the stock to deal; click a card then its destination; double-click to send to a foundation.</li></ul>',
@@ -7490,6 +7674,26 @@ Object.entries(RULES).forEach(([id, html]) => {
   const d = document.createElement('details'); d.className = 'rules';
   d.innerHTML = '<summary>how to play</summary>' + html;
   blurb.after(d);
+});
+/* every game gets a full-screen toggle in its header */
+Object.keys(RULES).forEach(id => {
+  const sec = document.getElementById('tool-' + id);
+  const head = sec && sec.querySelector('.tool-head > span');
+  if (!head) return;
+  const btn = document.createElement('button');
+  btn.className = 'fsbtn'; btn.textContent = '⛶';
+  btn.title = 'Full screen'; btn.setAttribute('aria-label', 'Toggle full screen');
+  const fsEl = () => document.fullscreenElement || document.webkitFullscreenElement;
+  btn.addEventListener('click', () => {
+    if (fsEl()){ (document.exitFullscreen || document.webkitExitFullscreen).call(document); }
+    else { (sec.requestFullscreen || sec.webkitRequestFullscreen).call(sec); }
+  });
+  head.insertBefore(btn, head.firstChild);
+});
+document.addEventListener('fullscreenchange', () => {
+  document.querySelectorAll('.fsbtn').forEach(b => { b.textContent = '⛶'; b.title = 'Full screen'; });
+  const el = document.fullscreenElement;
+  if (el){ const b = el.querySelector('.fsbtn'); if (b){ b.textContent = '⤢'; b.title = 'Exit full screen'; } }
 });
 
 let currentTool = 'base64';

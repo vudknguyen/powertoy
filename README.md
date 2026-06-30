@@ -18,7 +18,7 @@ app release and shows the current version. See [PACKAGING.md](PACKAGING.md).
 ## Quality
 
 - **`tests.html`** — integration suite: drives every tool in a live iframe with
-  known-answer vectors (123 assertions across all 105 tools). Open it to see a pass/fail report.
+  known-answer vectors (131 assertions across all 105 tools). Open it to see a pass/fail report.
 - **`verify-commands.sh`** — runs each tool's documented shell command on your machine and
   confirms it matches the tool's output (43 checks).
 
@@ -145,3 +145,15 @@ app release and shows the current version. See [PACKAGING.md](PACKAGING.md).
 - Tool chaining: every result has a **Send to →** button that pipes its output into another tool's input (e.g. Base64 decode → JSON format → JSON query).
 - Dark mode: toggle in the header (follows your OS preference by default).
 - The last-used tool and your inputs are remembered locally between sessions.
+- Every game has a **⛶ full-screen** toggle in its header; boards and canvases scale up to fill
+  the screen (px-based games are zoomed for a bigger centred view).
+- Multiplayer games: Tic-tac-toe, Connect Four, Chess and Mastermind offer **2 players**
+  (pass-and-play on one device — in Mastermind one player sets the secret, the other cracks it),
+  and Connect Four / Chess add **Online** — serverless peer-to-peer over WebRTC.
+  No signaling server: each side gets a compact connection code shown both as text and as a
+  **QR code**. The code is just the irreducible WebRTC handshake bits — the 32-byte DTLS
+  fingerprint, the ICE ufrag/pwd, and up to two host candidates — packed as raw binary and
+  base64url'd (~140 chars, about the crypto floor for a serverless code; a shorter numeric PIN
+  would require a rendezvous server). Players paste the code or scan the QR with their camera
+  (where `BarcodeDetector` is available), and the games connect directly on the same network
+  (LAN-only, keeping the offline guarantee).
