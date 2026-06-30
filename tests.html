@@ -212,6 +212,22 @@ t('connect four 2-player', async () => { await go('connect4'); $$('#c4-mode butt
 t('mastermind 2-player', async () => { await go('mastermind'); $$('#mm-mode button').find(b=>b.dataset.m==='2p').click(); const pal=$$('#mm-palette [data-i]'); [0,1,2,3].forEach(i=>pal[i].click()); $('#mm-go').click(); inc(txt('#mm-msg'),'Player 2'); [0,1,2,3].forEach(i=>pal[i].click()); $('#mm-go').click(); inc(txt('#mm-msg'),'cracked'); $$('#mm-mode button').find(b=>b.dataset.m==='ai').click(); });
 t('chess online host code + QR', async () => { await go('chess'); $$('#ch-mode button').find(b=>b.dataset.m==='online').click(); assert($('#ch-net').style.display!=='none','panel hidden'); $('#ch-host').click(); await wait(1600); assert(/^PT3/.test($('#ch-mine').value),'no PT3 host code'); assert($('#ch-myqr').width>0 && $('#ch-myqr').style.display!=='none','QR not rendered'); $$('#ch-mode button').find(b=>b.dataset.m==='ai').click(); });
 t('connect four online host code + QR', async () => { await go('connect4'); $$('#c4-mode button').find(b=>b.dataset.m==='online').click(); assert($('#c4-net').style.display!=='none','panel hidden'); $('#c4-host').click(); await wait(1600); assert(/^PT3/.test($('#c4-mine').value),'no PT3 host code'); assert($('#c4-myqr').width>0 && $('#c4-myqr').style.display!=='none','QR not rendered'); $$('#c4-mode button').find(b=>b.dataset.m==='ai').click(); });
+t('chess 2-player', async () => { await go('chess'); $$('#ch-mode button').find(b=>b.dataset.m==='2p').click(); const sq=i=>$('#ch-board .sq[data-i=\"'+i+'\"]'); sq(52).click(); sq(36).click(); await wait(40); eq(txt('#ch-status'),'Black to move'); sq(12).click(); sq(28).click(); await wait(40); eq(txt('#ch-status'),'White to move'); $$('#ch-mode button').find(b=>b.dataset.m==='ai').click(); });
+t('p2p sdp codec roundtrip', async () => {
+  const ok = await W().eval(`(async () => {
+    const pc = new RTCPeerConnection(); pc.createDataChannel('game');
+    await pc.setLocalDescription(await pc.createOffer());
+    await new Promise(r => { if (pc.iceGatheringState==='complete') return r(); const t=setTimeout(r,1500); pc.addEventListener('icegatheringstatechange',()=>{ if(pc.iceGatheringState==='complete'){clearTimeout(t);r();} }); });
+    const code = 'PT3' + ptB64url(ptPackSDP(pc.localDescription));
+    const back = ptUnpackSDP(ptUnb64url(code.replace(/^PT3/,'')));
+    const pc2 = new RTCPeerConnection(); await pc2.setRemoteDescription(back);   // throws if SDP invalid
+    const fp = s => (s.match(/a=fingerprint:sha-256 ([0-9A-Fa-f:]+)/i)[1]).toUpperCase();
+    const good = code.startsWith('PT3') && back.type==='offer' && fp(pc.localDescription.sdp)===fp(back.sdp) && code.length < 320;
+    pc.close(); pc2.close(); return good;
+  })()`);
+  assert(ok, 'codec roundtrip / rebuilt SDP rejected');
+});
+t('every game has a fullscreen button', async () => { const ids = await W().eval('Object.keys(RULES)'); assert(ids.length>=17,'too few games: '+ids.length); ids.forEach(id => assert($('#tool-'+id+' .fsbtn'), 'no fullscreen button: '+id)); });
 
 /* ---------- run ---------- */
 async function run(){
