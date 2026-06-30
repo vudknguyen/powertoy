@@ -46,8 +46,18 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 </dict></plist>
 PLIST
 
-# ad-hoc sign so Gatekeeper lets it run locally
-codesign --force --deep --sign - "$APP" 2>/dev/null || true
+# Sign with a Developer ID identity if one is provided (CI release path), so the app
+# can be notarized and runs on download without Gatekeeper warnings. Otherwise ad-hoc
+# sign — fine for running locally, but not for distribution.
+if [ -n "${SIGN_IDENTITY:-}" ]; then
+  echo "▸ signing with Developer ID (hardened runtime): $SIGN_IDENTITY"
+  codesign --force --options runtime --timestamp --sign "$SIGN_IDENTITY" "$BIN"
+  codesign --force --options runtime --timestamp --sign "$SIGN_IDENTITY" "$APP"
+  codesign --verify --strict --verbose=2 "$APP"
+else
+  echo "▸ ad-hoc signing (unsigned local build — distribute only after notarizing)"
+  codesign --force --deep --sign - "$APP" 2>/dev/null || true
+fi
 
 echo "✓ built $APP"
 echo "  run:  open $(dirname "$0")/$APP"
