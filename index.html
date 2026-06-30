@@ -418,6 +418,25 @@ details.rules li{margin:.15rem 0}
 .netcode{flex:1;min-width:0;height:3.1rem;resize:vertical;font-family:var(--mono);font-size:.78rem;padding:.45rem .55rem;border:1px solid var(--border-2);border-radius:7px;background:var(--bg);color:var(--ink);word-break:break-all}
 .netqr{margin:.4rem 0;border:1px solid var(--border-2);border-radius:7px;background:#fff;image-rendering:pixelated;max-width:240px;height:auto}
 .netcam{margin:.4rem 0;width:260px;max-width:100%;border:1px solid var(--border-2);border-radius:7px;background:#000}
+/* full-screen game mode */
+.fsbtn{background:none;border:1px solid var(--border-2);border-radius:6px;color:var(--muted);cursor:pointer;font-size:1rem;line-height:1;padding:.18rem .42rem}
+.fsbtn:hover{color:var(--accent);border-color:var(--accent)}
+.tool:fullscreen{background:var(--bg);overflow:auto;padding:1.4rem;display:flex;flex-direction:column;align-items:center}
+.tool:fullscreen .tool-head{width:100%;max-width:920px}
+.tool:fullscreen .blurb,.tool:fullscreen details.rules{max-width:920px}
+/* boards that scale with vw/vh: lift their caps so they fill the screen */
+#tool-snake:fullscreen #sn-cv{width:min(96vw,90vh)}
+#tool-tetris:fullscreen #tt-cv{height:min(94vh,96vw);width:auto}
+#tool-breakout:fullscreen #bk-cv{width:min(96vw,128vh)}
+#tool-g2048:fullscreen .g2048{width:min(92vh,92vw)}
+#tool-sudoku:fullscreen .sudoku{width:min(92vh,92vw)}
+#tool-chess:fullscreen .chessbd{grid-template-columns:repeat(8,min(10.5vh,11vw));grid-template-rows:repeat(8,min(10.5vh,11vw))}
+#tool-ttt:fullscreen #tc-board{grid-template-columns:repeat(3,min(26vh,26vw));grid-template-rows:repeat(3,min(26vh,26vw))}
+#tool-connect4:fullscreen #c4-board{grid-template-columns:repeat(7,min(11.5vh,12vw))}
+#tool-simon:fullscreen #si-pads{width:min(74vh,80vw)}
+#tool-wordguess:fullscreen #wg-grid{width:min(60vh,86vw)}
+/* px-based games: a uniform zoom for a bigger, centred view */
+#tool-mines:fullscreen,#tool-solitaire:fullscreen,#tool-blackjack:fullscreen,#tool-typing:fullscreen,#tool-mastermind:fullscreen,#tool-roll:fullscreen,#tool-metro:fullscreen{zoom:1.7}
 </style>
 </head>
 <body>
@@ -7649,6 +7668,26 @@ Object.entries(RULES).forEach(([id, html]) => {
   const d = document.createElement('details'); d.className = 'rules';
   d.innerHTML = '<summary>how to play</summary>' + html;
   blurb.after(d);
+});
+/* every game gets a full-screen toggle in its header */
+Object.keys(RULES).forEach(id => {
+  const sec = document.getElementById('tool-' + id);
+  const head = sec && sec.querySelector('.tool-head > span');
+  if (!head) return;
+  const btn = document.createElement('button');
+  btn.className = 'fsbtn'; btn.textContent = '⛶';
+  btn.title = 'Full screen'; btn.setAttribute('aria-label', 'Toggle full screen');
+  const fsEl = () => document.fullscreenElement || document.webkitFullscreenElement;
+  btn.addEventListener('click', () => {
+    if (fsEl()){ (document.exitFullscreen || document.webkitExitFullscreen).call(document); }
+    else { (sec.requestFullscreen || sec.webkitRequestFullscreen).call(sec); }
+  });
+  head.insertBefore(btn, head.firstChild);
+});
+document.addEventListener('fullscreenchange', () => {
+  document.querySelectorAll('.fsbtn').forEach(b => { b.textContent = '⛶'; b.title = 'Full screen'; });
+  const el = document.fullscreenElement;
+  if (el){ const b = el.querySelector('.fsbtn'); if (b){ b.textContent = '⤢'; b.title = 'Exit full screen'; } }
 });
 
 let currentTool = 'base64';

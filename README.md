@@ -145,6 +145,8 @@ app release and shows the current version. See [PACKAGING.md](PACKAGING.md).
 - Tool chaining: every result has a **Send to →** button that pipes its output into another tool's input (e.g. Base64 decode → JSON format → JSON query).
 - Dark mode: toggle in the header (follows your OS preference by default).
 - The last-used tool and your inputs are remembered locally between sessions.
+- Every game has a **⛶ full-screen** toggle in its header; boards and canvases scale up to fill
+  the screen (px-based games are zoomed for a bigger centred view).
 - Multiplayer games: Tic-tac-toe, Connect Four and Chess offer **2 players** (pass-and-play on
   one device) and Connect Four / Chess add **Online** — serverless peer-to-peer over WebRTC.
   No signaling server: each side gets a compact connection code shown both as text and as a
