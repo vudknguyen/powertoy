@@ -7053,10 +7053,11 @@ tool({
 /* ── mastermind ────────────────────────────────────────────── */
 tool({
   id:'mastermind', name:'Mastermind', group:'Toys',
-  blurb:'Crack the secret code of four colours in ten guesses. ● = right colour, right spot; ○ = right colour, wrong spot.',
+  blurb:'Crack the secret code of four colours in ten guesses. ● = right colour, right spot; ○ = right colour, wrong spot. Play against a random code, or have a friend set it.',
   html: `
     <div class="toybar">
       <button class="act" id="mm-new">New game</button>
+      <div class="seg" id="mm-mode"><button class="on" data-m="ai">vs Computer</button><button data-m="2p">2 players</button></div>
       <span class="score" id="mm-msg"></span>
     </div>
     <div id="mm-history" style="display:flex;flex-direction:column;gap:6px;margin-bottom:.7rem"></div>
@@ -7069,21 +7070,26 @@ tool({
   wire(){
     const COLORS=['#ff8787','#ffd43b','#69db7c','#4dabf7','#b197fc','#ffa94d'];
     const dot=(col,sz=22)=>`<span style="width:${sz}px;height:${sz}px;border-radius:50%;background:${col};display:inline-block"></span>`;
-    let secret, cur, done;
-    const pal=$('#mm-palette'), curEl=$('#mm-current'), hist=$('#mm-history'), msg=$('#mm-msg');
+    let secret, cur, done, mode='ai', phase='play';
+    const pal=$('#mm-palette'), curEl=$('#mm-current'), hist=$('#mm-history'), msg=$('#mm-msg'), go=$('#mm-go');
     pal.innerHTML=COLORS.map((c,i)=>`<button data-i="${i}" style="width:30px;height:30px;border-radius:50%;background:${c};border:1px solid var(--border-2);cursor:pointer"></button>`).join('');
     const renderCur=()=>{ curEl.innerHTML=''; for(let i=0;i<4;i++){ const s=document.createElement('span'); s.style.cssText='width:26px;height:26px;border-radius:50%;border:1px dashed var(--border-2);display:inline-block;'+(cur[i]!=null?'background:'+COLORS[cur[i]]+';border-style:solid':''); curEl.appendChild(s); } };
     const judge=g=>{ let black=0,white=0; const s=secret.slice(),x=g.slice(); for(let i=0;i<4;i++)if(x[i]===s[i]){black++;s[i]=x[i]=-1;} for(let i=0;i<4;i++){ if(x[i]<0)continue; const j=s.indexOf(x[i]); if(j>=0){white++;s[j]=-1;} } return {black,white}; };
-    const submit=()=>{ if(cur.length<4||done)return; const g=cur.slice(); const {black,white}=judge(g);
+    const guess=()=>{ if(cur.length<4||done)return; const g=cur.slice(); const {black,white}=judge(g);
       const row=document.createElement('div'); row.style.cssText='display:flex;align-items:center;gap:8px';
       row.innerHTML=g.map(i=>dot(COLORS[i])).join('')+' &nbsp; '+'●'.repeat(black)+'○'.repeat(white)+(black+white===0?'·':'');
       hist.appendChild(row); cur=[]; renderCur();
-      if(black===4){ msg.textContent='🎉 cracked in '+hist.children.length+'!'; done=true; }
-      else if(hist.children.length>=10){ msg.textContent='out of guesses — code was '; hist.appendChild(Object.assign(document.createElement('div'),{innerHTML:secret.map(i=>dot(COLORS[i],18)).join('')})); done=true; } };
-    const reset=()=>{ secret=Array.from({length:4},()=>rint(6)); cur=[]; done=false; hist.innerHTML=''; msg.textContent=''; renderCur(); };
+      if(black===4){ msg.textContent=(mode==='2p'?'🎉 Codebreaker cracked it in ':'🎉 cracked in ')+hist.children.length+'!'; done=true; confetti(); }
+      else if(hist.children.length>=10){ msg.textContent=(mode==='2p'?'Codemaker wins — code was ':'out of guesses — code was '); hist.appendChild(Object.assign(document.createElement('div'),{innerHTML:secret.map(i=>dot(COLORS[i],18)).join('')})); done=true; } };
+    const setSecret=()=>{ if(cur.length<4)return; secret=cur.slice(); cur=[]; phase='play'; go.textContent='Submit'; msg.textContent='Player 2: crack the code!'; renderCur(); };
+    const action=()=> phase==='setup' ? setSecret() : guess();
+    const reset=()=>{ cur=[]; done=false; hist.innerHTML=''; renderCur();
+      if(mode==='2p'){ phase='setup'; secret=null; go.textContent='Set code'; msg.textContent='Player 1: pick a 4-colour secret, then Set code'; }
+      else { phase='play'; secret=Array.from({length:4},()=>rint(6)); go.textContent='Submit'; msg.textContent=''; } };
     pal.addEventListener('click',e=>{ const b=e.target.closest('[data-i]'); if(!b||done||cur.length>=4)return; cur.push(+b.dataset.i); renderCur(); });
     $('#mm-back').addEventListener('click',()=>{ cur.pop(); renderCur(); });
-    $('#mm-go').addEventListener('click',submit);
+    go.addEventListener('click',action);
+    $$('#mm-mode button').forEach(btn=>btn.addEventListener('click',()=>{ $$('#mm-mode button').forEach(x=>x.classList.remove('on')); btn.classList.add('on'); mode=btn.dataset.m; reset(); }));
     $('#mm-new').addEventListener('click',reset); reset();
   }
 });
@@ -7653,7 +7659,7 @@ const RULES = {
   simon:'<ul><li>Watch the pads flash a sequence, then repeat it by clicking.</li><li>Each round adds one more step.</li><li>One wrong pad ends the run — how long a sequence can you remember?</li></ul>',
   typing:'<ul><li>Type the shown words as fast and accurately as you can.</li><li>Live WPM and accuracy update as you go; the timer starts on your first keystroke.</li><li>New text gives a fresh random set of words.</li></ul>',
   wordguess:'<ul><li>Guess the hidden five-letter word in six tries.</li><li><b style="color:#69a85c">Green</b> = right letter, right spot; <b style="color:#d6a740">yellow</b> = in the word, wrong spot; grey = not in the word.</li></ul>',
-  mastermind:'<ul><li>Crack the secret code of four colours in ten guesses.</li><li>Click colours to build a guess (⌫ to undo), then Submit.</li><li>● = right colour in the right spot; ○ = right colour, wrong spot.</li></ul>',
+  mastermind:'<ul><li>Crack the secret code of four colours in ten guesses.</li><li>Click colours to build a guess (⌫ to undo), then Submit.</li><li>● = right colour in the right spot; ○ = right colour, wrong spot.</li><li><b>2 players:</b> Player 1 picks the secret and clicks Set code (look away, Player 2!), then Player 2 has ten guesses to crack it.</li></ul>',
   ttt:'<ul><li>Click a square to place your X. Get three in a row to win.</li><li>vs Computer uses a perfect (minimax) player — a draw is the best you can force.</li></ul>',
   connect4:'<ul><li>Click a column to drop your disc; it falls to the lowest free slot.</li><li>Line up four in a row — horizontal, vertical or diagonal — before the opponent.</li></ul>',
   solitaire:'<ul><li>Build the four foundations up by suit, Ace to King.</li><li>On the tableau, build down in alternating colours; only a King fills an empty column.</li><li>Click the stock to deal; click a card then its destination; double-click to send to a foundation.</li></ul>',
