@@ -3944,6 +3944,205 @@ tool({
   }
 });
 
+/* ── php serialize ↔ json ───────────────────────────────────── */
+tool({
+  id:'phpser', name:'PHP serialize ↔ JSON', group:'Text',
+  blurb:'Convert PHP serialize() output to JSON and back. Handles strings, ints, doubles, booleans, null, arrays (list or map) and objects (O: — the class name is kept as "__class").',
+  html:`
+    <div class="row"><div class="seg" id="ph-mode"><button class="on" data-m="p2j">PHP → JSON</button><button data-m="j2p">JSON → PHP</button></div></div>
+    <label class="lbl">Input</label>
+    <textarea id="ph-in" spellcheck="false" style="min-height:120px">a:3:{s:4:"name";s:8:"powertoy";s:3:"ver";i:2;s:4:"tags";a:2:{i:0;s:3:"dev";i:1;s:7:"offline";}}</textarea>
+    <div class="err" id="ph-err"></div>
+    <label class="lbl">Output ${cpyBtn('#ph-out')}</label>
+    <textarea id="ph-out" readonly style="min-height:130px"></textarea>
+    ${shPanel('ph',[{why:'PHP CLI',cmd:`php -r 'echo json_encode(unserialize($argv[1]));' 'a:1:{...}'`},{why:'back to serialize',cmd:`php -r 'echo serialize(json_decode($argv[1], true));' '{...}'`}])}`,
+  wire(){
+    let mode='p2j'; const inp=$('#ph-in'), out=$('#ph-out'), err=$('#ph-err');
+    const parse = input => {
+      const b=new TextEncoder().encode(input); let p=0; const td=new TextDecoder();
+      const eat=ch=>{ if(String.fromCharCode(b[p])!==ch) throw new Error(`Expected '${ch}' at byte ${p}`); p++; };
+      const digits=()=>{ let s=''; while(p<b.length){ const c=b[p]; if((c>=48&&c<=57)||c===45||c===43||c===46||c===69||c===101){ s+=String.fromCharCode(c); p++; } else break; } return s; };
+      const rd=()=>{ const t=String.fromCharCode(b[p++]);
+        if(t==='N'){ eat(';'); return null; }
+        eat(':');
+        if(t==='b'){ const v=b[p]===49; p++; eat(';'); return v; }
+        if(t==='i'){ const n=parseInt(digits(),10); eat(';'); return n; }
+        if(t==='d'){ const n=parseFloat(digits()); eat(';'); return n; }
+        if(t==='s'){ const len=parseInt(digits(),10); eat(':'); eat('"'); const s=td.decode(b.subarray(p,p+len)); p+=len; eat('"'); eat(';'); return s; }
+        if(t==='a'){ const cnt=parseInt(digits(),10); eat(':'); eat('{'); const es=[]; for(let i=0;i<cnt;i++){ const k=rd(); es.push([k,rd()]); } eat('}');
+          if(es.every(([k],i)=>k===i)) return es.map(([,v])=>v);
+          const o={}; for(const [k,v] of es) o[k]=v; return o; }
+        if(t==='O'){ const cl=parseInt(digits(),10); eat(':'); eat('"'); const cls=td.decode(b.subarray(p,p+cl)); p+=cl; eat('"'); eat(':'); const cnt=parseInt(digits(),10); eat(':'); eat('{'); const o={__class:cls}; for(let i=0;i<cnt;i++){ const k=rd(); o[k]=rd(); } eat('}'); return o; }
+        throw new Error(`Unknown PHP type '${t}'`); };
+      const r=rd(); return r;
+    };
+    const blen = s => new TextEncoder().encode(s).length;
+    const dump = v => {
+      if(v===null) return 'N;';
+      if(typeof v==='boolean') return `b:${v?1:0};`;
+      if(typeof v==='number') return Number.isInteger(v)?`i:${v};`:`d:${v};`;
+      if(typeof v==='string') return `s:${blen(v)}:"${v}";`;
+      if(Array.isArray(v)) return `a:${v.length}:{`+v.map((it,i)=>`i:${i};`+dump(it)).join('')+'}';
+      if(typeof v==='object'){ const keys=Object.keys(v).filter(k=>k!=='__class');
+        if(typeof v.__class==='string') return `O:${blen(v.__class)}:"${v.__class}":${keys.length}:{`+keys.map(k=>dump(k)+dump(v[k])).join('')+'}';
+        return `a:${keys.length}:{`+keys.map(k=>dump(k)+dump(v[k])).join('')+'}'; }
+      throw new Error('Unsupported value'); };
+    const run=()=>{ err.textContent=''; out.value=''; const v=inp.value; if(!v.trim())return;
+      try{ out.value = mode==='p2j' ? JSON.stringify(parse(v.trim()),null,2) : dump(JSON.parse(v)); }
+      catch(e){ err.textContent=e.message||'Conversion failed'; } };
+    inp.addEventListener('input',run);
+    $$('#ph-mode button').forEach(b=>b.addEventListener('click',()=>{ $$('#ph-mode button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); mode=b.dataset.m; run(); }));
+    run();
+  }
+});
+
+/* ── ini ↔ json ─────────────────────────────────────────────── */
+tool({
+  id:'ini', name:'INI ↔ JSON', group:'Text',
+  blurb:'Convert INI config to JSON and back. Sections [name] become nested objects; values get type inference (numbers, booleans). One level of sections; deeper JSON nesting can’t round-trip to INI.',
+  html:`
+    <div class="row"><div class="seg" id="in-mode"><button class="on" data-m="i2j">INI → JSON</button><button data-m="j2i">JSON → INI</button></div></div>
+    <label class="lbl">Input</label>
+    <textarea id="in-in" spellcheck="false" style="min-height:130px">; app config
+name = powertoy
+debug = true
+
+[server]
+host = a.local
+port = 8080</textarea>
+    <div class="err" id="in-err"></div>
+    <label class="lbl">Output ${cpyBtn('#in-out')}</label>
+    <textarea id="in-out" readonly style="min-height:130px"></textarea>
+    ${shPanel('in',[{why:'crudini',cmd:`crudini --get --format=json file.ini`},{why:'python',cmd:`python3 -c 'import configparser,json; c=configparser.ConfigParser(); c.read("f.ini"); print(json.dumps({s:dict(c[s]) for s in c.sections()}))'`}])}`,
+  wire(){
+    let mode='i2j'; const inp=$('#in-in'), out=$('#in-out'), err=$('#in-err');
+    const coerce = v => { if(v==='true')return true; if(v==='false')return false; if(/^-?\d+$/.test(v))return parseInt(v,10); if(/[.eE]/.test(v)&&/^-?(\d+\.\d*|\.\d+|\d+)([eE][+-]?\d+)?$/.test(v))return parseFloat(v); return v; };
+    const parseINI = src => { const root={}; let cur=root;
+      for(const raw of src.split(/\r?\n/)){ const line=raw.trim(); if(!line||line[0]===';'||line[0]==='#')continue; let m;
+        if(m=line.match(/^\[(.+)\]$/)){ const s=m[1].trim(); cur=root[s]=root[s]||{}; }
+        else if(m=line.match(/^([^=]+)=(.*)$/)){ let k=m[1].trim(), v=m[2].trim(); if((v[0]==='"'&&v.endsWith('"'))||(v[0]==="'"&&v.endsWith("'"))) v=v.slice(1,-1); else v=coerce(v); cur[k]=v; }
+      } return root; };
+    const iniVal = v => { if(Array.isArray(v)||v&&typeof v==='object') return JSON.stringify(v); const s=String(v); return /[;#"'\n]|^\s|\s$/.test(s)?JSON.stringify(s):s; };
+    const dumpINI = obj => { let top='', secs='';
+      for(const k of Object.keys(obj)){ const v=obj[k];
+        if(v&&typeof v==='object'&&!Array.isArray(v)){ secs+=`\n[${k}]\n`; for(const kk of Object.keys(v)) secs+=`${kk} = ${iniVal(v[kk])}\n`; }
+        else top+=`${k} = ${iniVal(v)}\n`;
+      } return (top+secs).replace(/^\n+/,'').trimEnd()+'\n'; };
+    const run=()=>{ err.textContent=''; out.value=''; const v=inp.value; if(!v.trim())return;
+      try{ if(mode==='i2j') out.value=JSON.stringify(parseINI(v),null,2); else { const d=JSON.parse(v); if(!d||typeof d!=='object'||Array.isArray(d))throw new Error('Top level must be a JSON object'); out.value=dumpINI(d); } }
+      catch(e){ err.textContent=e.message||'Conversion failed'; } };
+    inp.addEventListener('input',run);
+    $$('#in-mode button').forEach(b=>b.addEventListener('click',()=>{ $$('#in-mode button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); mode=b.dataset.m; run(); }));
+    run();
+  }
+});
+
+/* ── .env / .properties ↔ json ──────────────────────────────── */
+tool({
+  id:'envprop', name:'.env / .properties ↔ JSON', group:'Text',
+  blurb:'Convert flat key=value config — dotenv (.env) or Java .properties — to a JSON object and back. Values stay strings (config values are strings); .properties handles :, line continuations and \\uXXXX escapes.',
+  html:`
+    <div class="row">
+      <div class="seg" id="ep-mode"><button class="on" data-m="e2j">config → JSON</button><button data-m="j2e">JSON → config</button></div>
+      <div class="seg" id="ep-fmt"><button class="on" data-f="env">.env</button><button data-f="prop">.properties</button></div>
+    </div>
+    <label class="lbl">Input</label>
+    <textarea id="ep-in" spellcheck="false" style="min-height:120px"># service config
+NAME=powertoy
+PORT=8080
+GREETING="hello world"</textarea>
+    <div class="err" id="ep-err"></div>
+    <label class="lbl">Output ${cpyBtn('#ep-out')}</label>
+    <textarea id="ep-out" readonly style="min-height:120px"></textarea>
+    ${shPanel('ep',[{why:'dotenv → json (jq)',cmd:`grep -v '^#' .env | jq -R 'split("=")|{(.[0]):.[1]}' | jq -s add`},{why:'load into shell',cmd:`set -a; . ./.env; set +a`}])}`,
+  wire(){
+    let mode='e2j', fmt='env'; const inp=$('#ep-in'), out=$('#ep-out'), err=$('#ep-err');
+    const parseEnv = src => { const o={}; for(const raw of src.split(/\r?\n/)){ let line=raw.trim(); if(!line||line[0]==='#')continue; line=line.replace(/^export\s+/,''); const i=line.indexOf('='); if(i<0)continue; let k=line.slice(0,i).trim(), v=line.slice(i+1).trim(); const c=v[0]; if((c==='"'||c==="'")&&v.length>1&&v.endsWith(c)){ v=v.slice(1,-1); if(c==='"')v=v.replace(/\\n/g,'\n').replace(/\\t/g,'\t').replace(/\\"/g,'"').replace(/\\\\/g,'\\'); } o[k]=v; } return o; };
+    const parseProps = src => { const o={}; const lines=src.split(/\r?\n/); let buf=null;
+      for(let raw of lines){ let line = buf!==null ? buf+raw.replace(/^\s+/,'') : raw; buf=null; const t=line.trim(); if(!t||t[0]==='#'||t[0]==='!')continue;
+        if(/(^|[^\\])\\$/.test(line)){ buf=line.replace(/\\$/,''); continue; }
+        const m=line.match(/^\s*([^=:\s]+)\s*[=:]\s*(.*)$/); if(!m)continue;
+        const v=m[2].replace(/\\u([0-9a-fA-F]{4})/g,(_,h)=>String.fromCharCode(parseInt(h,16))).replace(/\\n/g,'\n').replace(/\\t/g,'\t').replace(/\\r/g,'\r').replace(/\\([=:# !\\])/g,'$1');
+        o[m[1]]=v; } return o; };
+    const dumpEnv = o => Object.keys(o).map(k=>{ const v=String(o[k]); return `${k}=${/[\s#"'=]|^$/.test(v)?JSON.stringify(v):v}`; }).join('\n')+'\n';
+    const dumpProps = o => Object.keys(o).map(k=>{ const v=String(o[k]).replace(/\\/g,'\\\\').replace(/\n/g,'\\n').replace(/\t/g,'\\t').replace(/([=:#!])/g,'\\$1'); const key=k.replace(/([=:\s])/g,'\\$1'); return `${key}=${v}`; }).join('\n')+'\n';
+    const run=()=>{ err.textContent=''; out.value=''; const v=inp.value; if(!v.trim())return;
+      try{ if(mode==='e2j') out.value=JSON.stringify((fmt==='env'?parseEnv:parseProps)(v),null,2);
+        else { const d=JSON.parse(v); if(!d||typeof d!=='object'||Array.isArray(d))throw new Error('Top level must be a JSON object'); out.value=(fmt==='env'?dumpEnv:dumpProps)(d); } }
+      catch(e){ err.textContent=e.message||'Conversion failed'; } };
+    inp.addEventListener('input',run);
+    $$('#ep-mode button').forEach(b=>b.addEventListener('click',()=>{ $$('#ep-mode button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); mode=b.dataset.m; run(); }));
+    $$('#ep-fmt button').forEach(b=>b.addEventListener('click',()=>{ $$('#ep-fmt button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); fmt=b.dataset.f; run(); }));
+    run();
+  }
+});
+
+/* ── ndjson ↔ json array ────────────────────────────────────── */
+tool({
+  id:'ndjson', name:'NDJSON ↔ JSON', group:'Text',
+  blurb:'NDJSON / JSON Lines (one JSON value per line) to a JSON array and back. Blank lines are ignored; each line is parsed independently.',
+  html:`
+    <div class="row"><div class="seg" id="nd-mode"><button class="on" data-m="n2j">NDJSON → array</button><button data-m="j2n">array → NDJSON</button></div></div>
+    <label class="lbl">Input</label>
+    <textarea id="nd-in" spellcheck="false" style="min-height:120px">{"id":1,"name":"Ada"}
+{"id":2,"name":"Grace"}</textarea>
+    <div class="err" id="nd-err"></div>
+    <label class="lbl">Output ${cpyBtn('#nd-out')}</label>
+    <textarea id="nd-out" readonly style="min-height:130px"></textarea>
+    ${shPanel('nd',[{why:'ndjson → array (jq)',cmd:`jq -s '.' file.ndjson`},{why:'array → ndjson (jq)',cmd:`jq -c '.[]' file.json`}])}`,
+  wire(){
+    let mode='n2j'; const inp=$('#nd-in'), out=$('#nd-out'), err=$('#nd-err');
+    const run=()=>{ err.textContent=''; out.value=''; const v=inp.value; if(!v.trim())return;
+      try{ if(mode==='n2j'){ const arr=v.split(/\r?\n/).filter(l=>l.trim()!=='').map((l,i)=>{ try{ return JSON.parse(l); }catch(e){ throw new Error(`Line ${i+1}: ${e.message}`); } }); out.value=JSON.stringify(arr,null,2); }
+        else { const d=JSON.parse(v); if(!Array.isArray(d))throw new Error('Input must be a JSON array'); out.value=d.map(x=>JSON.stringify(x)).join('\n')+'\n'; } }
+      catch(e){ err.textContent=e.message||'Conversion failed'; } };
+    inp.addEventListener('input',run);
+    $$('#nd-mode button').forEach(b=>b.addEventListener('click',()=>{ $$('#nd-mode button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); mode=b.dataset.m; run(); }));
+    run();
+  }
+});
+
+/* ── protobuf (schemaless decode) ───────────────────────────── */
+tool({
+  id:'protobuf', name:'Protobuf decode', group:'Encode',
+  blurb:'Decode raw Protocol Buffers bytes (hex or base64) without a .proto — a viewer that shows each field number, its wire type and value. Length-delimited fields are shown as a nested message, UTF-8 string, or hex. Field names need the schema, so they aren’t recovered.',
+  html:`
+    <div class="row"><select id="pb-repr"><option value="hex" selected>hex</option><option value="b64">base64</option></select></div>
+    <label class="lbl">Input bytes</label>
+    <textarea id="pb-in" spellcheck="false" style="min-height:90px">089601120774657374696e67</textarea>
+    <div class="err" id="pb-err"></div>
+    <label class="lbl">Decoded ${cpyBtn('#pb-out')}</label>
+    <textarea id="pb-out" readonly style="min-height:150px"></textarea>
+    ${shPanel('pb',[{why:'protoc',cmd:`protoc --decode_raw < message.bin`},{why:'from hex',cmd:`xxd -r -p <<< '089601' | protoc --decode_raw`}])}`,
+  wire(){
+    const inp=$('#pb-in'), out=$('#pb-out'), err=$('#pb-err');
+    const WT={0:'varint',1:'64-bit',2:'len-delim',5:'32-bit'};
+    const toHex=u=>[...u].map(b=>b.toString(16).padStart(2,'0')).join('');
+    const fromHex=s=>{ s=s.replace(/[^0-9a-fA-F]/g,''); if(s.length%2)throw new Error('Odd-length hex'); const u=new Uint8Array(s.length/2); for(let i=0;i<u.length;i++)u[i]=parseInt(s.substr(i*2,2),16); return u; };
+    const fromB64=s=>Uint8Array.from(atob(s.trim()),c=>c.charCodeAt(0));
+    const utf8=u=>{ try{ const s=new TextDecoder('utf-8',{fatal:true}).decode(u); return /[\x00-\x08\x0e-\x1f]/.test(s)?null:s; }catch{ return null; } };
+    const decode=(bytes,depth)=>{ let p=0; const out={};
+      const varint=()=>{ let shift=0n,res=0n; for(;;){ if(p>=bytes.length)throw new Error('truncated varint'); const b=bytes[p++]; res|=BigInt(b&0x7f)<<shift; if(!(b&0x80))break; shift+=7n; } return res; };
+      const add=(f,wt,val)=>{ const key=`#${f} (${WT[wt]})`; if(key in out){ if(!Array.isArray(out[key]))out[key]=[out[key]]; out[key].push(val); } else out[key]=val; };
+      while(p<bytes.length){ const tag=Number(varint()), f=tag>>3, wt=tag&7;
+        if(wt===0){ const v=varint(); add(f,wt, v<=BigInt(Number.MAX_SAFE_INTEGER)?Number(v):v.toString()); }
+        else if(wt===1){ if(p+8>bytes.length)throw new Error('truncated 64-bit'); const dv=new DataView(bytes.buffer,bytes.byteOffset+p,8); add(f,wt,{double:dv.getFloat64(0,true),hex:'0x'+toHex(bytes.subarray(p,p+8))}); p+=8; }
+        else if(wt===2){ const len=Number(varint()); if(p+len>bytes.length)throw new Error('truncated length-delimited'); const sub=bytes.subarray(p,p+len); p+=len;
+          let val; if(depth<6){ try{ const d=decode(sub,depth+1); if(Object.keys(d).length){ val=d; } }catch{} }
+          if(val===undefined){ const s=utf8(sub); val = s!=null ? s : '0x'+toHex(sub); }
+          add(f,wt,val); }
+        else if(wt===5){ if(p+4>bytes.length)throw new Error('truncated 32-bit'); const dv=new DataView(bytes.buffer,bytes.byteOffset+p,4); add(f,wt,{float:dv.getFloat32(0,true),uint32:dv.getUint32(0,true)}); p+=4; }
+        else throw new Error('Unknown wire type '+wt);
+      } return out; };
+    const run=()=>{ err.textContent=''; out.value=''; const v=inp.value; if(!v.trim())return;
+      try{ const bytes=$('#pb-repr').value==='hex'?fromHex(v):fromB64(v); out.value=JSON.stringify(decode(bytes,0),null,2); }
+      catch(e){ err.textContent=e.message||'Decode failed'; } };
+    inp.addEventListener('input',run);
+    $('#pb-repr').addEventListener('change',run);
+    run();
+  }
+});
+
 /* ── cidr / subnet ─────────────────────────────────────────── */
 tool({
   id:'cidr', name:'CIDR subnet', group:'Ops',

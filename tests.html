@@ -238,6 +238,15 @@ t('toml → json', async () => { await go('toml'); $$('#tm-mode button').find(b=
 t('json → toml', async () => { await go('toml'); $$('#tm-mode button').find(b=>b.dataset.m==='j2t').click(); set('#tm-in','{"n":2,"o":{"k":"v"}}'); const t=val('#tm-out'); inc(t,'n = 2'); inc(t,'[o]'); inc(t,'k = "v"'); });
 t('messagepack encode', async () => { await go('msgpack'); $$('#mp-fmt button').find(b=>b.dataset.f==='msgpack').click(); $$('#mp-mode button').find(b=>b.dataset.m==='enc').click(); set('#mp-in','{"a":1}'); eq(val('#mp-out'),'81a16101'); });
 t('cbor roundtrip', async () => { await go('msgpack'); $$('#mp-fmt button').find(b=>b.dataset.f==='cbor').click(); $$('#mp-mode button').find(b=>b.dataset.m==='enc').click(); set('#mp-in','{"a":1,"b":[true,null]}'); const hex=val('#mp-out'); $$('#mp-mode button').find(b=>b.dataset.m==='dec').click(); set('#mp-in',hex); const o=JSON.parse(val('#mp-out')); eq(o.a,1); eq(o.b[0],true); eq(o.b[1],null); });
+t('php → json', async () => { await go('phpser'); $$('#ph-mode button').find(b=>b.dataset.m==='p2j').click(); set('#ph-in','a:2:{i:0;i:10;i:1;i:20;}'); eq(JSON.stringify(JSON.parse(val('#ph-out'))),'[10,20]'); set('#ph-in','a:1:{s:1:"a";i:1;}'); eq(JSON.parse(val('#ph-out')).a,1); });
+t('json → php', async () => { await go('phpser'); $$('#ph-mode button').find(b=>b.dataset.m==='j2p').click(); set('#ph-in','{"a":1}'); eq(val('#ph-out'),'a:1:{s:1:"a";i:1;}'); });
+t('ini → json', async () => { await go('ini'); $$('#in-mode button').find(b=>b.dataset.m==='i2j').click(); set('#in-in','x = 1\n[s]\nk = v'); const o=JSON.parse(val('#in-out')); eq(o.x,1); eq(o.s.k,'v'); });
+t('json → ini', async () => { await go('ini'); $$('#in-mode button').find(b=>b.dataset.m==='j2i').click(); set('#in-in','{"x":1,"s":{"k":"v"}}'); const t=val('#in-out'); inc(t,'x = 1'); inc(t,'[s]'); inc(t,'k = v'); });
+t('.env → json', async () => { await go('envprop'); $$('#ep-fmt button').find(b=>b.dataset.f==='env').click(); $$('#ep-mode button').find(b=>b.dataset.m==='e2j').click(); set('#ep-in','A=1\nB="two words"'); const o=JSON.parse(val('#ep-out')); eq(o.A,'1'); eq(o.B,'two words'); });
+t('.properties → json', async () => { await go('envprop'); $$('#ep-fmt button').find(b=>b.dataset.f==='prop').click(); $$('#ep-mode button').find(b=>b.dataset.m==='e2j').click(); set('#ep-in','a.b : hello\nk = v:w'); const o=JSON.parse(val('#ep-out')); eq(o['a.b'],'hello'); eq(o.k,'v:w'); });
+t('ndjson → array', async () => { await go('ndjson'); $$('#nd-mode button').find(b=>b.dataset.m==='n2j').click(); set('#nd-in','{"a":1}\n{"b":2}'); eq(JSON.stringify(JSON.parse(val('#nd-out'))),'[{"a":1},{"b":2}]'); });
+t('array → ndjson', async () => { await go('ndjson'); $$('#nd-mode button').find(b=>b.dataset.m==='j2n').click(); set('#nd-in','[{"a":1},{"b":2}]'); eq(val('#nd-out').trim(),'{"a":1}\n{"b":2}'); });
+t('protobuf decode', async () => { await go('protobuf'); set('#pb-repr','hex'); set('#pb-in','089601'); const o=JSON.parse(val('#pb-out')); const k=Object.keys(o).find(x=>x.startsWith('#1')); eq(o[k],150); });
 
 /* ---------- run ---------- */
 async function run(){
