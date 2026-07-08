@@ -4143,6 +4143,286 @@ tool({
   }
 });
 
+/* ── json5 / jsonc → json ───────────────────────────────────── */
+tool({
+  id:'json5', name:'JSON5 / JSONC → JSON', group:'Text',
+  blurb:'Clean relaxed JSON — // and /* */ comments, trailing commas, single quotes, unquoted keys, hex numbers — into strict, formatted JSON. (Infinity/NaN parse but serialize to null, as JSON has no such literals.)',
+  html:`
+    <label class="lbl">JSON5 / JSONC input</label>
+    <textarea id="j5-in" spellcheck="false" style="min-height:150px">{
+  // a line comment
+  name: 'powertoy',
+  version: 2,
+  hex: 0xff,
+  list: [1, 2, 3,],
+  /* trailing comma above is fine */
+}</textarea>
+    <div class="err" id="j5-err"></div>
+    <label class="lbl">Strict JSON ${cpyBtn('#j5-out')}</label>
+    <textarea id="j5-out" readonly style="min-height:150px"></textarea>
+    ${shPanel('j5',[{why:'json5 CLI',cmd:`json5 -c file.json5`},{why:'strip comments with jq',cmd:`jq '.' file.jsonc`}])}`,
+  wire(){
+    const inp=$('#j5-in'), out=$('#j5-out'), err=$('#j5-err');
+    const parse = src => {
+      let p=0;
+      const ws=()=>{ for(;;){ const c=src[p];
+        if(c===' '||c==='\t'||c==='\n'||c==='\r'||c==='\f'||c==='\v'||c==='﻿'){p++;}
+        else if(c==='/'&&src[p+1]==='/'){ p+=2; while(p<src.length&&src[p]!=='\n')p++; }
+        else if(c==='/'&&src[p+1]==='*'){ p+=2; while(p<src.length&&!(src[p]==='*'&&src[p+1]==='/'))p++; p+=2; }
+        else break; } };
+      const str=()=>{ const q=src[p++]; let s=''; while(p<src.length&&src[p]!==q){ if(src[p]==='\\'){ const e=src[++p]; p++; if(e==='n')s+='\n'; else if(e==='t')s+='\t'; else if(e==='r')s+='\r'; else if(e==='b')s+='\b'; else if(e==='f')s+='\f'; else if(e==='u'){ s+=String.fromCharCode(parseInt(src.substr(p,4),16)); p+=4; } else if(e==='\n'){} else s+=e; } else s+=src[p++]; } p++; return s; };
+      const key=()=>{ ws(); const c=src[p]; if(c==='"'||c==="'")return str(); let s=''; while(p<src.length&&/[\w$]/.test(src[p]))s+=src[p++]; if(!s)throw new Error('Bad key at '+p); return s; };
+      const obj=()=>{ p++; const o={}; ws(); if(src[p]==='}'){p++;return o;} for(;;){ ws(); const k=key(); ws(); if(src[p]!==':')throw new Error('Expected ":" at '+p); p++; o[k]=val(); ws(); if(src[p]===','){p++; ws(); if(src[p]==='}'){p++;break;} continue;} if(src[p]==='}'){p++;break;} throw new Error('Expected "," or "}" at '+p); } return o; };
+      const arr=()=>{ p++; const a=[]; ws(); if(src[p]===']'){p++;return a;} for(;;){ a.push(val()); ws(); if(src[p]===','){p++; ws(); if(src[p]===']'){p++;break;} continue;} if(src[p]===']'){p++;break;} throw new Error('Expected "," or "]" at '+p); } return a; };
+      const lit=()=>{ let s=''; while(p<src.length&&!/[\s,}\]]/.test(src[p]))s+=src[p++];
+        if(s==='true')return true; if(s==='false')return false; if(s==='null')return null;
+        if(/Infinity$/.test(s))return s[0]==='-'?-Infinity:Infinity; if(s==='NaN'||s==='-NaN')return NaN;
+        if(/^[+-]?0x[0-9a-fA-F]+$/.test(s))return parseInt(s.replace('+',''),16);
+        const n=Number(s); if(s!==''&&!isNaN(n))return n;
+        throw new Error('Unexpected token "'+s+'" at '+p); };
+      const val=()=>{ ws(); const c=src[p]; if(c==='{')return obj(); if(c==='[')return arr(); if(c==='"'||c==="'")return str(); return lit(); };
+      const r=val(); ws(); if(p<src.length)throw new Error('Trailing content at '+p); return r;
+    };
+    const run=()=>{ err.textContent=''; out.value=''; const v=inp.value; if(!v.trim())return;
+      try{ out.value=JSON.stringify(parse(v),null,2); }catch(e){ err.textContent=e.message||'Parse failed'; } };
+    inp.addEventListener('input',run); run();
+  }
+});
+
+/* ── asn.1 / der decoder ────────────────────────────────────── */
+tool({
+  id:'asn1', name:'ASN.1 / DER decoder', group:'Crypto',
+  blurb:'Decode the DER/BER (ASN.1) structure behind X.509 certs, keys and CSRs. Paste PEM, hex or base64 — see the tag/length/value tree with OIDs and common string types resolved.',
+  html:`
+    <label class="lbl">PEM, hex or base64</label>
+    <textarea id="a1-in" spellcheck="false" style="min-height:110px">MAoGCCqGSM49AwEH</textarea>
+    <div class="err" id="a1-err"></div>
+    <label class="lbl">Structure ${cpyBtn('#a1-out')}</label>
+    <textarea id="a1-out" readonly style="min-height:170px;font-family:var(--mono)"></textarea>
+    ${shPanel('a1',[{why:'openssl (PEM)',cmd:`openssl asn1parse -in file.pem`},{why:'from DER',cmd:`openssl asn1parse -inform DER -in file.der`}])}`,
+  wire(){
+    const inp=$('#a1-in'), out=$('#a1-out'), err=$('#a1-err');
+    const toHex=u=>[...u].map(b=>b.toString(16).padStart(2,'0')).join('');
+    const toBytes = raw => {
+      const t=raw.trim();
+      if(/-----BEGIN/.test(t)){ const b64=t.replace(/-----[^-]+-----/g,'').replace(/\s+/g,''); return Uint8Array.from(atob(b64),c=>c.charCodeAt(0)); }
+      if(/^[0-9a-fA-F\s]+$/.test(t)){ const h=t.replace(/[^0-9a-fA-F]/g,''); if(h.length%2===0){ const u=new Uint8Array(h.length/2); for(let i=0;i<u.length;i++)u[i]=parseInt(h.substr(i*2,2),16); return u; } }
+      return Uint8Array.from(atob(t.replace(/\s+/g,'')),c=>c.charCodeAt(0));
+    };
+    const TAGS={1:'BOOLEAN',2:'INTEGER',3:'BIT STRING',4:'OCTET STRING',5:'NULL',6:'OBJECT IDENTIFIER',10:'ENUMERATED',12:'UTF8String',16:'SEQUENCE',17:'SET',19:'PrintableString',20:'T61String',22:'IA5String',23:'UTCTime',24:'GeneralizedTime',26:'VisibleString',27:'GeneralString',30:'BMPString'};
+    const oid = u => { const parts=[]; let v=0; for(let i=0;i<u.length;i++){ v=v*128+(u[i]&0x7f); if(!(u[i]&0x80)){ if(!parts.length){ const a=v>=80?2:Math.floor(v/40); parts.push(a, a===2?v-80:v%40); } else parts.push(v); v=0; } } return parts.join('.'); };
+    const decode = (u,off,depth,lines) => {
+      let p=off;
+      while(p<u.length){
+        const tag=u[p]; const cls=tag>>6; const cons=!!(tag&0x20); let tn=tag&0x1f; p++;
+        if(tn===0x1f){ tn=0; while(u[p]&0x80){ tn=tn*128+(u[p]&0x7f); p++; } tn=tn*128+u[p]; p++; }
+        let len=u[p++]; if(len&0x80){ const n=len&0x7f; len=0; for(let i=0;i<n;i++)len=len*256+u[p++]; }
+        const start=p, content=u.subarray(p,p+len), pad='  '.repeat(depth);
+        const name = cls===0 ? (TAGS[tn]||('[UNIVERSAL '+tn+']')) : cls===2 ? ('['+tn+']') : ('[class '+cls+' tag '+tn+']');
+        if(cons){ lines.push(pad+name+' ('+len+')'); decode(u,start,depth+1,lines); }
+        else {
+          let val='';
+          if(tn===6&&cls===0) val=oid(content);
+          else if(tn===2||tn===10) val=content.length<=6?String(parseInt(toHex(content)||'0',16)):'0x'+toHex(content);
+          else if(tn===1) val=content[0]?'true':'false';
+          else if(tn===5) val='';
+          else if([12,19,22,20,26,27,30,23,24].includes(tn)) val=new TextDecoder().decode(content);
+          else val='0x'+toHex(content);
+          lines.push(pad+name+' ('+len+')'+(val!==''?': '+val:''));
+        }
+        p=start+len;
+      }
+    };
+    const run=()=>{ err.textContent=''; out.value=''; const v=inp.value; if(!v.trim())return;
+      try{ const bytes=toBytes(v); const lines=[]; decode(bytes,0,0,lines); if(!lines.length)throw new Error('No ASN.1 content'); out.value=lines.join('\n'); }
+      catch(e){ err.textContent=e.message||'Decode failed'; } };
+    inp.addEventListener('input',run); run();
+  }
+});
+
+/* ── pem ↔ der ──────────────────────────────────────────────── */
+tool({
+  id:'pemder', name:'PEM ↔ DER', group:'Crypto',
+  blurb:'Convert between PEM (base64 armor with -----BEGIN----- headers) and DER (raw bytes as hex). Pick the PEM label when building PEM.',
+  html:`
+    <div class="row">
+      <div class="seg" id="pd-mode"><button class="on" data-m="p2d">PEM → DER</button><button data-m="d2p">DER → PEM</button></div>
+      <input id="pd-label" value="CERTIFICATE" style="width:12rem" spellcheck="false">
+    </div>
+    <label class="lbl">Input</label>
+    <textarea id="pd-in" spellcheck="false" style="min-height:120px">-----BEGIN EC PARAMETERS-----
+MAoGCCqGSM49AwEH
+-----END EC PARAMETERS-----</textarea>
+    <div class="err" id="pd-err"></div>
+    <label class="lbl">Output ${cpyBtn('#pd-out')}</label>
+    <textarea id="pd-out" readonly style="min-height:110px;font-family:var(--mono)"></textarea>
+    ${shPanel('pd',[{why:'PEM → DER',cmd:`openssl x509 -in cert.pem -outform DER -out cert.der`},{why:'DER → PEM',cmd:`openssl x509 -inform DER -in cert.der -out cert.pem`}])}`,
+  wire(){
+    let mode='p2d'; const inp=$('#pd-in'), out=$('#pd-out'), err=$('#pd-err');
+    const toHex=u=>[...u].map(b=>b.toString(16).padStart(2,'0')).join('');
+    const run=()=>{ err.textContent=''; out.value=''; const v=inp.value; if(!v.trim())return;
+      try{
+        if(mode==='p2d'){ const b64=v.replace(/-----[^-]+-----/g,'').replace(/\s+/g,''); const u=Uint8Array.from(atob(b64),c=>c.charCodeAt(0)); out.value=toHex(u).replace(/(.{2})/g,'$1 ').trim(); }
+        else { const h=v.replace(/[^0-9a-fA-F]/g,''); if(h.length%2)throw new Error('Odd-length hex'); const u=new Uint8Array(h.length/2); for(let i=0;i<u.length;i++)u[i]=parseInt(h.substr(i*2,2),16); let s=''; for(const b of u)s+=String.fromCharCode(b); const b64=btoa(s).replace(/(.{64})/g,'$1\n').replace(/\n$/,''); const label=($('#pd-label').value||'CERTIFICATE').toUpperCase(); out.value=`-----BEGIN ${label}-----\n${b64}\n-----END ${label}-----\n`; }
+      }catch(e){ err.textContent=e.message||'Conversion failed'; } };
+    inp.addEventListener('input',run);
+    $('#pd-label').addEventListener('input',run);
+    $$('#pd-mode button').forEach(b=>b.addEventListener('click',()=>{ $$('#pd-mode button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); mode=b.dataset.m; run(); }));
+    run();
+  }
+});
+
+/* ── bson ↔ json ────────────────────────────────────────────── */
+tool({
+  id:'bson', name:'BSON ↔ JSON', group:'Encode',
+  blurb:'MongoDB BSON binary to/from JSON, shown as hex or base64. Encodes null, booleans, numbers, strings, arrays and objects; decoding also surfaces ObjectId ($oid), dates ($date) and binary ($binary).',
+  html:`
+    <div class="row">
+      <div class="seg" id="bs-mode"><button class="on" data-m="enc">JSON → BSON</button><button data-m="dec">BSON → JSON</button></div>
+      <select id="bs-repr"><option value="hex" selected>hex</option><option value="b64">base64</option></select>
+    </div>
+    <label class="lbl">Input</label>
+    <textarea id="bs-in" spellcheck="false" style="min-height:110px">{"name":"powertoy","ver":2,"ok":true,"tags":["dev","offline"]}</textarea>
+    <div class="err" id="bs-err"></div>
+    <label class="lbl">Output ${cpyBtn('#bs-out')}</label>
+    <textarea id="bs-out" readonly style="min-height:110px"></textarea>
+    ${shPanel('bs',[{why:'bsondump',cmd:`bsondump file.bson`},{why:'python',cmd:`python3 -c 'import bson,json; open("o.bson","wb").write(bson.dumps(json.load(open("f.json"))))'`}])}`,
+  wire(){
+    let mode='enc'; const inp=$('#bs-in'), out=$('#bs-out'), err=$('#bs-err');
+    const toHex=u=>[...u].map(b=>b.toString(16).padStart(2,'0')).join('');
+    const fromHex=s=>{ s=s.replace(/[^0-9a-fA-F]/g,''); if(s.length%2)throw new Error('Odd-length hex'); const u=new Uint8Array(s.length/2); for(let i=0;i<u.length;i++)u[i]=parseInt(s.substr(i*2,2),16); return u; };
+    const toB64=u=>{ let s=''; for(const b of u)s+=String.fromCharCode(b); return btoa(s); };
+    const fromB64=s=>Uint8Array.from(atob(s.trim()),c=>c.charCodeAt(0));
+    const i32=n=>{ const dv=new DataView(new ArrayBuffer(4)); dv.setInt32(0,n,true); return [...new Uint8Array(dv.buffer)]; };
+    const i64=n=>{ const dv=new DataView(new ArrayBuffer(8)); dv.setBigInt64(0,BigInt(n),true); return [...new Uint8Array(dv.buffer)]; };
+    const f64=n=>{ const dv=new DataView(new ArrayBuffer(8)); dv.setFloat64(0,n,true); return [...new Uint8Array(dv.buffer)]; };
+    const enc = obj => {
+      const te=new TextEncoder();
+      const doc = o => {
+        const parts=[];
+        for(const k of Object.keys(o)){ const v=o[k], name=[...te.encode(k),0];
+          if(v===null) parts.push([0x0a,...name]);
+          else if(typeof v==='boolean') parts.push([0x08,...name,v?1:0]);
+          else if(typeof v==='number'){ if(Number.isInteger(v)&&v>=-2147483648&&v<=2147483647) parts.push([0x10,...name,...i32(v)]); else if(Number.isInteger(v)) parts.push([0x12,...name,...i64(v)]); else parts.push([0x01,...name,...f64(v)]); }
+          else if(typeof v==='string'){ const b=te.encode(v); parts.push([0x02,...name,...i32(b.length+1),...b,0]); }
+          else if(Array.isArray(v)) parts.push([0x04,...name,...doc(Object.fromEntries(v.map((x,i)=>[String(i),x])))]);
+          else if(typeof v==='object') parts.push([0x03,...name,...doc(v)]);
+          else throw new Error('Unsupported value');
+        }
+        const body=parts.flat(); return [...i32(4+body.length+1),...body,0];
+      };
+      return new Uint8Array(doc(obj));
+    };
+    const dec = u => {
+      const dv=new DataView(u.buffer,u.byteOffset,u.byteLength), td=new TextDecoder();
+      const readDoc = start => {
+        let p=start; const len=dv.getInt32(p,true); p+=4; const o={}; const end=start+len-1;
+        while(p<end){ const type=u[p++]; const ns=p; while(u[p]!==0)p++; const name=td.decode(u.subarray(ns,p)); p++; let val;
+          if(type===0x01){ val=dv.getFloat64(p,true); p+=8; }
+          else if(type===0x02){ const l=dv.getInt32(p,true); p+=4; val=td.decode(u.subarray(p,p+l-1)); p+=l; }
+          else if(type===0x03){ const r=readDoc(p); val=r.o; p=r.p; }
+          else if(type===0x04){ const r=readDoc(p); val=Object.values(r.o); p=r.p; }
+          else if(type===0x05){ const l=dv.getInt32(p,true); p+=4; const st=u[p++]; val={$binary:toHex(u.subarray(p,p+l)),$type:st}; p+=l; }
+          else if(type===0x07){ val={$oid:toHex(u.subarray(p,p+12))}; p+=12; }
+          else if(type===0x08){ val=u[p++]===1; }
+          else if(type===0x09){ val={$date:Number(dv.getBigInt64(p,true))}; p+=8; }
+          else if(type===0x0a){ val=null; }
+          else if(type===0x10){ val=dv.getInt32(p,true); p+=4; }
+          else if(type===0x11){ val=Number(dv.getBigUint64(p,true)); p+=8; }
+          else if(type===0x12){ val=Number(dv.getBigInt64(p,true)); p+=8; }
+          else throw new Error('Unsupported BSON type 0x'+type.toString(16));
+          o[name]=val;
+        }
+        return {o, p:start+len};
+      };
+      return readDoc(0).o;
+    };
+    const run=()=>{ err.textContent=''; out.value=''; const v=inp.value; if(!v.trim())return;
+      try{ if(mode==='enc'){ const data=JSON.parse(v); if(!data||typeof data!=='object'||Array.isArray(data))throw new Error('BSON top level must be a JSON object'); const bin=enc(data); out.value=$('#bs-repr').value==='hex'?toHex(bin):toB64(bin); }
+        else { const bin=$('#bs-repr').value==='hex'?fromHex(v):fromB64(v); out.value=JSON.stringify(dec(bin),null,2); } }
+      catch(e){ err.textContent=e.message||'Conversion failed'; } };
+    inp.addEventListener('input',run);
+    $('#bs-repr').addEventListener('change',run);
+    $$('#bs-mode button').forEach(b=>b.addEventListener('click',()=>{ $$('#bs-mode button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); mode=b.dataset.m; run(); }));
+    run();
+  }
+});
+
+/* ── apple plist ↔ json ─────────────────────────────────────── */
+tool({
+  id:'plist', name:'Apple plist ↔ JSON', group:'Text',
+  blurb:'Apple XML property list (.plist) to JSON and back. dict → object, array → array; string/integer/real/true/false map to JSON, data stays base64, date stays a string.',
+  html:`
+    <div class="row"><div class="seg" id="pl-mode"><button class="on" data-m="p2j">plist → JSON</button><button data-m="j2p">JSON → plist</button></div></div>
+    <label class="lbl">Input</label>
+    <textarea id="pl-in" spellcheck="false" style="min-height:150px"><?xml version="1.0" encoding="UTF-8"?>
+<plist version="1.0">
+<dict>
+  <key>name</key><string>powertoy</string>
+  <key>version</key><integer>2</integer>
+  <key>enabled</key><true/>
+</dict>
+</plist></textarea>
+    <div class="err" id="pl-err"></div>
+    <label class="lbl">Output ${cpyBtn('#pl-out')}</label>
+    <textarea id="pl-out" readonly style="min-height:150px"></textarea>
+    ${shPanel('pl',[{why:'plutil (macOS)',cmd:`plutil -convert json -o - file.plist`},{why:'back to xml plist',cmd:`plutil -convert xml1 -o - file.json`}])}`,
+  wire(){
+    let mode='p2j'; const inp=$('#pl-in'), out=$('#pl-out'), err=$('#pl-err');
+    const esc=s=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    const nodeToVal = el => { const tag=el.tagName;
+      if(tag==='dict'){ const o={}; const kids=[...el.children]; for(let i=0;i<kids.length-1;i+=2) o[kids[i].textContent]=nodeToVal(kids[i+1]); return o; }
+      if(tag==='array') return [...el.children].map(nodeToVal);
+      if(tag==='string') return el.textContent;
+      if(tag==='integer') return parseInt(el.textContent,10);
+      if(tag==='real') return parseFloat(el.textContent);
+      if(tag==='true') return true; if(tag==='false') return false;
+      if(tag==='data') return el.textContent.replace(/\s+/g,'');
+      return el.textContent; };
+    const valToNode = (v,ind) => {
+      if(v===null) return `${ind}<string></string>`;
+      if(typeof v==='boolean') return `${ind}<${v}/>`;
+      if(typeof v==='number') return Number.isInteger(v)?`${ind}<integer>${v}</integer>`:`${ind}<real>${v}</real>`;
+      if(typeof v==='string') return `${ind}<string>${esc(v)}</string>`;
+      if(Array.isArray(v)) return v.length?`${ind}<array>\n`+v.map(x=>valToNode(x,ind+'  ')).join('\n')+`\n${ind}</array>`:`${ind}<array/>`;
+      if(typeof v==='object'){ const keys=Object.keys(v); return keys.length?`${ind}<dict>\n`+keys.map(k=>`${ind}  <key>${esc(k)}</key>\n`+valToNode(v[k],ind+'  ')).join('\n')+`\n${ind}</dict>`:`${ind}<dict/>`; }
+      return `${ind}<string></string>`; };
+    const run=()=>{ err.textContent=''; out.value=''; const v=inp.value; if(!v.trim())return;
+      try{ if(mode==='p2j'){ const doc=new DOMParser().parseFromString(v,'application/xml'); if(doc.querySelector('parsererror'))throw new Error('Invalid XML'); const root=doc.querySelector('plist'); const top=root?[...root.children][0]:doc.documentElement; if(!top)throw new Error('Empty plist'); out.value=JSON.stringify(nodeToVal(top),null,2); }
+        else { const data=JSON.parse(v); out.value='<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">\n<plist version="1.0">\n'+valToNode(data,'')+'\n</plist>\n'; } }
+      catch(e){ err.textContent=e.message||'Conversion failed'; } };
+    inp.addEventListener('input',run);
+    $$('#pl-mode button').forEach(b=>b.addEventListener('click',()=>{ $$('#pl-mode button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); mode=b.dataset.m; run(); }));
+    run();
+  }
+});
+
+/* ── hexdump ────────────────────────────────────────────────── */
+tool({
+  id:'hexdump', name:'Hexdump', group:'Encode',
+  blurb:'xxd-style hex + ASCII dump of text or raw bytes — offset column, 16 bytes per row, printable characters on the right.',
+  html:`
+    <div class="row"><div class="seg" id="hd-mode"><button class="on" data-m="text">from text</button><button data-m="hex">from hex</button></div></div>
+    <label class="lbl">Input</label>
+    <textarea id="hd-in" spellcheck="false" style="min-height:90px">Hello, powertoy!</textarea>
+    <div class="err" id="hd-err"></div>
+    <label class="lbl">Hexdump ${cpyBtn('#hd-out')}</label>
+    <textarea id="hd-out" readonly style="min-height:150px;font-family:var(--mono)"></textarea>
+    ${shPanel('hd',[{why:'xxd',cmd:`xxd file`},{why:'from a string',cmd:`printf '%s' 'Hello' | xxd`}])}`,
+  wire(){
+    let mode='text'; const inp=$('#hd-in'), out=$('#hd-out'), err=$('#hd-err');
+    const run=()=>{ err.textContent=''; out.value=''; const v=inp.value; if(!v)return;
+      try{ let u; if(mode==='text')u=new TextEncoder().encode(v); else { const h=v.replace(/[^0-9a-fA-F]/g,''); if(h.length%2)throw new Error('Odd-length hex'); u=new Uint8Array(h.length/2); for(let i=0;i<u.length;i++)u[i]=parseInt(h.substr(i*2,2),16); }
+        const rows=[];
+        for(let o=0;o<u.length;o+=16){ const chunk=u.subarray(o,o+16); let hex=''; for(let i=0;i<16;i++){ hex+= (i<chunk.length?chunk[i].toString(16).padStart(2,'0'):'  ')+(i===7?'  ':' '); } const asc=[...chunk].map(b=>b>=32&&b<127?String.fromCharCode(b):'.').join(''); rows.push(o.toString(16).padStart(8,'0')+': '+hex+' '+asc); }
+        out.value=rows.join('\n'); }
+      catch(e){ err.textContent=e.message||'Failed'; } };
+    inp.addEventListener('input',run);
+    $$('#hd-mode button').forEach(b=>b.addEventListener('click',()=>{ $$('#hd-mode button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); mode=b.dataset.m; run(); }));
+    run();
+  }
+});
+
 /* ── cidr / subnet ─────────────────────────────────────────── */
 tool({
   id:'cidr', name:'CIDR subnet', group:'Ops',

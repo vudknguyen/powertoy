@@ -247,6 +247,12 @@ t('.properties → json', async () => { await go('envprop'); $$('#ep-fmt button'
 t('ndjson → array', async () => { await go('ndjson'); $$('#nd-mode button').find(b=>b.dataset.m==='n2j').click(); set('#nd-in','{"a":1}\n{"b":2}'); eq(JSON.stringify(JSON.parse(val('#nd-out'))),'[{"a":1},{"b":2}]'); });
 t('array → ndjson', async () => { await go('ndjson'); $$('#nd-mode button').find(b=>b.dataset.m==='j2n').click(); set('#nd-in','[{"a":1},{"b":2}]'); eq(val('#nd-out').trim(),'{"a":1}\n{"b":2}'); });
 t('protobuf decode', async () => { await go('protobuf'); set('#pb-repr','hex'); set('#pb-in','089601'); const o=JSON.parse(val('#pb-out')); const k=Object.keys(o).find(x=>x.startsWith('#1')); eq(o[k],150); });
+t('json5 → json', async () => { await go('json5'); set('#j5-in','{a:1,/*c*/ b:[1,2,],c:0xff,d:\'x\',}'); eq(JSON.stringify(JSON.parse(val('#j5-out'))),'{"a":1,"b":[1,2],"c":255,"d":"x"}'); });
+t('asn.1 decode', async () => { await go('asn1'); set('#a1-in','MAoGCCqGSM49AwEH'); const o=val('#a1-out'); inc(o,'SEQUENCE'); inc(o,'1.2.840.10045.3.1.7'); });
+t('pem ↔ der roundtrip', async () => { await go('pemder'); $$('#pd-mode button').find(b=>b.dataset.m==='p2d').click(); set('#pd-in','-----BEGIN EC PARAMETERS-----\nMAoGCCqGSM49AwEH\n-----END EC PARAMETERS-----'); const hex=val('#pd-out'); inc(hex,'30 0a 06 08'); $$('#pd-mode button').find(b=>b.dataset.m==='d2p').click(); set('#pd-in',hex); inc(val('#pd-out').replace(/\s/g,''),'MAoGCCqGSM49AwEH'); });
+t('bson roundtrip', async () => { await go('bson'); const s={name:'x',n:2,ok:true,r:1.5,z:null,t:['a']}; $$('#bs-mode button').find(b=>b.dataset.m==='enc').click(); set('#bs-in',JSON.stringify(s)); const hex=val('#bs-out'); $$('#bs-mode button').find(b=>b.dataset.m==='dec').click(); set('#bs-in',hex); eq(val('#bs-out').replace(/\s/g,''),JSON.stringify(s)); });
+t('plist roundtrip', async () => { await go('plist'); const s={name:'x',version:2,enabled:true,items:['a','b']}; $$('#pl-mode button').find(b=>b.dataset.m==='j2p').click(); set('#pl-in',JSON.stringify(s)); const xml=val('#pl-out'); inc(xml,'<integer>2</integer>'); $$('#pl-mode button').find(b=>b.dataset.m==='p2j').click(); set('#pl-in',xml); eq(val('#pl-out').replace(/\s/g,''),JSON.stringify(s)); });
+t('hexdump', async () => { await go('hexdump'); $$('#hd-mode button').find(b=>b.dataset.m==='text').click(); set('#hd-in','Hi'); const o=val('#hd-out'); inc(o,'00000000: 48 69'); inc(o,'Hi'); });
 
 /* ---------- run ---------- */
 async function run(){
