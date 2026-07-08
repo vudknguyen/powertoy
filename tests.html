@@ -229,6 +229,16 @@ t('p2p sdp codec roundtrip', async () => {
 });
 t('every game has a fullscreen button', async () => { const ids = await W().eval('Object.keys(RULES)'); assert(ids.length>=17,'too few games: '+ids.length); ids.forEach(id => assert($('#tool-'+id+' .fsbtn'), 'no fullscreen button: '+id)); });
 
+/* ---------- data serialization ---------- */
+t('xml → json', async () => { await go('xmljson'); $$('#xj-mode button').find(b=>b.dataset.m==='x2j').click(); set('#xj-in','<r><a>1</a><a>2</a></r>'); const o=JSON.parse(val('#xj-out')); eq(JSON.stringify(o.r.a),'["1","2"]'); });
+t('json → xml', async () => { await go('xmljson'); $$('#xj-mode button').find(b=>b.dataset.m==='j2x').click(); set('#xj-in','{"r":{"@id":"5","#text":"hi"}}'); inc(val('#xj-out'),'<r id="5">hi</r>'); });
+t('yaml → json', async () => { await go('yaml'); $$('#ya-mode button').find(b=>b.dataset.m==='y2j').click(); set('#ya-in','a: 1\nb:\n  - x\n  - y'); const o=JSON.parse(val('#ya-out')); eq(o.a,1); eq(JSON.stringify(o.b),'["x","y"]'); });
+t('json → yaml roundtrip', async () => { await go('yaml'); $$('#ya-mode button').find(b=>b.dataset.m==='j2y').click(); set('#ya-in','{"n":2,"t":["a","b"]}'); const y=val('#ya-out'); $$('#ya-mode button').find(b=>b.dataset.m==='y2j').click(); set('#ya-in',y); eq(val('#ya-out').replace(/\s/g,''),'{"n":2,"t":["a","b"]}'); });
+t('toml → json', async () => { await go('toml'); $$('#tm-mode button').find(b=>b.dataset.m==='t2j').click(); set('#tm-in','n = 2\n[o]\nk = "v"'); const o=JSON.parse(val('#tm-out')); eq(o.n,2); eq(o.o.k,'v'); });
+t('json → toml', async () => { await go('toml'); $$('#tm-mode button').find(b=>b.dataset.m==='j2t').click(); set('#tm-in','{"n":2,"o":{"k":"v"}}'); const t=val('#tm-out'); inc(t,'n = 2'); inc(t,'[o]'); inc(t,'k = "v"'); });
+t('messagepack encode', async () => { await go('msgpack'); $$('#mp-fmt button').find(b=>b.dataset.f==='msgpack').click(); $$('#mp-mode button').find(b=>b.dataset.m==='enc').click(); set('#mp-in','{"a":1}'); eq(val('#mp-out'),'81a16101'); });
+t('cbor roundtrip', async () => { await go('msgpack'); $$('#mp-fmt button').find(b=>b.dataset.f==='cbor').click(); $$('#mp-mode button').find(b=>b.dataset.m==='enc').click(); set('#mp-in','{"a":1,"b":[true,null]}'); const hex=val('#mp-out'); $$('#mp-mode button').find(b=>b.dataset.m==='dec').click(); set('#mp-in',hex); const o=JSON.parse(val('#mp-out')); eq(o.a,1); eq(o.b[0],true); eq(o.b[1],null); });
+
 /* ---------- run ---------- */
 async function run(){
   await new Promise(r => { if (D() && D().querySelector('#nav button')) r(); else frame.onload = () => setTimeout(r, 300); });

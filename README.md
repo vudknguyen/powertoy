@@ -1,6 +1,6 @@
 # powertoy — developer utilities
 
-A single-file webapp with 105 everyday utilities for developers and power users.
+A single-file webapp with 109 everyday utilities for developers and power users.
 Every tool shows its **shell equivalent** (bash / unix command) alongside the result.
 Works offline from a plain `file://` open — no build, no install, no server.
 
@@ -18,7 +18,7 @@ app release and shows the current version. See [PACKAGING.md](PACKAGING.md).
 ## Quality
 
 - **`tests.html`** — integration suite: drives every tool in a live iframe with
-  known-answer vectors (131 assertions across all 105 tools). Open it to see a pass/fail report.
+  known-answer vectors (139 assertions across all 109 tools). Open it to see a pass/fail report.
 - **`verify-commands.sh`** — runs each tool's documented shell command on your machine and
   confirms it matches the tool's output (43 checks).
 
@@ -98,6 +98,10 @@ app release and shows the current version. See [PACKAGING.md](PACKAGING.md).
 | Text    | Text diff         | `#diff`   |
 | Text    | CSV ↔ JSON        | `#csv`    |
 | Text    | Query ↔ JSON      | `#qs`     |
+| Text    | XML ↔ JSON        | `#xmljson` |
+| Text    | YAML ↔ JSON       | `#yaml`   |
+| Text    | TOML ↔ JSON       | `#toml`   |
+| Encode  | MessagePack / CBOR | `#msgpack` |
 | Text    | Line tools        | `#lines`  |
 | Text    | Regex replace     | `#rrep`   |
 | Text    | Lorem ipsum       | `#lorem`  |

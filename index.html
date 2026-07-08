@@ -3605,6 +3605,345 @@ tool({
   }
 });
 
+/* ── xml ↔ json ─────────────────────────────────────────────── */
+tool({
+  id:'xmljson', name:'XML ↔ JSON', group:'Text',
+  blurb:'Convert XML to JSON and back. Attributes become "@name" keys, text content is "#text", and repeated tags become arrays. Uses the browser’s own XML parser.',
+  html: `
+    <div class="row"><div class="seg" id="xj-mode"><button class="on" data-m="x2j">XML → JSON</button><button data-m="j2x">JSON → XML</button></div></div>
+    <label class="lbl">Input</label>
+    <textarea id="xj-in" spellcheck="false" style="min-height:130px"><note id="1"><to>Ada</to><from>Grace</from><body>Hi there</body></note></textarea>
+    <div class="err" id="xj-err"></div>
+    <label class="lbl">Output ${cpyBtn('#xj-out')}</label>
+    <textarea id="xj-out" readonly style="min-height:150px"></textarea>
+    ${shPanel('xj', [
+      {why:'yq handles XML too', cmd:`yq -p xml -o json '.' file.xml`},
+      {why:'back to XML', cmd:`yq -p json -o xml '.' file.json`},
+    ])}`,
+  wire(){
+    let mode='x2j';
+    const inp=$('#xj-in'), out=$('#xj-out'), err=$('#xj-err');
+    const escXml = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    const escAttr = s => escXml(s).replace(/"/g,'&quot;');
+    const xmlToObj = node => {
+      const obj={};
+      if(node.attributes) for(const a of node.attributes) obj['@'+a.name]=a.value;
+      const kids=[...node.childNodes];
+      const els=kids.filter(n=>n.nodeType===1);
+      const text=kids.filter(n=>n.nodeType===3).map(n=>n.nodeValue).join('').trim();
+      if(!els.length){ if(!Object.keys(obj).length) return text; if(text) obj['#text']=text; return obj; }
+      for(const el of els){ const v=xmlToObj(el), t=el.tagName;
+        if(t in obj){ if(!Array.isArray(obj[t])) obj[t]=[obj[t]]; obj[t].push(v); } else obj[t]=v; }
+      if(text) obj['#text']=text;
+      return obj;
+    };
+    const objToXml = (tag,val,ind) => {
+      if(val===null||val===undefined) return `${ind}<${tag}/>`;
+      if(typeof val!=='object') return `${ind}<${tag}>${escXml(String(val))}</${tag}>`;
+      if(Array.isArray(val)) return val.map(v=>objToXml(tag,v,ind)).join('\n');
+      let attrs='', text='', kids=[];
+      for(const k in val){ if(k[0]==='@') attrs+=` ${k.slice(1)}="${escAttr(String(val[k]))}"`; else if(k==='#text') text=String(val[k]); else kids.push([k,val[k]]); }
+      if(!kids.length) return text!=='' ? `${ind}<${tag}${attrs}>${escXml(text)}</${tag}>` : `${ind}<${tag}${attrs}/>`;
+      const inner=kids.map(([k,v])=>objToXml(k,v,ind+'  ')).join('\n');
+      return `${ind}<${tag}${attrs}>\n${inner}${text?`\n${ind}  ${escXml(text)}`:''}\n${ind}</${tag}>`;
+    };
+    const run=()=>{
+      err.textContent=''; out.value=''; const v=inp.value; if(!v.trim())return;
+      try{
+        if(mode==='x2j'){
+          const doc=new DOMParser().parseFromString(v,'application/xml');
+          if(doc.querySelector('parsererror')) throw new Error('Invalid XML');
+          const root=doc.documentElement;
+          out.value=JSON.stringify({[root.tagName]:xmlToObj(root)}, null, 2);
+        } else {
+          const data=JSON.parse(v), keys=Object.keys(data);
+          if(keys.length!==1) throw new Error('JSON must have a single root key');
+          out.value=objToXml(keys[0], data[keys[0]], '');
+        }
+      }catch(e){ err.textContent=e.message||'Conversion failed'; }
+    };
+    inp.addEventListener('input',run);
+    $$('#xj-mode button').forEach(b=>b.addEventListener('click',()=>{ $$('#xj-mode button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); mode=b.dataset.m; run(); }));
+    run();
+  }
+});
+
+/* ── yaml ↔ json ────────────────────────────────────────────── */
+tool({
+  id:'yaml', name:'YAML ↔ JSON', group:'Text',
+  blurb:'Convert YAML to JSON and back — block maps/sequences, flow [ ] { }, quoted and typed scalars, comments. Not supported: anchors/aliases, block scalars (| >), complex keys.',
+  html: `
+    <div class="row"><div class="seg" id="ya-mode"><button class="on" data-m="y2j">YAML → JSON</button><button data-m="j2y">JSON → YAML</button></div></div>
+    <label class="lbl">Input</label>
+    <textarea id="ya-in" spellcheck="false" style="min-height:150px">name: powertoy
+version: 2
+tags: [offline, dev]
+authors:
+  - name: Ada
+    role: engineer
+  - name: Grace
+    role: admiral</textarea>
+    <div class="err" id="ya-err"></div>
+    <label class="lbl">Output ${cpyBtn('#ya-out')}</label>
+    <textarea id="ya-out" readonly style="min-height:150px"></textarea>
+    ${shPanel('ya', [
+      {why:'yq', cmd:`yq -o json '.' file.yaml`},
+      {why:'back to YAML', cmd:`yq -p json -o yaml '.' file.json`},
+    ])}`,
+  wire(){
+    let mode='y2j';
+    const inp=$('#ya-in'), out=$('#ya-out'), err=$('#ya-err');
+    const prim = t => { t=t.trim();
+      if(t===''||t==='null'||t==='~'||t==='Null'||t==='NULL')return null;
+      if(t==='true'||t==='True'||t==='TRUE')return true;
+      if(t==='false'||t==='False'||t==='FALSE')return false;
+      if(/^-?\d+$/.test(t))return parseInt(t,10);
+      if(/[.eE]/.test(t)&&/^-?(\d+\.\d*|\.\d+|\d+)([eE][+-]?\d+)?$/.test(t))return parseFloat(t);
+      return t; };
+    const flow = t => { let p=0;
+      const ws=()=>{ while(p<t.length&&/\s/.test(t[p]))p++; };
+      const rq=()=>{ const q=t[p++]; let s=''; while(p<t.length&&t[p]!==q){ if(t[p]==='\\'&&q==='"'){ s+=({n:'\n',t:'\t','"':'"','\\':'\\'})[t[p+1]]??t[p+1]; p+=2; } else if(t[p]==="'"&&q==="'"&&t[p+1]==="'"){ s+="'"; p+=2; } else s+=t[p++]; } p++; return s; };
+      const rk=()=>{ ws(); if(t[p]==='"'||t[p]==="'")return rq(); let s=''; while(p<t.length&&![':',',','}'].includes(t[p]))s+=t[p++]; return s.trim(); };
+      const rd=()=>{ ws();
+        if(t[p]==='['){ p++; const a=[]; ws(); if(t[p]===']'){p++;return a;} for(;;){ a.push(rd()); ws(); if(t[p]===','){p++;continue;} p++; break; } return a; }
+        if(t[p]==='{'){ p++; const o={}; ws(); if(t[p]==='}'){p++;return o;} for(;;){ const k=rk(); ws(); if(t[p]===':')p++; o[k]=rd(); ws(); if(t[p]===','){p++;continue;} p++; break; } return o; }
+        if(t[p]==='"'||t[p]==="'")return rq();
+        let s=''; while(p<t.length&&![',',']','}'].includes(t[p]))s+=t[p++]; return prim(s.trim()); };
+      return rd(); };
+    const scalar = t => { t=t.trim(); return (t[0]==='['||t[0]==='{'||t[0]==='"'||t[0]==="'") ? flow(t) : prim(t); };
+    const parseYAML = src => {
+      const lines = src.replace(/\r\n?/g,'\n').split('\n').filter(l => l.trim()!=='' && !/^\s*#/.test(l));
+      let i=0;
+      const indentOf = s => s.match(/^ */)[0].length;
+      const stripC = s => { let a=false,b=false; for(let k=0;k<s.length;k++){ const c=s[k]; if(c==="'"&&!b)a=!a; else if(c==='"'&&!a)b=!b; else if(c==='#'&&!a&&!b&&/\s/.test(s[k-1]||' ')) return s.slice(0,k).replace(/\s+$/,''); } return s; };
+      const node = indent => { const line=stripC(lines[i]); return /^\s*-(\s|$)/.test(line) ? seq(indent) : map(indent); };
+      const map = indent => { const o={};
+        while(i<lines.length){ const line=stripC(lines[i]); if(line.trim()===''){i++;continue;} const ind=indentOf(line); if(ind!==indent||/^\s*-(\s|$)/.test(line))break;
+          const m=line.slice(ind).match(/^(.+?):(\s.*|)$/); if(!m){i++;continue;}
+          let key=m[1].trim(); if((key[0]==='"'&&key.endsWith('"'))||(key[0]==="'"&&key.endsWith("'")))key=key.slice(1,-1);
+          const rest=m[2].trim(); i++;
+          if(rest===''){ if(i<lines.length){ const ni=indentOf(stripC(lines[i])); if(ni>indent){ o[key]=node(ni); continue; } } o[key]=null; }
+          else o[key]=scalar(rest);
+        } return o; };
+      const seq = indent => { const a=[];
+        while(i<lines.length){ const line=stripC(lines[i]); if(line.trim()===''){i++;continue;} const ind=indentOf(line); if(ind!==indent)break; const m=line.slice(ind).match(/^-(\s+(.*)|\s*)$/); if(!m)break;
+          const rest=(m[2]||'').trim(); i++;
+          if(rest===''){ if(i<lines.length){ const ni=indentOf(stripC(lines[i])); if(ni>indent){ a.push(node(ni)); continue; } } a.push(null); }
+          else if(/^("[^"]*"|'[^']*'|[^:#]+?):(\s|$)/.test(rest)){ const col=ind+line.slice(ind).indexOf(rest); i--; lines[i]=' '.repeat(col)+rest; a.push(map(col)); }
+          else a.push(scalar(rest));
+        } return a; };
+      while(i<lines.length && /^---/.test(lines[i].trim())) i++;
+      if(i>=lines.length) return null;
+      return node(indentOf(stripC(lines[i])));
+    };
+    const scalarStr = x => {
+      if(x===null) return 'null';
+      if(typeof x==='number'||typeof x==='boolean') return String(x);
+      const s=String(x);
+      if(s===''||/[:#\[\]{}",\n>|*&!%@`]/.test(s)||/^[\s?-]/.test(s)||/\s$/.test(s)||/^(true|false|null|~)$/i.test(s)||/^-?[\d.]/.test(s)) return JSON.stringify(s);
+      return s;
+    };
+    const keyStr = k => /^[\w.\-]+$/.test(k) ? k : JSON.stringify(k);
+    const dumpYAML = (v, indent) => {
+      const pad='  '.repeat(indent);
+      if(v===null||typeof v!=='object') return scalarStr(v);
+      if(Array.isArray(v)){
+        if(!v.length) return '[]';
+        return v.map(item => {
+          if(item!==null&&typeof item==='object'&&Object.keys(item).length){
+            const lines=dumpYAML(item,indent+1).split('\n');
+            lines[0]=pad+'- '+lines[0].slice((indent+1)*2);
+            return lines.join('\n');
+          }
+          return pad+'- '+scalarStr(item);
+        }).join('\n');
+      }
+      const keys=Object.keys(v); if(!keys.length) return '{}';
+      return keys.map(k => {
+        const val=v[k];
+        if(val!==null&&typeof val==='object'&&Object.keys(val).length) return pad+keyStr(k)+':\n'+dumpYAML(val,indent+1);
+        return pad+keyStr(k)+': '+dumpYAML(val,indent+1);
+      }).join('\n');
+    };
+    const run=()=>{
+      err.textContent=''; out.value=''; const v=inp.value; if(!v.trim())return;
+      try{
+        if(mode==='y2j') out.value=JSON.stringify(parseYAML(v), null, 2);
+        else out.value=dumpYAML(JSON.parse(v), 0);
+      }catch(e){ err.textContent=e.message||'Conversion failed'; }
+    };
+    inp.addEventListener('input',run);
+    $$('#ya-mode button').forEach(b=>b.addEventListener('click',()=>{ $$('#ya-mode button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); mode=b.dataset.m; run(); }));
+    run();
+  }
+});
+
+/* ── toml ↔ json ────────────────────────────────────────────── */
+tool({
+  id:'toml', name:'TOML ↔ JSON', group:'Text',
+  blurb:'Convert TOML to JSON and back — tables [a.b], arrays of tables [[a]], inline tables, typed scalars and arrays. Datetimes are kept as strings.',
+  html:`
+    <div class="row"><div class="seg" id="tm-mode"><button class="on" data-m="t2j">TOML → JSON</button><button data-m="j2t">JSON → TOML</button></div></div>
+    <label class="lbl">Input</label>
+    <textarea id="tm-in" spellcheck="false" style="min-height:150px">title = "powertoy"
+version = 2
+
+[owner]
+name = "Ada"
+tags = ["dev", "offline"]
+
+[[servers]]
+host = "a.local"
+port = 8080</textarea>
+    <div class="err" id="tm-err"></div>
+    <label class="lbl">Output ${cpyBtn('#tm-out')}</label>
+    <textarea id="tm-out" readonly style="min-height:150px"></textarea>
+    ${shPanel('tm',[{why:'yq (TOML)',cmd:`yq -p toml -o json '.' file.toml`},{why:'taplo',cmd:`taplo get -f file.toml -o json`}])}`,
+  wire(){
+    let mode='t2j'; const inp=$('#tm-in'), out=$('#tm-out'), err=$('#tm-err');
+    const val = t => { let p=0;
+      const ws=()=>{ while(p<t.length&&/\s/.test(t[p]))p++; };
+      const rd=()=>{ ws();
+        if(t[p]==='['){ p++; const a=[]; ws(); if(t[p]===']'){p++;return a;} for(;;){ a.push(rd()); ws(); if(t[p]===','){p++;ws();if(t[p]===']'){p++;break;}continue;} p++; break; } return a; }
+        if(t[p]==='{'){ p++; const o={}; ws(); if(t[p]==='}'){p++;return o;} for(;;){ ws(); let k=''; if(t[p]==='"'||t[p]==="'"){const q=t[p++];while(t[p]!==q)k+=t[p++];p++;} else while(p<t.length&&t[p]!=='='&&!/\s/.test(t[p]))k+=t[p++]; ws(); if(t[p]==='=')p++; o[k.trim()]=rd(); ws(); if(t[p]===','){p++;continue;} p++; break; } return o; }
+        if(t[p]==='"'||t[p]==="'"){ const q=t[p++]; let s=''; while(p<t.length&&t[p]!==q){ if(t[p]==='\\'&&q==='"'){ s+=({n:'\n',t:'\t','"':'"','\\':'\\'})[t[p+1]]??t[p+1]; p+=2; } else s+=t[p++]; } p++; return s; }
+        let s=''; while(p<t.length&&![',',']','}'].includes(t[p]))s+=t[p++]; s=s.trim();
+        if(s==='true')return true; if(s==='false')return false;
+        if(/^[+-]?\d+$/.test(s))return parseInt(s,10);
+        if(/[.eE]/.test(s)&&/^[+-]?(\d+\.\d*|\.\d+|\d+)([eE][+-]?\d+)?$/.test(s))return parseFloat(s);
+        return s; };
+      return rd(); };
+    const splitKV = line => { let d=false,sg=false; for(let k=0;k<line.length;k++){ const c=line[k]; if(c==='"'&&!sg)d=!d; else if(c==="'"&&!d)sg=!sg; else if(c==='='&&!d&&!sg) return [line.slice(0,k).trim(), line.slice(k+1).trim()]; } return null; };
+    const stripC = s => { let d=false,sg=false; for(let k=0;k<s.length;k++){ const c=s[k]; if(c==='"'&&!sg)d=!d; else if(c==="'"&&!d)sg=!sg; else if(c==='#'&&!d&&!sg) return s.slice(0,k); } return s; };
+    const unq = s => (s[0]==='"'||s[0]==="'") ? s.slice(1,-1) : s;
+    const parseTOML = src => { const root={}; let cur=root;
+      for(const raw of src.replace(/\r\n?/g,'\n').split('\n')){ const line=stripC(raw).trim(); if(!line)continue; let m;
+        if(m=line.match(/^\[\[(.+)\]\]$/)){ const path=m[1].split('.').map(x=>unq(x.trim())); let o=root; for(let j=0;j<path.length-1;j++){ o[path[j]]=o[path[j]]||{}; o=Array.isArray(o[path[j]])?o[path[j]][o[path[j]].length-1]:o[path[j]]; } const key=path[path.length-1]; o[key]=o[key]||[]; const tb={}; o[key].push(tb); cur=tb; }
+        else if(m=line.match(/^\[(.+)\]$/)){ const path=m[1].split('.').map(x=>unq(x.trim())); let o=root; for(const pth of path){ o[pth]=o[pth]||{}; o=Array.isArray(o[pth])?o[pth][o[pth].length-1]:o[pth]; } cur=o; }
+        else { const kv=splitKV(line); if(kv) cur[unq(kv[0])]=val(kv[1]); }
+      } return root; };
+    const tv = v => { if(typeof v==='string')return JSON.stringify(v); if(typeof v==='boolean'||typeof v==='number')return String(v); if(Array.isArray(v))return '['+v.map(tv).join(', ')+']'; if(v&&typeof v==='object')return '{ '+Object.keys(v).map(k=>`${/^[\w-]+$/.test(k)?k:JSON.stringify(k)} = ${tv(v[k])}`).join(', ')+' }'; return JSON.stringify(v); };
+    const isTable = v => v&&typeof v==='object'&&!Array.isArray(v);
+    const isAoT = v => Array.isArray(v)&&v.length&&v.every(isTable);
+    const dumpTOML = (obj,prefix) => { let scal='', tbl='';
+      for(const k of Object.keys(obj)){ const v=obj[k]; if(v===null||v===undefined)continue; const key=/^[\w-]+$/.test(k)?k:JSON.stringify(k); const full=prefix?`${prefix}.${key}`:key;
+        if(isAoT(v)){ for(const it of v) tbl+=`\n[[${full}]]\n`+dumpTOML(it,full); }
+        else if(isTable(v)){ tbl+=`\n[${full}]\n`+dumpTOML(v,full); }
+        else scal+=`${key} = ${tv(v)}\n`;
+      } return scal+tbl; };
+    const run=()=>{ err.textContent=''; out.value=''; const v=inp.value; if(!v.trim())return;
+      try{ if(mode==='t2j') out.value=JSON.stringify(parseTOML(v),null,2);
+        else { const d=JSON.parse(v); if(!isTable(d))throw new Error('Top level must be a JSON object'); out.value=dumpTOML(d,'').replace(/^\n+/,'').trimEnd()+'\n'; } }
+      catch(e){ err.textContent=e.message||'Conversion failed'; } };
+    inp.addEventListener('input',run);
+    $$('#tm-mode button').forEach(b=>b.addEventListener('click',()=>{ $$('#tm-mode button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); mode=b.dataset.m; run(); }));
+    run();
+  }
+});
+
+/* ── messagepack / cbor ─────────────────────────────────────── */
+tool({
+  id:'msgpack', name:'MessagePack / CBOR', group:'Encode',
+  blurb:'Serialize JSON to MessagePack or CBOR binary and back. Binary is shown as hex or base64. Supports null, booleans, numbers, strings, arrays and objects.',
+  html:`
+    <div class="row">
+      <div class="seg" id="mp-fmt"><button class="on" data-f="msgpack">MessagePack</button><button data-f="cbor">CBOR</button></div>
+      <div class="seg" id="mp-mode"><button class="on" data-m="enc">JSON → binary</button><button data-m="dec">binary → JSON</button></div>
+      <select id="mp-repr"><option value="hex" selected>hex</option><option value="b64">base64</option></select>
+    </div>
+    <label class="lbl">Input</label>
+    <textarea id="mp-in" spellcheck="false" style="min-height:110px">{"name":"powertoy","version":2,"tags":["dev","offline"]}</textarea>
+    <div class="err" id="mp-err"></div>
+    <label class="lbl">Output ${cpyBtn('#mp-out')}</label>
+    <textarea id="mp-out" readonly style="min-height:110px"></textarea>
+    ${shPanel('mp',[{why:'MessagePack CLI',cmd:`msgpack-cli encode file.json`},{why:'CBOR (python)',cmd:`python3 -c 'import cbor2,json; open("o.cbor","wb").write(cbor2.dumps(json.load(open("file.json"))))'`}])}`,
+  wire(){
+    let fmt='msgpack', mode='enc';
+    const inp=$('#mp-in'), out=$('#mp-out'), err=$('#mp-err');
+    const toHex=u=>[...u].map(b=>b.toString(16).padStart(2,'0')).join('');
+    const fromHex=s=>{ s=s.replace(/[^0-9a-fA-F]/g,''); if(s.length%2)throw new Error('Odd-length hex'); const u=new Uint8Array(s.length/2); for(let i=0;i<u.length;i++)u[i]=parseInt(s.substr(i*2,2),16); return u; };
+    const toB64=u=>{ let s=''; for(const b of u)s+=String.fromCharCode(b); return btoa(s); };
+    const fromB64=s=>Uint8Array.from(atob(s.trim()),c=>c.charCodeAt(0));
+    const mpEnc=v=>{ const o=[], dv=new DataView(new ArrayBuffer(8));
+      const i32=n=>[(n>>>24)&255,(n>>>16)&255,(n>>>8)&255,n&255];
+      const wr=v=>{
+        if(v===null){o.push(0xc0);return;} if(v===true){o.push(0xc3);return;} if(v===false){o.push(0xc2);return;}
+        if(typeof v==='number'){
+          if(Number.isInteger(v)){
+            if(v>=0){ if(v<0x80)o.push(v); else if(v<0x100)o.push(0xcc,v); else if(v<0x10000)o.push(0xcd,v>>8,v&255); else if(v<0x100000000)o.push(0xce,...i32(v)); else {o.push(0xcf);dv.setBigUint64(0,BigInt(v));for(let k=0;k<8;k++)o.push(dv.getUint8(k));} }
+            else { if(v>=-32)o.push(0xe0|(v+32)); else if(v>=-128)o.push(0xd0,v&255); else if(v>=-32768)o.push(0xd1,(v>>8)&255,v&255); else if(v>=-2147483648)o.push(0xd2,...i32(v>>>0)); else {o.push(0xd3);dv.setBigInt64(0,BigInt(v));for(let k=0;k<8;k++)o.push(dv.getUint8(k));} }
+            return;
+          }
+          dv.setFloat64(0,v); o.push(0xcb); for(let k=0;k<8;k++)o.push(dv.getUint8(k)); return;
+        }
+        if(typeof v==='string'){ const b=new TextEncoder().encode(v),n=b.length; if(n<32)o.push(0xa0|n); else if(n<0x100)o.push(0xd9,n); else if(n<0x10000)o.push(0xda,n>>8,n&255); else o.push(0xdb,...i32(n)); for(const x of b)o.push(x); return; }
+        if(Array.isArray(v)){ const n=v.length; if(n<16)o.push(0x90|n); else if(n<0x10000)o.push(0xdc,n>>8,n&255); else o.push(0xdd,...i32(n)); v.forEach(wr); return; }
+        if(typeof v==='object'){ const ks=Object.keys(v),n=ks.length; if(n<16)o.push(0x80|n); else if(n<0x10000)o.push(0xde,n>>8,n&255); else o.push(0xdf,...i32(n)); for(const k of ks){wr(k);wr(v[k]);} return; }
+        throw new Error('Unsupported value');
+      };
+      wr(v); return new Uint8Array(o);
+    };
+    const mpDec=u=>{ let p=0; const dv=new DataView(u.buffer,u.byteOffset,u.byteLength);
+      const rstr=n=>{ const s=new TextDecoder().decode(u.subarray(p,p+n)); p+=n; return s; };
+      const rarr=n=>{ const a=[]; for(let k=0;k<n;k++)a.push(rd()); return a; };
+      const rmap=n=>{ const o={}; for(let k=0;k<n;k++){ const key=rd(); o[key]=rd(); } return o; };
+      const rd=()=>{ const b=u[p++];
+        if(b<0x80)return b; if(b>=0xe0)return b-256;
+        if(b<=0x8f)return rmap(b&15); if(b<=0x9f)return rarr(b&15); if(b<=0xbf)return rstr(b&31);
+        switch(b){
+          case 0xc0:return null; case 0xc2:return false; case 0xc3:return true;
+          case 0xcc:return u[p++]; case 0xcd:{const v=dv.getUint16(p);p+=2;return v;} case 0xce:{const v=dv.getUint32(p);p+=4;return v;} case 0xcf:{const v=Number(dv.getBigUint64(p));p+=8;return v;}
+          case 0xd0:return dv.getInt8(p++); case 0xd1:{const v=dv.getInt16(p);p+=2;return v;} case 0xd2:{const v=dv.getInt32(p);p+=4;return v;} case 0xd3:{const v=Number(dv.getBigInt64(p));p+=8;return v;}
+          case 0xca:{const v=dv.getFloat32(p);p+=4;return v;} case 0xcb:{const v=dv.getFloat64(p);p+=8;return v;}
+          case 0xd9:return rstr(u[p++]); case 0xda:{const n=dv.getUint16(p);p+=2;return rstr(n);} case 0xdb:{const n=dv.getUint32(p);p+=4;return rstr(n);}
+          case 0xdc:{const n=dv.getUint16(p);p+=2;return rarr(n);} case 0xdd:{const n=dv.getUint32(p);p+=4;return rarr(n);}
+          case 0xde:{const n=dv.getUint16(p);p+=2;return rmap(n);} case 0xdf:{const n=dv.getUint32(p);p+=4;return rmap(n);}
+          default: throw new Error('Unsupported msgpack byte 0x'+b.toString(16));
+        }
+      };
+      return rd();
+    };
+    const cbEnc=v=>{ const o=[], dv=new DataView(new ArrayBuffer(8));
+      const head=(maj,n)=>{ const m=maj<<5; if(n<24)o.push(m|n); else if(n<0x100)o.push(m|24,n); else if(n<0x10000)o.push(m|25,n>>8,n&255); else if(n<0x100000000)o.push(m|26,(n>>>24)&255,(n>>>16)&255,(n>>>8)&255,n&255); else {o.push(m|27);dv.setBigUint64(0,BigInt(n));for(let k=0;k<8;k++)o.push(dv.getUint8(k));} };
+      const wr=v=>{
+        if(v===null){o.push(0xf6);return;} if(v===true){o.push(0xf5);return;} if(v===false){o.push(0xf4);return;}
+        if(typeof v==='number'){ if(Number.isInteger(v)){ if(v>=0)head(0,v); else head(1,-1-v); return; } dv.setFloat64(0,v); o.push(0xfb); for(let k=0;k<8;k++)o.push(dv.getUint8(k)); return; }
+        if(typeof v==='string'){ const b=new TextEncoder().encode(v); head(3,b.length); for(const x of b)o.push(x); return; }
+        if(Array.isArray(v)){ head(4,v.length); v.forEach(wr); return; }
+        if(typeof v==='object'){ const ks=Object.keys(v); head(5,ks.length); for(const k of ks){wr(k);wr(v[k]);} return; }
+        throw new Error('Unsupported value');
+      };
+      wr(v); return new Uint8Array(o);
+    };
+    const cbDec=u=>{ let p=0; const dv=new DataView(u.buffer,u.byteOffset,u.byteLength);
+      const len=ai=>{ if(ai<24)return ai; if(ai===24)return u[p++]; if(ai===25){const v=dv.getUint16(p);p+=2;return v;} if(ai===26){const v=dv.getUint32(p);p+=4;return v;} if(ai===27){const v=Number(dv.getBigUint64(p));p+=8;return v;} throw new Error('Bad CBOR length'); };
+      const half=h=>{ const s=(h&0x8000)>>15,e=(h&0x7c00)>>10,f=h&0x3ff; if(e===0)return (s?-1:1)*Math.pow(2,-14)*(f/1024); if(e===31)return f?NaN:(s?-Infinity:Infinity); return (s?-1:1)*Math.pow(2,e-15)*(1+f/1024); };
+      const rd=()=>{ const b=u[p++], maj=b>>5, ai=b&31;
+        switch(maj){
+          case 0:return len(ai); case 1:return -1-len(ai);
+          case 2:{ const n=len(ai); const s='0x'+toHex(u.subarray(p,p+n)); p+=n; return s; }
+          case 3:{ const n=len(ai); const s=new TextDecoder().decode(u.subarray(p,p+n)); p+=n; return s; }
+          case 4:{ const n=len(ai); const a=[]; for(let k=0;k<n;k++)a.push(rd()); return a; }
+          case 5:{ const n=len(ai); const o={}; for(let k=0;k<n;k++){ const key=rd(); o[key]=rd(); } return o; }
+          case 7:{ if(ai===20)return false; if(ai===21)return true; if(ai===22||ai===23)return null; if(ai===25){const h=dv.getUint16(p);p+=2;return half(h);} if(ai===26){const v=dv.getFloat32(p);p+=4;return v;} if(ai===27){const v=dv.getFloat64(p);p+=8;return v;} throw new Error('Bad CBOR simple'); }
+          default: throw new Error('Unsupported CBOR major '+maj);
+        }
+      };
+      return rd();
+    };
+    const run=()=>{ err.textContent=''; out.value=''; const v=inp.value; if(!v.trim())return;
+      try{
+        if(mode==='enc'){ const data=JSON.parse(v); const bin=(fmt==='msgpack'?mpEnc:cbEnc)(data); out.value=$('#mp-repr').value==='hex'?toHex(bin):toB64(bin); }
+        else { const bin=$('#mp-repr').value==='hex'?fromHex(v):fromB64(v); out.value=JSON.stringify((fmt==='msgpack'?mpDec:cbDec)(bin),null,2); }
+      }catch(e){ err.textContent=e.message||'Conversion failed'; } };
+    inp.addEventListener('input',run);
+    $('#mp-repr').addEventListener('change',run);
+    $$('#mp-fmt button').forEach(b=>b.addEventListener('click',()=>{ $$('#mp-fmt button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); fmt=b.dataset.f; run(); }));
+    $$('#mp-mode button').forEach(b=>b.addEventListener('click',()=>{ $$('#mp-mode button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); mode=b.dataset.m; run(); }));
+    run();
+  }
+});
+
 /* ── cidr / subnet ─────────────────────────────────────────── */
 tool({
   id:'cidr', name:'CIDR subnet', group:'Ops',
