@@ -125,12 +125,42 @@ Requires only the Xcode command-line tools (`swiftc`, already present if you hav
 The build compiles `Sources/main.swift`, bundles `index.html` + icons into
 `Contents/Resources`, generates a `.icns`, writes `Info.plist`, and ad-hoc signs it.
 
-To distribute it to others without the Gatekeeper warning, sign + notarize with an Apple
-Developer ID:
+### Distributing without the Gatekeeper warning (Developer ID + notarization)
+
+An ad-hoc-signed app, once downloaded (and thus quarantined), is **rejected by Gatekeeper**
+("app is damaged" / "unidentified developer"). To run an ad-hoc build anyway, strip the
+quarantine flag once: `xattr -dr com.apple.quarantine /path/to/powertoy.app`.
+
+For a build anyone can just double-click, the release CI signs with a **Developer ID
+Application** certificate and **notarizes** it — automatically, when these repo secrets are
+present (otherwise it falls back to ad-hoc, so forks still build):
+
+| Secret | What it is |
+|--------|------------|
+| `MACOS_CERT_P12_BASE64` | your Developer ID Application cert **and private key**, exported as a `.p12`, then `base64` of that file |
+| `MACOS_CERT_PASSWORD`   | the password you set when exporting the `.p12` |
+| `APPLE_ID`              | your Apple ID email (the Developer Program account) |
+| `APPLE_APP_PASSWORD`    | an **app-specific password** from appleid.apple.com → Sign-In & Security |
+| `APPLE_TEAM_ID`         | your 10-character Team ID (Apple Developer → Membership) |
+
+One-time setup:
+
+1. **Enroll** in the [Apple Developer Program](https://developer.apple.com/programs/) ($99/yr).
+2. In Xcode (Settings → Accounts → Manage Certificates) or the Developer portal, create a
+   **Developer ID Application** certificate. Export it from Keychain Access as a `.p12`
+   (include the private key), then `base64 -i cert.p12 | pbcopy` → paste into the secret.
+3. Create an **app-specific password** at appleid.apple.com and grab your **Team ID**.
+4. Add all five values under **Settings → Secrets and variables → Actions**.
+5. Tag a release (`vX.Y.Z`). CI imports the cert into a temp keychain, signs with hardened
+   runtime, runs `notarytool submit --wait`, staples the ticket, then zips and publishes.
+
+To do it by hand instead:
 
 ```bash
-codesign --deep --force --options runtime --sign "Developer ID Application: …" native/build/powertoy.app
-xcrun notarytool submit … && xcrun stapler staple native/build/powertoy.app
+SIGN_IDENTITY="Developer ID Application: …" ./native/build-macos.sh
+ditto -c -k --keepParent native/build/powertoy.app app.zip
+xcrun notarytool submit app.zip --apple-id … --password … --team-id … --wait
+xcrun stapler staple native/build/powertoy.app
 ```
 
 ## Cross-platform native (Windows / Linux) — options
