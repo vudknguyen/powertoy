@@ -9,9 +9,21 @@ APP="build/powertoy.app"
 BIN="$APP/Contents/MacOS/powertoy"
 RES="$APP/Contents/Resources"
 
-echo "▸ compiling…"
+# Build a universal binary (Apple Silicon + Intel) with an explicit deployment
+# target. Without -target, swiftc stamps the binary's minimum-OS to the build
+# machine's OS — so a CI runner on a newer macOS produces an app that won't launch
+# on older systems ("You can't use this version of the application with this
+# version of macOS"). LSMinimumSystemVersion in Info.plist is only metadata; dyld
+# enforces the Mach-O minos load command. Pinning macos11.0 for both arches fixes
+# both the OS-version error and Intel compatibility.
+DEPLOY=11.0
+FRAMEWORKS="-framework Cocoa -framework WebKit -framework CoreWLAN -framework CoreLocation"
+echo "▸ compiling universal (arm64 + x86_64, macOS ${DEPLOY}+)…"
 rm -rf build && mkdir -p "$APP/Contents/MacOS" "$RES"
-swiftc -O Sources/main.swift -o "$BIN" -framework Cocoa -framework WebKit -framework CoreWLAN -framework CoreLocation
+swiftc -O -target arm64-apple-macos${DEPLOY}  Sources/main.swift -o "$BIN-arm64"  $FRAMEWORKS
+swiftc -O -target x86_64-apple-macos${DEPLOY} Sources/main.swift -o "$BIN-x86_64" $FRAMEWORKS
+lipo -create -output "$BIN" "$BIN-arm64" "$BIN-x86_64"
+rm -f "$BIN-arm64" "$BIN-x86_64"
 
 echo "▸ bundling the app…"
 cp "$ROOT/index.html" "$RES/index.html"
