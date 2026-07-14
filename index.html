@@ -8570,15 +8570,19 @@ const GITHUB_REPO = 'vudknguyen/powertoy';   // set explicitly (custom domain ca
     if (h.endsWith('github.io')){ const seg = location.pathname.split('/').filter(Boolean)[0]; if (seg) return h.split('.')[0] + '/' + seg; }
     return '';
   })();
+  // Running as the native macOS app? Then a "download the macOS app" link is pointless.
+  const nativeApp = !!(window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.wifi);
   const vb = $('#verBadge');
   vb.textContent = dev ? 'dev' : 'v' + APP_VERSION;
   if (repo){
     vb.href = dev ? `https://github.com/${repo}/releases` : `https://github.com/${repo}/releases/tag/v${APP_VERSION}`;
     vb.title = 'releases';
-    const dl = $('#dlBtn');
-    dl.href = `https://github.com/${repo}/releases/latest/download/powertoy-macos.zip`;
-    dl.title = 'Download the latest macOS app';
-    dl.hidden = false;
+    if (!nativeApp){
+      const dl = $('#dlBtn');
+      dl.href = `https://github.com/${repo}/releases/latest/download/powertoy-macos.zip`;
+      dl.title = 'Download the latest macOS app';
+      dl.hidden = false;
+    }
   } else {
     vb.removeAttribute('href'); vb.style.cursor = 'default';
   }
