@@ -1110,9 +1110,18 @@ tool({
       <input type="text" id="tz-search" class="grow" style="max-width:24rem" placeholder="add a city or country — e.g. Tokyo, Vietnam, USA" spellcheck="false" autocomplete="off">
       <div id="tz-sug" class="tz-sug" style="display:none"></div>
     </div>
-    <input type="range" id="tz-slider" min="0" max="1439" step="15" value="720" style="width:100%;max-width:40rem;margin:.7rem 0 0;display:block">
+    <div class="row" style="align-items:center;gap:.55rem;margin-top:.6rem">
+      <span class="tz-sub" style="font-size:.82rem">length</span>
+      <select id="tz-dur">
+        <option value="0">instant</option><option value="15">15 min</option><option value="30">30 min</option>
+        <option value="45">45 min</option><option value="60" selected>1 hour</option><option value="90">1½ hours</option>
+        <option value="120">2 hours</option><option value="180">3 hours</option><option value="240">4 hours</option><option value="480">8 hours</option>
+      </select>
+      <span class="tz-sub" id="tz-window" style="font-size:.82rem"></span>
+    </div>
+    <input type="range" id="tz-slider" min="0" max="1439" step="15" value="540" style="width:100%;max-width:40rem;margin:.4rem 0 0;display:block">
     <div id="tz-rows" style="margin-top:.4rem"></div>
-    <p class="note"><span class="tz-lg work"></span> working hours (9–18) · <span class="tz-lg sh"></span> early/late · <span class="tz-lg night"></span> night. Drag the slider or click any cell to pick a time.</p>
+    <p class="note"><span class="tz-lg work"></span> working hours (9–18) · <span class="tz-lg sh"></span> early/late · <span class="tz-lg night"></span> night. Drag the slider (start time) and pick a length to see the meeting window's start–end everywhere; click a cell to jump.</p>
     ${shPanel('tz', [
       {why:'what time is it in Tokyo', cmd:`TZ='Asia/Tokyo' date`},
       {why:'convert a specific moment (GNU date)', cmd:`TZ='Asia/Tokyo' date -d '2026-06-10 09:00 America/New_York'`},
@@ -1174,27 +1183,35 @@ tool({
       const min = +slider.value;
       return zonedToUtc(+m[1], +m[2], +m[3], Math.floor(min/60), min%60, targets[0] || localZone);
     };
+    const rollTag = (ms,z,baseDay) => { const d=new Intl.DateTimeFormat('en-CA',{timeZone:z,dateStyle:'short'}).format(ms); return d>baseDay?'+1d':d<baseDay?'−1d':''; };
     const render = () => {
       const m = dt.value.match(/^(\d{4})-(\d{2})-(\d{2})/); if (!m || !targets.length){ rows.innerHTML=''; return; }
-      const base = targets[0], inst = refInstant(), selH = Math.floor(+slider.value/60);
-      const baseDay = new Intl.DateTimeFormat('en-CA',{timeZone:base,dateStyle:'short'}).format(inst);
+      const base = targets[0], startMin = +slider.value, dur = +$('#tz-dur').value;
+      const startInst = refInstant(), endInst = startInst + dur*60000;
+      const selStart = Math.floor(startMin/60);
+      const selEnd = Math.min(23, dur>0 ? Math.ceil((startMin+dur)/60)-1 : selStart);
+      const baseDay = new Intl.DateTimeFormat('en-CA',{timeZone:base,dateStyle:'short'}).format(startInst);
       const hourInstants = []; for (let h=0;h<24;h++) hourInstants.push(zonedToUtc(+m[1],+m[2],+m[3],h,0,base));
+      const roll = (ms,z) => { const t=rollTag(ms,z,baseDay); return t?`<span style="color:var(--accent-2)"> ${t}</span>`:''; };
       rows.innerHTML = targets.map(z => {
-        const f = fmtIn(inst,z);
-        const zDay = new Intl.DateTimeFormat('en-CA',{timeZone:z,dateStyle:'short'}).format(inst);
-        const roll = zDay>baseDay?' +1d':zDay<baseDay?' −1d':'';
+        const s = fmtIn(startInst,z), e = fmtIn(endInst,z);
+        const read = dur>0
+          ? `${s.hm}${roll(startInst,z)} – ${e.hm}${roll(endInst,z)}`
+          : `${s.hm}${roll(startInst,z)}`;
         const hf = new Intl.DateTimeFormat('en-US',{timeZone:z,hour:'2-digit',hour12:false});
         const cells = hourInstants.map((hi,h)=>{ let lh=+hf.format(hi); if(lh===24)lh=0;
           const cls = (lh>=9&&lh<18)?'work':((lh>=7&&lh<9)||(lh>=18&&lh<22))?'sh':'night';
-          return `<div class="tz-cell ${cls}${h===selH?' sel':''}" data-h="${h}" title="${pad2(lh)}:00">${pad2(lh)}</div>`; }).join('');
+          return `<div class="tz-cell ${cls}${(h>=selStart&&h<=selEnd)?' sel':''}" data-h="${h}" title="${pad2(lh)}:00">${pad2(lh)}</div>`; }).join('');
         return `<div class="tz-row">
-          <div class="tz-name"><div>${esc(cityOf(z))}</div><div class="tz-sub">${esc(regionOf(z))} · ${f.off}</div></div>
+          <div class="tz-name"><div>${esc(cityOf(z))}</div><div class="tz-sub">${esc(regionOf(z))} · ${s.off}</div></div>
           <div class="tz-strip">${cells}</div>
-          <div class="tz-read"><div>${f.hm}${roll?`<span style="color:var(--accent-2)">${roll}</span>`:''}</div>${z===base?'<span class="tz-sub">base</span>':`<button class="tz-del" data-z="${esc(z)}" title="remove">× remove</button>`}</div>
+          <div class="tz-read"><div>${read}</div>${z===base?'<span class="tz-sub">base</span>':`<button class="tz-del" data-z="${esc(z)}" title="remove">× remove</button>`}</div>
         </div>`;
       }).join('');
+      const bs = fmtIn(startInst,base);
+      $('#tz-window').textContent = dur>0 ? `${bs.hm}–${fmtIn(endInst,base).hm} in ${cityOf(base)}` : `${bs.hm} in ${cityOf(base)}`;
       setSh('tz',0,`TZ=${shq(targets[1]||base)} date`);
-      setSh('tz',1,`TZ=${shq(targets[1]||'Asia/Tokyo')} date -d ${shq(`${fmtIn(inst,base).full.replace(/.*· /,'')} ${new Intl.DateTimeFormat('en-CA',{timeZone:base}).format(inst)} ${base}`)}`);
+      setSh('tz',1,`TZ=${shq(targets[1]||'Asia/Tokyo')} date -d ${shq(`${bs.full.replace(/.*· /,'')} ${new Intl.DateTimeFormat('en-CA',{timeZone:base}).format(startInst)} ${base}`)}`);
     };
     const searchZones = q => {
       q = q.trim().toLowerCase(); if (!q) return [];
@@ -1221,6 +1238,7 @@ tool({
     sug.addEventListener('click', e => { const b=e.target.closest('button'); if (b) addZone(b.dataset.z); });
     document.addEventListener('click', e => { if (!sug.contains(e.target) && e.target!==search) sug.style.display='none'; });
     slider.addEventListener('input', render);
+    $('#tz-dur').addEventListener('change', render);
     dt.addEventListener('input', () => { const m=dt.value.match(/T(\d{2}):(\d{2})/); if (m) slider.value=(+m[1])*60+(+m[2]); render(); });
     $('#tz-now').addEventListener('click', setNow);
     setNow();
