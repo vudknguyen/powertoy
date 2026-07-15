@@ -43,6 +43,32 @@ const rx = (g, re) => assert(re.test(g), `expected to match ${re}, got ${JSON.st
 const T = [];
 const t = (name, fn) => T.push({ name, fn });
 
+/* ---------- performance + offline guards (first, so they see a pristine load) ---------- */
+t('perf: lazy tool rendering', () => {
+  const shells = $$('.tool').length;
+  const hydrated = $$('.tool:not([data-lazy])').length;
+  assert(shells >= 100, 'tool shells missing: ' + shells);
+  assert(hydrated <= 3, 'too many tools hydrated at load — lazy rendering broken: ' + hydrated);
+});
+t('perf: low DOM node count at load', () => {
+  const n = D().querySelectorAll('*').length;
+  assert(n < 2500, 'DOM node count too high at load (expected lazy ~1k): ' + n);
+});
+t('offline: no external (cross-origin) resources', () => {
+  const origin = W().location.origin;
+  const ext = W().performance.getEntriesByType('resource').map(r => r.name)
+    .filter(u => !u.startsWith(origin) && !u.startsWith('data:') && !u.startsWith('blob:'));
+  assert(ext.length === 0, 'external resource(s) loaded: ' + ext.join(', '));
+});
+t('perf: timezone render under frame budget', async () => {
+  await go('tz'); await wait(80);
+  const sl = $('#tz-slider'); const now = () => W().performance.now();
+  const start = now();
+  for (let i = 0; i < 30; i++){ sl.value = (i * 30) % 1440; sl.dispatchEvent(new Event('input', { bubbles:true })); }
+  const avg = (now() - start) / 30;
+  assert(avg < 16, 'timezone render too slow (>16ms/frame): ' + avg.toFixed(2) + 'ms');
+});
+
 /* ---------- Encode ---------- */
 t('base64 encode', async () => { await go('base64'); $$('#b64-mode [data-m]')[0].click(); set('#b64-in','hello'); eq(val('#b64-out'),'aGVsbG8='); });
 t('base64 decode', async () => { await go('base64'); $$('#b64-mode [data-m]')[1].click(); set('#b64-in','aGVsbG8='); eq(val('#b64-out'),'hello'); });

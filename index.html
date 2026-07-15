@@ -8545,8 +8545,11 @@ nav.addEventListener('click', e => {
   const set = getCollapsed(); on ? set.add(g.dataset.group) : set.delete(g.dataset.group); setCollapsed(set);
 });
 
+/* Build only lightweight section shells at load; each tool's body + wiring is
+   hydrated on first activation (see hydrate()). This keeps cold start cheap —
+   we don't parse ~120 tool bodies (thousands of DOM nodes) up front. */
 main.innerHTML = TOOLS.map(t => `
-  <section class="tool" id="tool-${t.id}" aria-label="${esc(t.name)}">
+  <section class="tool" id="tool-${t.id}" data-lazy="1" aria-label="${esc(t.name)}">
     <div class="tool-head">
       <h2>${esc(t.name)}</h2>
       <span style="display:flex;align-items:center;gap:.5rem">
@@ -8555,7 +8558,6 @@ main.innerHTML = TOOLS.map(t => `
       </span>
     </div>
     <p class="blurb">${t.blurb}</p>
-    ${t.html}
   </section>`).join('');
 
 const syncPins = () => {
@@ -8572,8 +8574,6 @@ main.addEventListener('click', e => {
   try { localStorage.setItem('pt-pins', JSON.stringify(PINS)); } catch {}
   syncPins(); buildNav();
 });
-
-TOOLS.forEach(t => { try { t.wire(); } catch (e) { console.error('wire failed:', t.id, e); } });
 
 /* "How to play" panels for the games (injected under each blurb) */
 const RULES = {
@@ -8595,28 +8595,37 @@ const RULES = {
   roll:'<ul><li>Pick a die and how many, then Roll for individual results and their sum.</li><li>Flip a coin, or paste a list and Pick one / Shuffle it.</li></ul>',
   metro:'<ul><li>Set the tempo (BPM) and beats per bar, then Start — beat one is accented.</li><li>The tone generator plays a steady sine wave at the chosen frequency for tuning or tests.</li></ul>',
 };
-Object.entries(RULES).forEach(([id, html]) => {
-  const sec = document.getElementById('tool-' + id), blurb = sec && sec.querySelector('.blurb');
-  if (!blurb) return;
-  const d = document.createElement('details'); d.className = 'rules';
-  d.innerHTML = '<summary>how to play</summary>' + html;
-  blurb.after(d);
-});
-/* every game gets a full-screen toggle in its header */
-Object.keys(RULES).forEach(id => {
+/* Build a tool's body + wire it on first activation. Idempotent (guarded by the
+   data-lazy flag), so calling it repeatedly is a no-op after the first time. */
+function hydrate(id){
+  const t = TOOLS.find(x => x.id === id); if (!t) return;
   const sec = document.getElementById('tool-' + id);
-  const head = sec && sec.querySelector('.tool-head > span');
-  if (!head) return;
-  const btn = document.createElement('button');
-  btn.className = 'fsbtn'; btn.textContent = '⛶';
-  btn.title = 'Full screen'; btn.setAttribute('aria-label', 'Toggle full screen');
-  const fsEl = () => document.fullscreenElement || document.webkitFullscreenElement;
-  btn.addEventListener('click', () => {
-    if (fsEl()){ (document.exitFullscreen || document.webkitExitFullscreen).call(document); }
-    else { (sec.requestFullscreen || sec.webkitRequestFullscreen).call(sec); }
-  });
-  head.insertBefore(btn, head.firstChild);
-});
+  if (!sec || !sec.hasAttribute('data-lazy')) return;
+  sec.removeAttribute('data-lazy');
+  const blurb = sec.querySelector('.blurb');
+  let anchor = blurb;
+  if (RULES[id]){
+    const d = document.createElement('details'); d.className = 'rules';
+    d.innerHTML = '<summary>how to play</summary>' + RULES[id];
+    blurb.after(d); anchor = d;
+    // full-screen toggle for games
+    const head = sec.querySelector('.tool-head > span');
+    if (head){
+      const btn = document.createElement('button');
+      btn.className = 'fsbtn'; btn.textContent = '⛶'; btn.title = 'Full screen'; btn.setAttribute('aria-label', 'Toggle full screen');
+      btn.addEventListener('click', () => {
+        const on = document.fullscreenElement || document.webkitFullscreenElement;
+        if (on){ (document.exitFullscreen || document.webkitExitFullscreen).call(document); }
+        else { (sec.requestFullscreen || sec.webkitRequestFullscreen).call(sec); }
+      });
+      head.insertBefore(btn, head.firstChild);
+    }
+  }
+  anchor.insertAdjacentHTML('afterend', t.html);
+  try { t.wire(); } catch (e){ console.error('wire failed:', id, e); }
+  addSendToButton(id);   // tool chaining: "Send to →" next to the output (needs the body built)
+  syncPins();
+}
 document.addEventListener('fullscreenchange', () => {
   document.querySelectorAll('.fsbtn').forEach(b => { b.textContent = '⛶'; b.title = 'Full screen'; });
   const el = document.fullscreenElement;
@@ -8627,6 +8636,7 @@ let currentTool = 'base64';
 function activate(id, push=true){
   if (!TOOLS.some(t => t.id === id)) id = TOOLS[0].id;
   currentTool = id;
+  hydrate(id);   // build + wire this tool's body on first use
   $$('.tool').forEach(s => s.classList.remove('active'));
   $$('#nav button[data-tool]').forEach(b => b.classList.toggle('active', b.dataset.tool === id));
   $('#tool-' + id).classList.add('active');
@@ -8866,10 +8876,13 @@ const PIPE_IN = {
   iddecode:'#idd-in', ieee:'#ie-in', x509:'#x5-in',
 };
 const getOutVal = el => ('value' in el && el.tagName !== 'A') ? el.value : el.textContent;
-for (const [tid, sel] of Object.entries(PIPE_OUT)){
-  const out = $(sel); if (!out) continue;
+/* Add the "Send to →" button next to a tool's output. Called from hydrate() once
+   the tool body exists (was previously an eager loop over all tools at load). */
+function addSendToButton(tid){
+  const sel = PIPE_OUT[tid]; if (!sel) return;
+  const out = $(sel); if (!out) return;
   const lbl = out.previousElementSibling;
-  if (!lbl || !lbl.classList.contains('lbl')) continue;
+  if (!lbl || !lbl.classList.contains('lbl')) return;
   const btn = document.createElement('button');
   btn.className = 'cpy'; btn.style.borderColor = 'var(--accent)'; btn.style.color = 'var(--accent-2)';
   btn.textContent = 'Send to →'; btn.dataset.pipe = tid;
