@@ -43,6 +43,32 @@ const rx = (g, re) => assert(re.test(g), `expected to match ${re}, got ${JSON.st
 const T = [];
 const t = (name, fn) => T.push({ name, fn });
 
+/* ---------- performance + offline guards (first, so they see a pristine load) ---------- */
+t('perf: lazy tool rendering', () => {
+  const shells = $$('.tool').length;
+  const hydrated = $$('.tool:not([data-lazy])').length;
+  assert(shells >= 100, 'tool shells missing: ' + shells);
+  assert(hydrated <= 3, 'too many tools hydrated at load — lazy rendering broken: ' + hydrated);
+});
+t('perf: low DOM node count at load', () => {
+  const n = D().querySelectorAll('*').length;
+  assert(n < 2500, 'DOM node count too high at load (expected lazy ~1k): ' + n);
+});
+t('offline: no external (cross-origin) resources', () => {
+  const origin = W().location.origin;
+  const ext = W().performance.getEntriesByType('resource').map(r => r.name)
+    .filter(u => !u.startsWith(origin) && !u.startsWith('data:') && !u.startsWith('blob:'));
+  assert(ext.length === 0, 'external resource(s) loaded: ' + ext.join(', '));
+});
+t('perf: timezone render under frame budget', async () => {
+  await go('tz'); await wait(80);
+  const sl = $('#tz-slider'); const now = () => W().performance.now();
+  const start = now();
+  for (let i = 0; i < 30; i++){ sl.value = (i * 30) % 1440; sl.dispatchEvent(new Event('input', { bubbles:true })); }
+  const avg = (now() - start) / 30;
+  assert(avg < 16, 'timezone render too slow (>16ms/frame): ' + avg.toFixed(2) + 'ms');
+});
+
 /* ---------- Encode ---------- */
 t('base64 encode', async () => { await go('base64'); $$('#b64-mode [data-m]')[0].click(); set('#b64-in','hello'); eq(val('#b64-out'),'aGVsbG8='); });
 t('base64 decode', async () => { await go('base64'); $$('#b64-mode [data-m]')[1].click(); set('#b64-in','aGVsbG8='); eq(val('#b64-out'),'hello'); });
@@ -103,7 +129,10 @@ t('cron describe', async () => { await go('cron'); set('#cron-in','0 9 * * 1'); 
 t('cron next runs', async () => { await go('cron'); set('#cron-in','*/15 9-17 * * 1-5'); assert($$('#cron-next .out').length===5,'expected 5 next runs'); });
 t('date math add', async () => { await go('dmath'); set('#dm-base','2026-06-10T12:00'); $$('#dm-dir [data-d]')[0].click(); set('#dm-amt','3'); set('#dm-unit','days'); inc(txt('#dm-iso'),'2026-06-13'); });
 t('duration convert', async () => { await go('dur'); set('#dur-u','1000'); set('#dur-v','90061'); eq(txt('#dur-clock'),'25:01:01'); });
-t('timezone smoke', async () => { await go('tz'); set('#tz-dt','2026-06-10T12:00'); await wait(40); assert($$('#tz-rows .out').length>0,'no tz rows'); });
+t('timezone rows render', async () => { await go('tz'); set('#tz-dt','2026-06-10T12:00'); await wait(40); assert($$('#tz-rows .tz-row').length>0,'no tz rows'); assert($$('#tz-rows .tz-cell').length>=24,'no strip cells'); });
+t('timezone search by country', async () => { await go('tz'); set('#tz-search','vietnam'); await wait(40); const b=$('#tz-sug button'); assert(b,'no suggestion'); b.click(); await wait(40); assert($$('#tz-rows .tz-name').some(n=>/Ho.?Chi.?Minh|Saigon/i.test(n.textContent)),'zone not added'); });
+t('timezone slider selects hour', async () => { await go('tz'); set('#tz-dt','2026-06-10T00:00'); const s=$('#tz-slider'); s.value='540'; s.dispatchEvent(new Event('input',{bubbles:true})); await wait(40); assert($$('#tz-rows .tz-cell.sel').length>0,'no selected cell'); });
+t('timezone duration window', async () => { await go('tz'); set('#tz-dt','2026-06-10T00:00'); const s=$('#tz-slider'); s.value='540'; s.dispatchEvent(new Event('input',{bubbles:true})); set('#tz-dur','120'); await wait(40); assert($$('#tz-rows .tz-cell.sel').length>=2,'window not spanning multiple cells'); assert($$('#tz-rows .tz-read').some(r=>/\d{2}:\d{2}\D+\d{2}:\d{2}/.test(r.textContent)),'no start-end range shown'); });
 
 /* ---------- Crypto ---------- */
 t('hash md5+sha256', async () => { await go('hash'); set('#hash-in','hello'); await wait(120); eq(txt('#hash-md5'),'5d41402abc4b2a76b9719d911017c592'); eq(txt('#hash-sha256'),'2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824'); });

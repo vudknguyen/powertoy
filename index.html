@@ -83,7 +83,7 @@ header.top{
 .brand{font-family:var(--serif);font-size:1.35rem;font-weight:600;letter-spacing:-.01em}
 .brand i{color:var(--accent);font-style:normal}
 .tagline{color:var(--muted);font-size:.85rem;flex:1}
-.search{position:relative;width:min(280px,40vw)}
+.search{position:sticky;top:0;z-index:6;background:var(--bg);width:auto;margin-bottom:.5rem}
 .search input{
   width:100%;background:var(--surface);border:1px solid var(--border-2);
   color:var(--ink);font-family:var(--sans);font-size:.85rem;
@@ -104,19 +104,27 @@ header.top{
 /* ── frame ───────────────────────────────────────────────── */
 .frame{display:grid;grid-template-columns:230px 1fr;max-width:1180px;margin:0 auto}
 aside{padding:1.4rem .9rem 3rem .6rem}
-.navgroup{
-  margin:1.3rem .6rem .35rem;font-size:.68rem;letter-spacing:.14em;
-  text-transform:uppercase;color:var(--faint);font-weight:600;
+.navgroup{margin:.1rem 0}
+.navgroup.hidden{display:none}
+.navhead{
+  display:flex;align-items:center;justify-content:space-between;gap:.5rem;
+  margin:.55rem .6rem .15rem;padding:.2rem .05rem;background:none;border:0;cursor:pointer;
+  font-family:var(--sans);font-size:.68rem;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--faint);font-weight:600;
 }
-.navgroup:first-child{margin-top:.2rem}
-nav button{
+.navhead:hover{color:var(--muted)}
+.navchev{font-size:.6rem;opacity:.7;transition:transform .15s ease}
+.navgroup.collapsed .navchev{transform:rotate(-90deg)}
+.navgroup.collapsed .navitems{display:none}
+nav.searching .navgroup .navitems{display:block}   /* force-expand collapsed groups while searching (beats .collapsed) */
+nav button[data-tool]{
   display:block;width:100%;text-align:left;background:none;border:0;cursor:pointer;
   font-family:var(--sans);font-size:.9rem;color:var(--muted);
   padding:.36rem .65rem;border-radius:8px;
 }
-nav button:hover{color:var(--ink);background:rgba(0,0,0,.04)}
-nav button.active{color:var(--accent-2);background:var(--tint);font-weight:600}
-nav button.hidden{display:none}
+nav button[data-tool]:hover{color:var(--ink);background:rgba(0,0,0,.04)}
+nav button[data-tool].active{color:var(--accent-2);background:var(--tint);font-weight:600}
+nav button[data-tool].hidden{display:none}
 
 /* ── tool panels ─────────────────────────────────────────── */
 main{padding:1.8rem clamp(1rem,3vw,2.4rem) 4rem;min-width:0;border-left:1px solid var(--border)}
@@ -341,8 +349,7 @@ button.ghost:hover{color:var(--accent-2);border-color:var(--accent)}
   .frame{grid-template-columns:1fr}
   main{border-left:0}
   aside{padding:1rem}
-  nav{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:0 .4rem}
-  .navgroup{grid-column:1/-1}
+  nav .navitems{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:0 .4rem}
   .out{grid-template-columns:7rem 1fr auto}
 }
 
@@ -418,6 +425,26 @@ details.rules li{margin:.15rem 0}
 .netcode{flex:1;min-width:0;height:3.1rem;resize:vertical;font-family:var(--mono);font-size:.78rem;padding:.45rem .55rem;border:1px solid var(--border-2);border-radius:7px;background:var(--bg);color:var(--ink);word-break:break-all}
 .netqr{margin:.4rem 0;border:1px solid var(--border-2);border-radius:7px;background:#fff;image-rendering:pixelated;max-width:240px;height:auto}
 .netcam{margin:.4rem 0;width:260px;max-width:100%;border:1px solid var(--border-2);border-radius:7px;background:#000}
+/* timezone scheduler */
+.tz-sug{position:absolute;top:100%;left:0;z-index:30;margin-top:2px;background:var(--surface);border:1px solid var(--border-2);border-radius:8px;max-height:16rem;overflow:auto;min-width:min(26rem,92vw);box-shadow:0 8px 24px rgba(0,0,0,.18)}
+.tz-sug button{display:block;width:100%;text-align:left;background:none;border:0;padding:.42rem .6rem;cursor:pointer;color:var(--ink);font-size:.85rem}
+.tz-sug button:hover{background:var(--code-bg)}
+.tz-row{display:grid;grid-template-columns:9.5rem 1fr 6.5rem;gap:.5rem;align-items:center;margin:.4rem 0}
+.tz-name{font-size:.86rem;line-height:1.25;min-width:0}
+.tz-name>div:first-child{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tz-sub{font-size:.72rem;color:var(--faint)}
+.tz-read{text-align:right;font-family:var(--mono);font-size:.85rem}
+.tz-read .tz-del{background:none;border:0;color:var(--faint);cursor:pointer;font-size:.7rem;padding:0;font-family:inherit}
+.tz-read .tz-del:hover{color:var(--bad)}
+.tz-strip{display:grid;grid-template-columns:repeat(24,1fr);gap:1px;border-radius:6px;overflow:hidden;border:1px solid var(--border-2)}
+.tz-cell{font-family:var(--mono);font-size:.6rem;text-align:center;padding:.3rem 0;color:var(--ink);background:var(--code-bg);cursor:pointer;user-select:none}
+.tz-cell.work{background:rgba(92,194,167,.34)}
+.tz-cell.sh{background:rgba(214,167,64,.30)}
+.tz-cell.night{background:rgba(120,120,120,.14);color:var(--faint)}
+.tz-cell.sel{outline:2px solid var(--accent);outline-offset:-2px;font-weight:700}
+.tz-lg{display:inline-block;width:.8rem;height:.8rem;border-radius:2px;vertical-align:-1px;margin:0 .1rem}
+.tz-lg.work{background:rgba(92,194,167,.6)}.tz-lg.sh{background:rgba(214,167,64,.6)}.tz-lg.night{background:rgba(120,120,120,.3)}
+@media(max-width:640px){.tz-row{grid-template-columns:1fr;gap:.15rem}.tz-read{text-align:left}}
 /* full-screen game mode */
 .fsbtn{background:none;border:1px solid var(--border-2);border-radius:6px;color:var(--muted);cursor:pointer;font-size:1rem;line-height:1;padding:.18rem .42rem}
 .fsbtn:hover{color:var(--accent);border-color:var(--accent)}
@@ -444,17 +471,19 @@ details.rules li{margin:.15rem 0}
 <header class="top">
   <div class="brand">powertoy<i>.</i></div>
   <div class="tagline">Everyday developer utilities — each with its shell equivalent.</div>
-  <div class="search">
-    <input id="q" type="text" placeholder="Search tools" autocomplete="off" spellcheck="false">
-    <kbd>/</kbd>
-  </div>
   <a id="dlBtn" class="hdrlink" target="_blank" rel="noopener" hidden>⤓ macOS app</a>
   <a id="verBadge" class="hdrlink" target="_blank" rel="noopener">v0.0.0</a>
   <button id="themeBtn" class="ghost" title="Toggle dark mode" style="padding:.35rem .65rem;font-size:1rem;line-height:1">◐</button>
 </header>
 
 <div class="frame">
-  <aside><nav id="nav"></nav></aside>
+  <aside>
+    <div class="search">
+      <input id="q" type="text" placeholder="Search tools" autocomplete="off" spellcheck="false">
+      <kbd>/</kbd>
+    </div>
+    <nav id="nav"></nav>
+  </aside>
   <main id="main"></main>
 </div>
 
@@ -1071,79 +1100,147 @@ tool({
 /* ── timezone convert ──────────────────────────────────────── */
 tool({
   id:'tz', name:'Timezone convert', group:'Time',
-  blurb:'Pick a wall-clock time in any IANA timezone and read it everywhere else — with UTC offsets and day rollovers made obvious.',
+  blurb:'Schedule across timezones. Add places by city or country, then drag the slider to find a time that works everywhere — working hours are shaded green, nights dimmed.',
   html: `
     <div class="row">
       <input type="datetime-local" id="tz-dt" style="width:auto">
-      <span style="color:var(--muted);font-size:.85rem">in</span>
-      <select id="tz-src" class="grow" style="max-width:20rem"></select>
       <button class="ghost" id="tz-now">Now</button>
     </div>
-    <div class="outs" id="tz-rows" style="margin-top:1rem"></div>
-    <label class="lbl">Add a zone</label>
-    <div class="row">
-      <select id="tz-add" class="grow" style="max-width:20rem"></select>
-      <button class="act" id="tz-addgo">Add</button>
+    <div class="row" style="position:relative">
+      <input type="text" id="tz-search" class="grow" style="max-width:24rem" placeholder="add a city or country — e.g. Tokyo, Vietnam, USA" spellcheck="false" autocomplete="off">
+      <div id="tz-sug" class="tz-sug" style="display:none"></div>
     </div>
+    <div class="row" style="align-items:center;gap:.55rem;margin-top:.6rem">
+      <span class="tz-sub" style="font-size:.82rem">length</span>
+      <select id="tz-dur">
+        <option value="0">instant</option><option value="15">15 min</option><option value="30">30 min</option>
+        <option value="45">45 min</option><option value="60" selected>1 hour</option><option value="90">1½ hours</option>
+        <option value="120">2 hours</option><option value="180">3 hours</option><option value="240">4 hours</option><option value="480">8 hours</option>
+      </select>
+      <span class="tz-sub" id="tz-window" style="font-size:.82rem"></span>
+    </div>
+    <input type="range" id="tz-slider" min="0" max="1439" step="15" value="540" style="width:100%;max-width:40rem;margin:.4rem 0 0;display:block">
+    <div id="tz-rows" style="margin-top:.4rem"></div>
+    <p class="note"><span class="tz-lg work"></span> working hours (9–18) · <span class="tz-lg sh"></span> early/late · <span class="tz-lg night"></span> night. Drag the slider (start time) and pick a length to see the meeting window's start–end everywhere; click a cell to jump.</p>
     ${shPanel('tz', [
       {why:'what time is it in Tokyo', cmd:`TZ='Asia/Tokyo' date`},
       {why:'convert a specific moment (GNU date)', cmd:`TZ='Asia/Tokyo' date -d '2026-06-10 09:00 America/New_York'`},
       {why:'list / search available zones (Linux)', cmd:`timedatectl list-timezones | grep -i saigon`},
     ])}`,
   wire(){
-    const dt = $('#tz-dt'), src = $('#tz-src'), add = $('#tz-add'), rows = $('#tz-rows');
+    const dt=$('#tz-dt'), rows=$('#tz-rows'), search=$('#tz-search'), sug=$('#tz-sug'), slider=$('#tz-slider');
     const localZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
     const allZones = (typeof Intl.supportedValuesOf === 'function')
       ? Intl.supportedValuesOf('timeZone')
       : ['UTC','America/Los_Angeles','America/New_York','Europe/London','Europe/Paris','Asia/Ho_Chi_Minh','Asia/Singapore','Asia/Tokyo','Australia/Sydney'];
-    let targets = [...new Set(['UTC', localZone, 'America/Los_Angeles', 'America/New_York',
-      'Europe/London', 'Asia/Ho_Chi_Minh', 'Asia/Singapore', 'Asia/Tokyo'])];
-    const opts = sel => sel.innerHTML = allZones.map(z => `<option value="${z}">${z.replace(/_/g,' ')}</option>`).join('');
-    opts(src); opts(add);
-    src.value = localZone; add.value = allZones.includes('Australia/Sydney') ? 'Australia/Sydney' : allZones[0];
+    const zoneSet = new Set(allZones);
+    // country / alt-city aliases → IANA zones (so you can search "Vietnam", "USA", "Saigon")
+    const RAW_ALIAS = {
+      'united states':['America/New_York','America/Chicago','America/Denver','America/Los_Angeles','America/Anchorage','Pacific/Honolulu'],
+      'usa':['America/New_York','America/Chicago','America/Denver','America/Los_Angeles'], 'america':['America/New_York','America/Chicago','America/Denver','America/Los_Angeles'],
+      'nyc':['America/New_York'], 'la':['America/Los_Angeles'], 'sf':['America/Los_Angeles'],
+      'united kingdom':['Europe/London'], 'uk':['Europe/London'], 'britain':['Europe/London'], 'england':['Europe/London'], 'scotland':['Europe/London'],
+      // some ICU vintages still use legacy names (Asia/Saigon, Asia/Calcutta, Europe/Kiev) —
+      // list both so whichever the browser has survives the zoneSet filter.
+      'vietnam':['Asia/Ho_Chi_Minh','Asia/Saigon'], 'viet nam':['Asia/Ho_Chi_Minh','Asia/Saigon'], 'saigon':['Asia/Ho_Chi_Minh','Asia/Saigon'], 'hanoi':['Asia/Ho_Chi_Minh','Asia/Saigon'],
+      'japan':['Asia/Tokyo'], 'china':['Asia/Shanghai'], 'beijing':['Asia/Shanghai'],
+      'india':['Asia/Kolkata','Asia/Calcutta'], 'mumbai':['Asia/Kolkata','Asia/Calcutta'], 'delhi':['Asia/Kolkata','Asia/Calcutta'], 'bangalore':['Asia/Kolkata','Asia/Calcutta'], 'bombay':['Asia/Kolkata','Asia/Calcutta'],
+      'australia':['Australia/Sydney','Australia/Melbourne','Australia/Brisbane','Australia/Adelaide','Australia/Perth','Australia/Darwin','Australia/Hobart'],
+      'germany':['Europe/Berlin'], 'france':['Europe/Paris'],
+      'canada':['America/Toronto','America/Winnipeg','America/Edmonton','America/Vancouver','America/Halifax','America/St_Johns'],
+      'brazil':['America/Sao_Paulo','America/Manaus','America/Recife'],
+      'russia':['Europe/Moscow','Asia/Yekaterinburg','Asia/Novosibirsk','Asia/Vladivostok'],
+      'mexico':['America/Mexico_City','America/Cancun','America/Tijuana'],
+      'spain':['Europe/Madrid'], 'italy':['Europe/Rome'], 'netherlands':['Europe/Amsterdam'], 'holland':['Europe/Amsterdam'],
+      'singapore':['Asia/Singapore'], 'south korea':['Asia/Seoul'], 'korea':['Asia/Seoul'],
+      'indonesia':['Asia/Jakarta','Asia/Makassar','Asia/Jayapura'], 'thailand':['Asia/Bangkok'], 'philippines':['Asia/Manila'],
+      'malaysia':['Asia/Kuala_Lumpur'], 'hong kong':['Asia/Hong_Kong'], 'taiwan':['Asia/Taipei'],
+      'uae':['Asia/Dubai'], 'united arab emirates':['Asia/Dubai'], 'dubai':['Asia/Dubai'],
+      'saudi arabia':['Asia/Riyadh'], 'israel':['Asia/Jerusalem'], 'turkey':['Europe/Istanbul'],
+      'south africa':['Africa/Johannesburg'], 'egypt':['Africa/Cairo'], 'nigeria':['Africa/Lagos'], 'kenya':['Africa/Nairobi'],
+      'argentina':['America/Argentina/Buenos_Aires'], 'chile':['America/Santiago'], 'colombia':['America/Bogota'], 'peru':['America/Lima'],
+      'new zealand':['Pacific/Auckland'], 'ireland':['Europe/Dublin'], 'portugal':['Europe/Lisbon'], 'switzerland':['Europe/Zurich'],
+      'sweden':['Europe/Stockholm'], 'norway':['Europe/Oslo'], 'denmark':['Europe/Copenhagen'], 'finland':['Europe/Helsinki'],
+      'poland':['Europe/Warsaw'], 'greece':['Europe/Athens'], 'austria':['Europe/Vienna'], 'belgium':['Europe/Brussels'],
+      'czech':['Europe/Prague'], 'czechia':['Europe/Prague'], 'ukraine':['Europe/Kyiv','Europe/Kiev'],
+      'pakistan':['Asia/Karachi'], 'bangladesh':['Asia/Dhaka'], 'sri lanka':['Asia/Colombo'], 'nepal':['Asia/Kathmandu'],
+    };
+    const ALIAS = {};
+    for (const k in RAW_ALIAS){ const zs = RAW_ALIAS[k].filter(z => zoneSet.has(z)); if (zs.length) ALIAS[k] = zs; }
 
-    const setNow = () => {
-      const n = new Date();
-      dt.value = `${n.getFullYear()}-${pad2(n.getMonth()+1)}-${pad2(n.getDate())}T${pad2(n.getHours())}:${pad2(n.getMinutes())}`;
-      src.value = localZone;
-      run();
+    let targets = [...new Set([localZone,'UTC','America/New_York','Europe/London','Asia/Tokyo'])].filter(z => zoneSet.has(z));
+    const cityOf = z => z.split('/').pop().replace(/_/g,' ');
+    const regionOf = z => z.split('/').slice(0,-1).join(' / ').replace(/_/g,' ') || '—';
+
+    const fmtIn = (ms,z) => {
+      const p = Object.fromEntries(new Intl.DateTimeFormat('en-US',{ timeZone:z, weekday:'short', day:'2-digit',
+        month:'short', hour:'2-digit', minute:'2-digit', hour12:false, timeZoneName:'shortOffset' }).formatToParts(ms).map(x=>[x.type,x.value]));
+      const hr = p.hour==='24'?'00':p.hour;
+      return { off:p.timeZoneName, hm:`${hr}:${p.minute}`, full:`${p.weekday} ${p.day} ${p.month} · ${hr}:${p.minute}` };
     };
-    const fmtIn = (ms, z) => {
-      const p = Object.fromEntries(new Intl.DateTimeFormat('en-US', { timeZone:z, weekday:'short',
-        year:'numeric', month:'short', day:'2-digit', hour:'2-digit', minute:'2-digit', hour12:false,
-        timeZoneName:'shortOffset' }).formatToParts(ms).map(x => [x.type, x.value]));
-      return { txt:`${p.weekday} ${p.day} ${p.month} ${p.year} · ${p.hour === '24' ? '00' : p.hour}:${p.minute}`, off:p.timeZoneName };
+    const refInstant = () => {
+      const m = dt.value.match(/^(\d{4})-(\d{2})-(\d{2})/); if (!m) return Date.now();
+      const min = +slider.value;
+      return zonedToUtc(+m[1], +m[2], +m[3], Math.floor(min/60), min%60, targets[0] || localZone);
     };
-    const run = () => {
-      const m = dt.value.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
-      if (!m) return;
-      const ms = zonedToUtc(+m[1], +m[2], +m[3], +m[4], +m[5], src.value);
-      const srcDay = new Intl.DateTimeFormat('en-CA', { timeZone:src.value, dateStyle:'short' }).format(ms);
-      rows.innerHTML = targets.map((z, i) => {
-        const f = fmtIn(ms, z);
-        const zDay = new Intl.DateTimeFormat('en-CA', { timeZone:z, dateStyle:'short' }).format(ms);
-        const roll = zDay > srcDay ? ' <span style="color:var(--accent-2)">+1 day</span>'
-                   : zDay < srcDay ? ' <span style="color:var(--bad)">−1 day</span>' : '';
-        return `<div class="out" style="grid-template-columns:13rem 1fr auto auto">
-          <span class="k" style="text-transform:none;letter-spacing:0;font-size:.82rem">${esc(z.replace(/_/g,' '))}</span>
-          <span class="v">${f.txt}${roll}</span>
-          <span class="v" style="color:var(--faint)">${esc(f.off)}</span>
-          <button class="tz-del" data-z="${esc(z)}" title="remove">×</button>
+    const rollTag = (ms,z,baseDay) => { const d=new Intl.DateTimeFormat('en-CA',{timeZone:z,dateStyle:'short'}).format(ms); return d>baseDay?'+1d':d<baseDay?'−1d':''; };
+    const render = () => {
+      const m = dt.value.match(/^(\d{4})-(\d{2})-(\d{2})/); if (!m || !targets.length){ rows.innerHTML=''; return; }
+      const base = targets[0], startMin = +slider.value, dur = +$('#tz-dur').value;
+      const startInst = refInstant(), endInst = startInst + dur*60000;
+      const selStart = Math.floor(startMin/60);
+      const selEnd = Math.min(23, dur>0 ? Math.ceil((startMin+dur)/60)-1 : selStart);
+      const baseDay = new Intl.DateTimeFormat('en-CA',{timeZone:base,dateStyle:'short'}).format(startInst);
+      const hourInstants = []; for (let h=0;h<24;h++) hourInstants.push(zonedToUtc(+m[1],+m[2],+m[3],h,0,base));
+      const roll = (ms,z) => { const t=rollTag(ms,z,baseDay); return t?`<span style="color:var(--accent-2)"> ${t}</span>`:''; };
+      rows.innerHTML = targets.map(z => {
+        const s = fmtIn(startInst,z), e = fmtIn(endInst,z);
+        const read = dur>0
+          ? `${s.hm}${roll(startInst,z)} – ${e.hm}${roll(endInst,z)}`
+          : `${s.hm}${roll(startInst,z)}`;
+        const hf = new Intl.DateTimeFormat('en-US',{timeZone:z,hour:'2-digit',hour12:false});
+        const cells = hourInstants.map((hi,h)=>{ let lh=+hf.format(hi); if(lh===24)lh=0;
+          const cls = (lh>=9&&lh<18)?'work':((lh>=7&&lh<9)||(lh>=18&&lh<22))?'sh':'night';
+          return `<div class="tz-cell ${cls}${(h>=selStart&&h<=selEnd)?' sel':''}" data-h="${h}" title="${pad2(lh)}:00">${pad2(lh)}</div>`; }).join('');
+        return `<div class="tz-row">
+          <div class="tz-name"><div>${esc(cityOf(z))}</div><div class="tz-sub">${esc(regionOf(z))} · ${s.off}</div></div>
+          <div class="tz-strip">${cells}</div>
+          <div class="tz-read"><div>${read}</div>${z===base?'<span class="tz-sub">base</span>':`<button class="tz-del" data-z="${esc(z)}" title="remove">× remove</button>`}</div>
         </div>`;
       }).join('');
-      setSh('tz', 0, `TZ=${shq(targets[2] || 'Asia/Tokyo')} date`);
-      setSh('tz', 1, `TZ='Asia/Tokyo' date -d ${shq(`${dt.value.replace('T',' ')} ${src.value}`)}`);
+      const bs = fmtIn(startInst,base);
+      $('#tz-window').textContent = dur>0 ? `${bs.hm}–${fmtIn(endInst,base).hm} in ${cityOf(base)}` : `${bs.hm} in ${cityOf(base)}`;
+      setSh('tz',0,`TZ=${shq(targets[1]||base)} date`);
+      setSh('tz',1,`TZ=${shq(targets[1]||'Asia/Tokyo')} date -d ${shq(`${bs.full.replace(/.*· /,'')} ${new Intl.DateTimeFormat('en-CA',{timeZone:base}).format(startInst)} ${base}`)}`);
     };
+    const searchZones = q => {
+      q = q.trim().toLowerCase(); if (!q) return [];
+      const hits = [];
+      for (const k in ALIAS){ if (k.includes(q)) for (const z of ALIAS[k]) if (!hits.includes(z)) hits.push(z); }
+      for (const z of allZones){ if (z.toLowerCase().replace(/_/g,' ').includes(q) && !hits.includes(z)) hits.push(z); }
+      return hits.slice(0,10);
+    };
+    const showSug = () => {
+      const list = searchZones(search.value);
+      if (!list.length){ sug.style.display='none'; sug.innerHTML=''; return; }
+      sug.innerHTML = list.map(z => `<button data-z="${esc(z)}"><b>${esc(cityOf(z))}</b> — ${esc(regionOf(z))} <span class="tz-sub">${fmtIn(Date.now(),z).off}</span></button>`).join('');
+      sug.style.display='';
+    };
+    const addZone = z => { if (z && zoneSet.has(z) && !targets.includes(z)) targets.push(z); search.value=''; sug.style.display='none'; sug.innerHTML=''; render(); };
+    const setNow = () => { const n=new Date(); dt.value=`${n.getFullYear()}-${pad2(n.getMonth()+1)}-${pad2(n.getDate())}T${pad2(n.getHours())}:${pad2(n.getMinutes())}`; slider.value=n.getHours()*60+n.getMinutes(); render(); };
+
     rows.addEventListener('click', e => {
-      const b = e.target.closest('.tz-del');
-      if (b){ targets = targets.filter(z => z !== b.dataset.z); run(); }
+      const del = e.target.closest('.tz-del'); if (del){ targets = targets.filter(z=>z!==del.dataset.z); render(); return; }
+      const cell = e.target.closest('.tz-cell'); if (cell){ slider.value = (+cell.dataset.h)*60; render(); }
     });
-    $('#tz-addgo').addEventListener('click', () => {
-      if (!targets.includes(add.value)) targets.push(add.value);
-      run();
-    });
+    search.addEventListener('input', showSug);
+    search.addEventListener('keydown', e => { if (e.key==='Enter'){ const first=sug.querySelector('button'); if (first) addZone(first.dataset.z); } if (e.key==='Escape'){ sug.style.display='none'; } });
+    sug.addEventListener('click', e => { const b=e.target.closest('button'); if (b) addZone(b.dataset.z); });
+    document.addEventListener('click', e => { if (!sug.contains(e.target) && e.target!==search) sug.style.display='none'; });
+    slider.addEventListener('input', render);
+    $('#tz-dur').addEventListener('change', render);
+    dt.addEventListener('input', () => { const m=dt.value.match(/T(\d{2}):(\d{2})/); if (m) slider.value=(+m[1])*60+(+m[2]); render(); });
     $('#tz-now').addEventListener('click', setNow);
-    dt.addEventListener('input', run); src.addEventListener('change', run);
     setNow();
   }
 });
@@ -8424,20 +8521,35 @@ const nav = $('#nav'), main = $('#main');
 let PINS = [];
 try { PINS = JSON.parse(localStorage.getItem('pt-pins') || '[]'); } catch {}
 const navBtn = t => `<button data-tool="${t.id}">${t.name}</button>`;
+const NAVKEY = 'pt-nav-collapsed';
+const getCollapsed = () => { try { return new Set(JSON.parse(localStorage.getItem(NAVKEY) || '[]')); } catch { return new Set(); } };
+const setCollapsed = s => { try { localStorage.setItem(NAVKEY, JSON.stringify([...s])); } catch {} };
+const navGroup = (name, tools, collapsed) => `
+  <div class="navgroup${collapsed ? ' collapsed' : ''}" data-group="${esc(name)}">
+    <button class="navhead" aria-expanded="${!collapsed}">${esc(name)}<span class="navchev">▾</span></button>
+    <div class="navitems">${tools.map(navBtn).join('')}</div>
+  </div>`;
 function buildNav(){
+  const collapsed = getCollapsed();
   const pinned = PINS.map(id => TOOLS.find(t => t.id === id)).filter(Boolean);
   nav.innerHTML =
-    (pinned.length ? `<div class="navgroup">★ Pinned</div>${pinned.map(navBtn).join('')}` : '') +
-    GROUPS.map(g => `
-      <div class="navgroup">${g}</div>
-      ${TOOLS.filter(t => t.group === g).map(navBtn).join('')}
-    `).join('');
-  $$('#nav button').forEach(b => b.classList.toggle('active', b.dataset.tool === currentTool));
+    (pinned.length ? navGroup('★ Pinned', pinned, collapsed.has('★ Pinned')) : '') +
+    GROUPS.map(g => navGroup(g, TOOLS.filter(t => t.group === g), collapsed.has(g))).join('');
+  $$('#nav button[data-tool]').forEach(b => b.classList.toggle('active', b.dataset.tool === currentTool));
   q.dispatchEvent(new Event('input'));
 }
+nav.addEventListener('click', e => {
+  const h = e.target.closest('.navhead'); if (!h) return;
+  const g = h.parentElement, on = g.classList.toggle('collapsed');
+  h.setAttribute('aria-expanded', String(!on));
+  const set = getCollapsed(); on ? set.add(g.dataset.group) : set.delete(g.dataset.group); setCollapsed(set);
+});
 
+/* Build only lightweight section shells at load; each tool's body + wiring is
+   hydrated on first activation (see hydrate()). This keeps cold start cheap —
+   we don't parse ~120 tool bodies (thousands of DOM nodes) up front. */
 main.innerHTML = TOOLS.map(t => `
-  <section class="tool" id="tool-${t.id}" aria-label="${esc(t.name)}">
+  <section class="tool" id="tool-${t.id}" data-lazy="1" aria-label="${esc(t.name)}">
     <div class="tool-head">
       <h2>${esc(t.name)}</h2>
       <span style="display:flex;align-items:center;gap:.5rem">
@@ -8446,7 +8558,6 @@ main.innerHTML = TOOLS.map(t => `
       </span>
     </div>
     <p class="blurb">${t.blurb}</p>
-    ${t.html}
   </section>`).join('');
 
 const syncPins = () => {
@@ -8463,8 +8574,6 @@ main.addEventListener('click', e => {
   try { localStorage.setItem('pt-pins', JSON.stringify(PINS)); } catch {}
   syncPins(); buildNav();
 });
-
-TOOLS.forEach(t => { try { t.wire(); } catch (e) { console.error('wire failed:', t.id, e); } });
 
 /* "How to play" panels for the games (injected under each blurb) */
 const RULES = {
@@ -8486,28 +8595,37 @@ const RULES = {
   roll:'<ul><li>Pick a die and how many, then Roll for individual results and their sum.</li><li>Flip a coin, or paste a list and Pick one / Shuffle it.</li></ul>',
   metro:'<ul><li>Set the tempo (BPM) and beats per bar, then Start — beat one is accented.</li><li>The tone generator plays a steady sine wave at the chosen frequency for tuning or tests.</li></ul>',
 };
-Object.entries(RULES).forEach(([id, html]) => {
-  const sec = document.getElementById('tool-' + id), blurb = sec && sec.querySelector('.blurb');
-  if (!blurb) return;
-  const d = document.createElement('details'); d.className = 'rules';
-  d.innerHTML = '<summary>how to play</summary>' + html;
-  blurb.after(d);
-});
-/* every game gets a full-screen toggle in its header */
-Object.keys(RULES).forEach(id => {
+/* Build a tool's body + wire it on first activation. Idempotent (guarded by the
+   data-lazy flag), so calling it repeatedly is a no-op after the first time. */
+function hydrate(id){
+  const t = TOOLS.find(x => x.id === id); if (!t) return;
   const sec = document.getElementById('tool-' + id);
-  const head = sec && sec.querySelector('.tool-head > span');
-  if (!head) return;
-  const btn = document.createElement('button');
-  btn.className = 'fsbtn'; btn.textContent = '⛶';
-  btn.title = 'Full screen'; btn.setAttribute('aria-label', 'Toggle full screen');
-  const fsEl = () => document.fullscreenElement || document.webkitFullscreenElement;
-  btn.addEventListener('click', () => {
-    if (fsEl()){ (document.exitFullscreen || document.webkitExitFullscreen).call(document); }
-    else { (sec.requestFullscreen || sec.webkitRequestFullscreen).call(sec); }
-  });
-  head.insertBefore(btn, head.firstChild);
-});
+  if (!sec || !sec.hasAttribute('data-lazy')) return;
+  sec.removeAttribute('data-lazy');
+  const blurb = sec.querySelector('.blurb');
+  let anchor = blurb;
+  if (RULES[id]){
+    const d = document.createElement('details'); d.className = 'rules';
+    d.innerHTML = '<summary>how to play</summary>' + RULES[id];
+    blurb.after(d); anchor = d;
+    // full-screen toggle for games
+    const head = sec.querySelector('.tool-head > span');
+    if (head){
+      const btn = document.createElement('button');
+      btn.className = 'fsbtn'; btn.textContent = '⛶'; btn.title = 'Full screen'; btn.setAttribute('aria-label', 'Toggle full screen');
+      btn.addEventListener('click', () => {
+        const on = document.fullscreenElement || document.webkitFullscreenElement;
+        if (on){ (document.exitFullscreen || document.webkitExitFullscreen).call(document); }
+        else { (sec.requestFullscreen || sec.webkitRequestFullscreen).call(sec); }
+      });
+      head.insertBefore(btn, head.firstChild);
+    }
+  }
+  anchor.insertAdjacentHTML('afterend', t.html);
+  try { t.wire(); } catch (e){ console.error('wire failed:', id, e); }
+  addSendToButton(id);   // tool chaining: "Send to →" next to the output (needs the body built)
+  syncPins();
+}
 document.addEventListener('fullscreenchange', () => {
   document.querySelectorAll('.fsbtn').forEach(b => { b.textContent = '⛶'; b.title = 'Full screen'; });
   const el = document.fullscreenElement;
@@ -8518,8 +8636,9 @@ let currentTool = 'base64';
 function activate(id, push=true){
   if (!TOOLS.some(t => t.id === id)) id = TOOLS[0].id;
   currentTool = id;
+  hydrate(id);   // build + wire this tool's body on first use
   $$('.tool').forEach(s => s.classList.remove('active'));
-  $$('#nav button').forEach(b => b.classList.toggle('active', b.dataset.tool === id));
+  $$('#nav button[data-tool]').forEach(b => b.classList.toggle('active', b.dataset.tool === id));
   $('#tool-' + id).classList.add('active');
   if (push && location.hash !== '#' + id) history.replaceState(null, '', '#' + id);
   const mainEl = document.getElementById('main');
@@ -8536,16 +8655,21 @@ window.addEventListener('hashchange', () => activate(location.hash.slice(1), fal
 const q = $('#q');
 q.addEventListener('input', () => {
   const needle = q.value.trim().toLowerCase();
-  $$('#nav button').forEach(b => {
+  nav.classList.toggle('searching', !!needle);   // force-expand groups so matches show through collapsed ones
+  $$('#nav button[data-tool]').forEach(b => {
     const t = TOOLS.find(x => x.id === b.dataset.tool);
     const hit = !needle || t.name.toLowerCase().includes(needle) || t.id.includes(needle) ||
                 t.group.toLowerCase().includes(needle) || t.blurb.toLowerCase().includes(needle);
     b.classList.toggle('hidden', !hit);
   });
+  $$('#nav .navgroup').forEach(g => {   // hide groups with no matches while searching
+    const any = [...g.querySelectorAll('button[data-tool]')].some(b => !b.classList.contains('hidden'));
+    g.classList.toggle('hidden', !any);
+  });
 });
 q.addEventListener('keydown', e => {
   if (e.key === 'Enter'){
-    const first = $('#nav button:not(.hidden)');
+    const first = $('#nav button[data-tool]:not(.hidden)');
     if (first){ activate(first.dataset.tool); q.blur(); }
   }
   if (e.key === 'Escape'){ q.value = ''; q.dispatchEvent(new Event('input')); q.blur(); }
@@ -8752,10 +8876,13 @@ const PIPE_IN = {
   iddecode:'#idd-in', ieee:'#ie-in', x509:'#x5-in',
 };
 const getOutVal = el => ('value' in el && el.tagName !== 'A') ? el.value : el.textContent;
-for (const [tid, sel] of Object.entries(PIPE_OUT)){
-  const out = $(sel); if (!out) continue;
+/* Add the "Send to →" button next to a tool's output. Called from hydrate() once
+   the tool body exists (was previously an eager loop over all tools at load). */
+function addSendToButton(tid){
+  const sel = PIPE_OUT[tid]; if (!sel) return;
+  const out = $(sel); if (!out) return;
   const lbl = out.previousElementSibling;
-  if (!lbl || !lbl.classList.contains('lbl')) continue;
+  if (!lbl || !lbl.classList.contains('lbl')) return;
   const btn = document.createElement('button');
   btn.className = 'cpy'; btn.style.borderColor = 'var(--accent)'; btn.style.color = 'var(--accent-2)';
   btn.textContent = 'Send to →'; btn.dataset.pipe = tid;
