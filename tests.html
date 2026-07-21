@@ -117,6 +117,12 @@ t('image palette', async () => { await go('imgpal'); const cv=D().createElement(
 t('weight kg→lb', async () => { await go('wt'); set('#wt-u','kg'); set('#wt-v','1'); eq(txt('#wt-lb'),'2.204622622'); });
 t('length m→ft', async () => { await go('len'); set('#len-u','m'); set('#len-v','1'); eq(txt('#len-ft'),'3.280839895'); });
 t('volume l→gal', async () => { await go('vol'); set('#vol-u','l'); set('#vol-v','1'); eq(txt('#vol-gal'),'0.2641720524'); });
+t('convert: volume natural-language', async () => { await go('convert'); set('#cv2-in','5 gal to litres'); await wait(30); inc(txt('#cv2-result'),'18.927'); });
+t('convert: length with "in" connector', async () => { await go('convert'); set('#cv2-in','50 miles in km'); await wait(30); inc(txt('#cv2-result'),'80.4672'); });
+t('convert: "in" as a unit vs connector', async () => { await go('convert'); set('#cv2-in','5 in to cm'); await wait(30); inc(txt('#cv2-result'),'12.7'); });
+t('convert: temperature', async () => { await go('convert'); set('#cv2-in','100 f to c'); await wait(30); inc(txt('#cv2-result'),'37.7'); });
+t('convert: incompatible units error', async () => { await go('convert'); set('#cv2-in','5 oz to ml'); await wait(30); inc(txt('#cv2-err'),'different quantities'); });
+t('convert: value-only lists conversions', async () => { await go('convert'); set('#cv2-in','1 kg'); await wait(30); assert($$('#cv2-more .out').length>=4,'no conversion rows'); });
 t('area ha→acre', async () => { await go('area'); set('#area-u','ha'); set('#area-v','1'); eq(txt('#area-ac'),'2.471053815'); });
 t('speed kmh→mph', async () => { await go('spd'); set('#spd-u','kmh'); set('#spd-v','100'); eq(txt('#spd-mph'),'62.13711922'); });
 t('data mb→mib', async () => { await go('data'); set('#data-u','mb'); set('#data-v','1'); eq(txt('#data-mib'),'0.9536743164'); });

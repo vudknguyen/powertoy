@@ -2460,6 +2460,176 @@ function unitTool(cfg){
     }
   });
 }
+/* ── smart convert (natural-language units) ────────────────── */
+tool({
+  id:'convert', name:'Convert (type it)', group:'Units',
+  blurb:'Type a conversion in plain English — "5 gal to litres", "50 miles in km", "100 F to C", "2.5 kg to lb". Covers length, mass, volume, area, speed, temperature, data, time and angle. No dropdowns, and fully offline (no LLM).',
+  html: `
+    <input type="text" id="cv2-in" class="grow" spellcheck="false" autocomplete="off"
+      placeholder='e.g.  5 gal to litres  ·  50 miles in km  ·  100 f to c'
+      value="5 gal to litres" style="font-size:1.05rem;padding:.6rem .8rem;width:100%;max-width:34rem">
+    <div class="err" id="cv2-err"></div>
+    <div id="cv2-result" style="margin:.7rem 0;font-family:var(--serif);font-size:1.5rem;min-height:1.6rem"></div>
+    <label class="lbl" id="cv2-morelbl" style="display:none">Also</label>
+    <div class="outs" id="cv2-more"></div>
+    ${shPanel('cv2', [
+      {why:'GNU units does this (apt/brew install units)', cmd:`units '5 gal' 'liters'`},
+      {why:'or qalculate', cmd:`qalc '50 miles to km'`},
+    ])}`,
+  wire(){
+    // factors are to each category's base unit; temperature uses functions.
+    const C = {
+      length:{ base:'m', u:{
+        mm:{n:'millimetres',g:'mm',f:0.001,a:['mm','millimeter','millimetre','millimeters','millimetres']},
+        cm:{n:'centimetres',g:'cm',f:0.01,a:['cm','centimeter','centimetre','centimeters','centimetres']},
+        m:{n:'metres',g:'m',f:1,a:['m','meter','metre','meters','metres']},
+        km:{n:'kilometres',g:'km',f:1000,a:['km','kilometer','kilometre','kilometers','kilometres','klick','klicks']},
+        in:{n:'inches',g:'in',f:0.0254,a:['in','inch','inches']},
+        ft:{n:'feet',g:'ft',f:0.3048,a:['ft','foot','feet']},
+        yd:{n:'yards',g:'yd',f:0.9144,a:['yd','yard','yards']},
+        mi:{n:'miles',g:'mile',f:1609.344,a:['mi','mile','miles']},
+        nmi:{n:'nautical miles',g:'nauticalmile',f:1852,a:['nmi','nauticalmile','nauticalmiles','nautical mile','nautical miles']},
+      }},
+      mass:{ base:'kg', u:{
+        mg:{n:'milligrams',g:'mg',f:1e-6,a:['mg','milligram','milligrams']},
+        g:{n:'grams',g:'g',f:1e-3,a:['g','gram','grams','gramme','grammes']},
+        kg:{n:'kilograms',g:'kg',f:1,a:['kg','kilogram','kilograms','kilo','kilos']},
+        t:{n:'tonnes',g:'tonne',f:1000,a:['t','tonne','tonnes','metricton','metric ton','metric tonne']},
+        oz:{n:'ounces',g:'oz',f:0.028349523125,a:['oz','ounce','ounces']},
+        lb:{n:'pounds',g:'lb',f:0.45359237,a:['lb','lbs','pound','pounds']},
+        st:{n:'stones',g:'stone',f:6.35029318,a:['st','stone','stones']},
+      }},
+      volume:{ base:'l', u:{
+        ml:{n:'millilitres',g:'ml',f:0.001,a:['ml','milliliter','millilitre','milliliters','millilitres','cc']},
+        l:{n:'litres',g:'liter',f:1,a:['l','liter','litre','liters','litres']},
+        m3:{n:'cubic metres',g:'m^3',f:1000,a:['m3','m^3','cubicmetre','cubicmeter','cubic metre','cubic meter','cubic metres','cubic meters']},
+        tsp:{n:'teaspoons',g:'teaspoon',f:0.00492892159375,a:['tsp','teaspoon','teaspoons']},
+        tbsp:{n:'tablespoons',g:'tablespoon',f:0.01478676478125,a:['tbsp','tablespoon','tablespoons']},
+        floz:{n:'fluid ounces (US)',g:'floz',f:0.0295735295625,a:['floz','fl oz','fluidounce','fluidounces','fluid ounce','fluid ounces']},
+        cup:{n:'cups (US)',g:'cup',f:0.2365882365,a:['cup','cups']},
+        pt:{n:'pints (US)',g:'pint',f:0.473176473,a:['pt','pint','pints']},
+        qt:{n:'quarts (US)',g:'quart',f:0.946352946,a:['qt','quart','quarts']},
+        gal:{n:'gallons (US)',g:'gallon',f:3.785411784,a:['gal','gallon','gallons','usgallon','us gallon','us gallons']},
+        igal:{n:'gallons (imp.)',g:'imperialgallon',f:4.54609,a:['igal','impgal','imperialgallon','imperial gallon','imperial gallons']},
+      }},
+      area:{ base:'m2', u:{
+        mm2:{n:'square mm',g:'mm^2',f:1e-6,a:['mm2','mm^2','sqmm','square mm','square millimetre','square millimetres']},
+        cm2:{n:'square cm',g:'cm^2',f:1e-4,a:['cm2','cm^2','sqcm','square cm']},
+        m2:{n:'square metres',g:'m^2',f:1,a:['m2','m^2','sqm','square metre','square meter','square metres','square meters']},
+        ha:{n:'hectares',g:'hectare',f:1e4,a:['ha','hectare','hectares']},
+        km2:{n:'square km',g:'km^2',f:1e6,a:['km2','km^2','sqkm','square km','square kilometre','square kilometres']},
+        in2:{n:'square inches',g:'in^2',f:0.00064516,a:['in2','in^2','sqin','square inch','square inches']},
+        ft2:{n:'square feet',g:'ft^2',f:0.09290304,a:['ft2','ft^2','sqft','square foot','square feet']},
+        yd2:{n:'square yards',g:'yd^2',f:0.83612736,a:['yd2','yd^2','sqyd','square yard','square yards']},
+        ac:{n:'acres',g:'acre',f:4046.8564224,a:['ac','acre','acres']},
+        mi2:{n:'square miles',g:'mi^2',f:2589988.110336,a:['mi2','mi^2','sqmi','square mile','square miles']},
+      }},
+      speed:{ base:'ms', u:{
+        ms:{n:'metres/second',g:'m/s',f:1,a:['m/s','mps','metres per second','meters per second']},
+        kmh:{n:'km/h',g:'km/hour',f:1/3.6,a:['km/h','kmh','kph','kilometres per hour','kilometers per hour']},
+        mph:{n:'miles/hour',g:'mph',f:0.44704,a:['mph','miles per hour']},
+        kn:{n:'knots',g:'knot',f:1852/3600,a:['kn','kt','knot','knots']},
+        fts:{n:'feet/second',g:'ft/s',f:0.3048,a:['ft/s','fps','feet per second']},
+        mach:{n:'Mach',g:'mach',f:340.29,a:['mach']},
+      }},
+      data:{ base:'B', u:{
+        bit:{n:'bits',g:'bit',f:0.125,a:['bit','bits']},
+        B:{n:'bytes',g:'byte',f:1,a:['byte','bytes']},
+        kb:{n:'kilobytes',g:'kilobyte',f:1e3,a:['kb','kilobyte','kilobytes']},
+        mb:{n:'megabytes',g:'megabyte',f:1e6,a:['mb','megabyte','megabytes']},
+        gb:{n:'gigabytes',g:'gigabyte',f:1e9,a:['gb','gigabyte','gigabytes']},
+        tb:{n:'terabytes',g:'terabyte',f:1e12,a:['tb','terabyte','terabytes']},
+        kib:{n:'kibibytes',g:'kibibyte',f:1024,a:['kib','kibibyte','kibibytes']},
+        mib:{n:'mebibytes',g:'mebibyte',f:1048576,a:['mib','mebibyte','mebibytes']},
+        gib:{n:'gibibytes',g:'gibibyte',f:1073741824,a:['gib','gibibyte','gibibytes']},
+        tib:{n:'tebibytes',g:'tebibyte',f:1099511627776,a:['tib','tebibyte','tebibytes']},
+      }},
+      time:{ base:'s', u:{
+        ms:{n:'milliseconds',g:'ms',f:0.001,a:['ms','millisecond','milliseconds','msec']},
+        s:{n:'seconds',g:'s',f:1,a:['s','sec','secs','second','seconds']},
+        min:{n:'minutes',g:'minute',f:60,a:['min','mins','minute','minutes']},
+        h:{n:'hours',g:'hour',f:3600,a:['h','hr','hrs','hour','hours']},
+        day:{n:'days',g:'day',f:86400,a:['day','days']},
+        week:{n:'weeks',g:'week',f:604800,a:['wk','week','weeks']},
+      }},
+      angle:{ base:'deg', u:{
+        deg:{n:'degrees',g:'degree',f:1,a:['deg','degree','degrees']},
+        rad:{n:'radians',g:'radian',f:180/Math.PI,a:['rad','radian','radians']},
+        grad:{n:'gradians',g:'gradian',f:0.9,a:['grad','grad','gradian','gradians','gon']},
+        turn:{n:'turns',g:'turn',f:360,a:['turn','turns','rev','revolution','revolutions']},
+      }},
+    };
+    const TEMP = { // special: convert through Celsius
+      c:{n:'°C',a:['c','celsius','centigrade','degc','°c'],toC:x=>x,fromC:x=>x},
+      f:{n:'°F',a:['f','fahrenheit','degf','°f'],toC:x=>(x-32)*5/9,fromC:x=>x*9/5+32},
+      k:{n:'K',a:['k','kelvin'],toC:x=>x-273.15,fromC:x=>x+273.15},
+    };
+    // alias index: normalized string → list of {cat,key}
+    const norm = s => s.toLowerCase().replace(/\./g,'').replace(/\s+/g,' ').trim();
+    const idx = {};
+    const add = (key,ref) => { (idx[key]=idx[key]||[]).push(ref); const sp=key.replace(/\s+/g,''); if(sp!==key)(idx[sp]=idx[sp]||[]).push(ref); };
+    for (const cat in C) for (const key in C[cat].u) for (const al of C[cat].u[key].a) add(norm(al), {cat,key});
+    for (const key in TEMP) for (const al of TEMP[key].a) add(norm(al), {cat:'temp',key});
+    const resolve = phrase => {
+      const p = norm(phrase); if (!p) return [];
+      let hits = idx[p] || idx[p.replace(/\s+/g,'')];
+      if (!hits && p.endsWith('s')) hits = idx[p.slice(0,-1)];   // lenient plural
+      return hits || [];
+    };
+    const uinfo = ref => ref.cat==='temp' ? TEMP[ref.key] : C[ref.cat].u[ref.key];
+    const convert = (val, from, to) => {
+      if (from.cat==='temp') return TEMP[to.key].fromC(TEMP[from.key].toC(val));
+      return val * C[from.cat].u[from.key].f / C[to.cat].u[to.key].f;
+    };
+    const inp=$('#cv2-in'), errEl=$('#cv2-err'), resEl=$('#cv2-result'), moreEl=$('#cv2-more'), moreLbl=$('#cv2-morelbl');
+    const CONN = /\s+(?:to|into|as|in|=|->|→|>)\s+/i;
+    const CONN_G = /\s+(to|into|as|in|=|->|→|>)\s+/gi;
+    const rowsFor = (val, from) => {
+      const cat = from.cat, keys = cat==='temp' ? Object.keys(TEMP) : Object.keys(C[cat].u);
+      return keys.filter(k => k!==from.key).map(k => {
+        const to = {cat,key:k}, out = convert(val, from, to), s = fmtNum(out);
+        return `<div class="out"><span class="k" style="text-transform:none;letter-spacing:0">${esc(uinfo(to).n)}</span><span class="v">${s}</span><button class="cpy" data-copy-text="${esc(s)}">Copy</button></div>`;
+      }).join('');
+    };
+    const setShell = (val, from, to) => {
+      if (from.cat==='temp'){ const map={c:'tempC',f:'tempF',k:'tempK'}; setSh('cv2',0,`units ${shq(map[from.key]+'('+val+')')} ${shq(map[to?to.key:from.key])}`); }
+      else { setSh('cv2',0,`units ${shq(val+' '+uinfo(from).g)} ${shq(uinfo(to||from).g)}`); }
+      setSh('cv2',1,`qalc ${shq(inp.value.trim())}`);
+    };
+    const run = () => {
+      errEl.textContent=''; resEl.innerHTML=''; moreEl.innerHTML=''; moreLbl.style.display='none';
+      const q = inp.value.trim(); if (!q) return;
+      const m = q.match(/^\s*(-?[\d,]*\.?\d+(?:[eE][-+]?\d+)?)\s*(.*)$/);
+      if (!m){ errEl.textContent='Start with a number — e.g. “5 gal to litres”'; return; }
+      const val = parseFloat(m[1].replace(/,/g,'')), rem = m[2].trim();
+      if (!rem){ errEl.textContent='Add a unit — e.g. “5 gal to litres”'; return; }
+      // candidate splits at each connector; prefer explicit connectors over "in"
+      const splits=[]; let mm; CONN_G.lastIndex=0;
+      while ((mm=CONN_G.exec(rem))) splits.push([rem.slice(0,mm.index).trim(), rem.slice(mm.index+mm[0].length).trim(), mm[1].toLowerCase()]);
+      splits.sort((a,b)=>(a[2]==='in')-(b[2]==='in'));
+      let from=null, to=null;
+      for (const [L,R] of splits){
+        const fs=resolve(L), ts=resolve(R);
+        outer: for (const f of fs) for (const tt of ts) if (f.cat===tt.cat){ from=f; to=tt; break outer; }
+        if (from) break;
+      }
+      if (!from){
+        // both sides are units but incompatible → say why instead of "unrecognised"
+        for (const [L,R] of splits){ const fs=resolve(L), ts=resolve(R); if (fs.length && ts.length){ errEl.textContent=`Can’t convert ${uinfo(fs[0]).n} to ${uinfo(ts[0]).n} — different quantities.`; return; } }
+        const fs=resolve(rem); if (fs.length) from=fs[0];                    // number + unit only → show all
+      }
+      if (!from){ errEl.textContent=`Couldn’t recognise a unit in “${esc(rem)}”. Try km, kg, gal, mph, °C, MB…`; return; }
+      if (to){
+        resEl.innerHTML = `${fmtNum(val)} ${esc(uinfo(from).n)} &nbsp;=&nbsp; <b>${fmtNum(convert(val,from,to))}</b> ${esc(uinfo(to).n)}`;
+      } else {
+        resEl.innerHTML = `${fmtNum(val)} ${esc(uinfo(from).n)} &nbsp;=`;
+      }
+      moreEl.innerHTML = rowsFor(val, from); moreLbl.style.display='';
+      setShell(val, from, to);
+    };
+    inp.addEventListener('input', run); run();
+  }
+});
 unitTool({
   id:'wt', name:'Weight convert', def:'kg', target:'lb', target2:'lb',
   blurb:'Metric and imperial mass: milligrams to tonnes, ounces to stones. Exact legal conversion factors.',

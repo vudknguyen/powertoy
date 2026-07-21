@@ -1,6 +1,6 @@
 # powertoy — developer utilities
 
-A single-file webapp with 120 everyday utilities for developers and power users.
+A single-file webapp with 121 everyday utilities for developers and power users.
 Every tool shows its **shell equivalent** (bash / unix command) alongside the result.
 Works offline from a plain `file://` open — no build, no install, no server.
 
@@ -18,7 +18,7 @@ app release and shows the current version. See [PACKAGING.md](PACKAGING.md).
 ## Quality
 
 - **`tests.html`** — integration suite: drives every tool in a live iframe with
-  known-answer vectors (154 assertions across all 120 tools). Open it to see a pass/fail report.
+  known-answer vectors (167 assertions across all 121 tools). Open it to see a pass/fail report.
 - **`verify-commands.sh`** — runs each tool's documented shell command on your machine and
   confirms it matches the tool's output (43 checks).
 
@@ -65,6 +65,7 @@ app release and shows the current version. See [PACKAGING.md](PACKAGING.md).
 | Time    | Cron expression   | `#cron`   |
 | Time    | Date math         | `#dmath`  |
 | Time    | Duration convert  | `#dur`    |
+| Units   | Convert (type it) | `#convert` |
 | Units   | Weight convert    | `#wt`     |
 | Units   | Length convert    | `#len`    |
 | Units   | Volume convert    | `#vol`    |
