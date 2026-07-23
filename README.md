@@ -1,6 +1,6 @@
 # powertoy — developer utilities
 
-A single-file webapp with 120 everyday utilities for developers and power users.
+A single-file webapp with 126 everyday utilities for developers and power users.
 Every tool shows its **shell equivalent** (bash / unix command) alongside the result.
 Works offline from a plain `file://` open — no build, no install, no server.
 
@@ -18,7 +18,7 @@ app release and shows the current version. See [PACKAGING.md](PACKAGING.md).
 ## Quality
 
 - **`tests.html`** — integration suite: drives every tool in a live iframe with
-  known-answer vectors (154 assertions across all 120 tools). Open it to see a pass/fail report.
+  known-answer vectors (170 assertions across all 126 tools). Open it to see a pass/fail report.
 - **`verify-commands.sh`** — runs each tool's documented shell command on your machine and
   confirms it matches the tool's output (43 checks).
 
@@ -60,6 +60,8 @@ app release and shows the current version. See [PACKAGING.md](PACKAGING.md).
 | Convert | Box shadow        | `#shadow` |
 | Convert | Aspect ratio      | `#aspect` |
 | Convert | Favicon generator | `#favicon` |
+| Convert | Calculator        | `#calc`   |
+| Convert | Number toolkit    | `#numtool` |
 | Time    | Epoch time        | `#time`   |
 | Time    | Timezone convert  | `#tz`     |
 | Time    | Cron expression   | `#cron`   |
@@ -85,12 +87,15 @@ app release and shows the current version. See [PACKAGING.md](PACKAGING.md).
 | Ops     | curl convert      | `#curl`   |
 | Ops     | Connection / WiFi | `#wifi`   |
 | Ops     | Device info       | `#device` |
+| Ops     | User-Agent parser | `#ua`     |
 | Crypto  | XOR cipher        | `#xor`    |
 | Crypto  | HMAC              | `#hmac`   |
 | Crypto  | JWT signer        | `#jwtsign` |
 | Crypto  | ID decoder        | `#iddecode` |
 | Crypto  | Certificate decoder | `#x509` |
 | Crypto  | File checksum     | `#filehash` |
+| Crypto  | Key pair generator | `#keygen` |
+| Crypto  | CRC32 / Adler32   | `#crc`    |
 | Text    | JSON format       | `#json`   |
 | Text    | Regex tester      | `#rgx`    |
 | Text    | Case convert      | `#case`   |
@@ -123,6 +128,7 @@ app release and shows the current version. See [PACKAGING.md](PACKAGING.md).
 | Text    | Whitespace inspect| `#ws`     |
 | Text    | Slugify           | `#slug`   |
 | Text    | ASCII art         | `#asciiart` |
+| Text    | SQL formatter     | `#sqlfmt` |
 | Reference | HTTP status     | `#http`   |
 | Reference | ASCII table     | `#ascii`  |
 | Reference | Common ports    | `#ports`  |
