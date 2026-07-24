@@ -4523,75 +4523,161 @@ tool({
 /* ── calculator / expression evaluator ─────────────────────── */
 tool({
   id:'calc', name:'Calculator', group:'Convert',
-  blurb:'Evaluate a math expression — arithmetic and powers, bitwise (& | ^ ~ << >>), hex/binary/octal literals (0x, 0b, 0o), functions (sqrt, sin, log, min, max…) and constants (pi, e). Deterministic parser — no eval(). Integers also shown in hex/binary/octal.',
+  blurb:'Scientific calculator + function grapher. Exact big-integer math (BigInt — 2**100, 100! are exact), no floating-point noise (0.1 + 0.2 = 0.3), bitwise & hex/bin/oct, functions (sqrt, sin, log, gcd, ncr, factorial…), constants (pi, e). Use the variable x to plot, e.g. sin(x)/x. No eval().',
   html: `
-    <input type="text" id="calc-in" class="grow" spellcheck="false" autocomplete="off" value="(1 << 20) * 3 + sqrt(2)"
-      placeholder="e.g.  0xff & 0b1010   ·   sqrt(2)+pi   ·   2**10" style="font-size:1.05rem;padding:.55rem .8rem;width:100%;max-width:34rem">
+    <input type="text" id="calc-in" class="grow" spellcheck="false" autocomplete="off" value="2**100 + 1"
+      placeholder="e.g.  100!   ·   0.1+0.2   ·   0xff & 0b1010   ·   sin(x)/x" style="font-size:1.05rem;padding:.55rem .8rem;width:100%;max-width:34rem">
+    <div class="row" style="margin-top:.5rem;align-items:center">
+      <div class="seg" id="calc-ang"><button class="on" data-ang="rad">radians</button><button data-ang="deg">degrees</button></div>
+      <span class="row" id="calc-domain" style="display:none;gap:.35rem;align-items:center">
+        <span class="tz-sub" style="font-size:.8rem">x from</span>
+        <input type="number" id="calc-xmin" value="-10" step="any" style="width:5rem">
+        <span class="tz-sub" style="font-size:.8rem">to</span>
+        <input type="number" id="calc-xmax" value="10" step="any" style="width:5rem">
+      </span>
+    </div>
     <div class="err" id="calc-err"></div>
-    <div id="calc-out" style="margin:.7rem 0;font-family:var(--serif);font-size:1.5rem;min-height:1.5rem"></div>
+    <div id="calc-out" style="margin:.7rem 0;font-family:var(--serif);font-size:1.5rem;min-height:1.4rem;word-break:break-all"></div>
+    <canvas id="calc-graph" class="game-cv" width="640" height="380" style="display:none;width:min(100%,640px)"></canvas>
     <div class="outs" id="calc-alt"></div>
     ${shPanel('calc', [
-      {why:'bc — arbitrary precision', cmd:`echo '2^10 + 1' | bc -l`},
-      {why:'python for functions', cmd:`python3 -c 'import math; print((1<<20)*3 + math.sqrt(2))'`},
+      {why:'bc — arbitrary precision', cmd:`echo '2^100 + 1' | bc`},
+      {why:'python (big ints + math)', cmd:`python3 -c 'import math; print(math.factorial(100))'`},
     ])}`,
   wire(){
-    const FUN = { sqrt:Math.sqrt, cbrt:Math.cbrt, abs:Math.abs, round:Math.round, floor:Math.floor, ceil:Math.ceil, trunc:Math.trunc, sign:Math.sign,
-      sin:Math.sin, cos:Math.cos, tan:Math.tan, asin:Math.asin, acos:Math.acos, atan:Math.atan, atan2:Math.atan2,
-      ln:Math.log, log:x=>Math.log10(x), log2:Math.log2, log10:Math.log10, exp:Math.exp,
-      min:Math.min, max:Math.max, pow:Math.pow, hypot:Math.hypot };
-    const CON = { pi:Math.PI, e:Math.E, tau:Math.PI*2, phi:(1+Math.sqrt(5))/2 };
-    const tokenize = s => {
-      const t=[]; let i=0; const isd=c=>c>='0'&&c<='9';
+    let deg=false;
+    const F={ sqrt:Math.sqrt,cbrt:Math.cbrt,abs:Math.abs,round:Math.round,floor:Math.floor,ceil:Math.ceil,trunc:Math.trunc,sign:Math.sign,
+      exp:Math.exp,ln:Math.log,log:x=>Math.log10(x),log2:Math.log2,log10:Math.log10,
+      sinh:Math.sinh,cosh:Math.cosh,tanh:Math.tanh,hypot:Math.hypot,pow:Math.pow,
+      min:(...a)=>Math.min(...a),max:(...a)=>Math.max(...a),
+      root:(x,n)=>Math.sign(x)*Math.pow(Math.abs(x),1/n),
+      gcd:(a,b)=>{a=Math.abs(a);b=Math.abs(b);while(b){[a,b]=[b,a%b];}return a;},
+      lcm:(a,b)=>a&&b?Math.abs(a*b)/F.gcd(a,b):0,
+      fact:n=>{ if(n<0||!Number.isInteger(n))return NaN; let r=1; for(let i=2;i<=n;i++)r*=i; return r; },
+      ncr:(n,r)=>F.fact(n)/(F.fact(r)*F.fact(n-r)), npr:(n,r)=>F.fact(n)/F.fact(n-r),
+      sin:x=>Math.sin(deg?x*Math.PI/180:x), cos:x=>Math.cos(deg?x*Math.PI/180:x), tan:x=>Math.tan(deg?x*Math.PI/180:x),
+      asin:x=>{const r=Math.asin(x);return deg?r*180/Math.PI:r;}, acos:x=>{const r=Math.acos(x);return deg?r*180/Math.PI:r;},
+      atan:x=>{const r=Math.atan(x);return deg?r*180/Math.PI:r;}, atan2:(y,x)=>{const r=Math.atan2(y,x);return deg?r*180/Math.PI:r;} };
+    const CON={ pi:Math.PI, e:Math.E, tau:Math.PI*2, phi:(1+Math.sqrt(5))/2 };
+    /* tokenize */
+    const lex=s=>{ const t=[]; let i=0; const d=c=>c>='0'&&c<='9';
       while(i<s.length){ const c=s[i];
-        if(c===' '||c==='\t'){ i++; continue; }
-        if(isd(c)||(c==='.'&&isd(s[i+1]))){
-          if(c==='0'&&/[xX]/.test(s[i+1]||'')){ let j=i+2; while(j<s.length&&/[0-9a-fA-F_]/.test(s[j]))j++; t.push({t:'num',v:parseInt(s.slice(i+2,j).replace(/_/g,''),16)}); i=j; continue; }
-          if(c==='0'&&/[bB]/.test(s[i+1]||'')){ let j=i+2; while(j<s.length&&/[01_]/.test(s[j]))j++; t.push({t:'num',v:parseInt(s.slice(i+2,j).replace(/_/g,''),2)}); i=j; continue; }
-          if(c==='0'&&/[oO]/.test(s[i+1]||'')){ let j=i+2; while(j<s.length&&/[0-7_]/.test(s[j]))j++; t.push({t:'num',v:parseInt(s.slice(i+2,j).replace(/_/g,''),8)}); i=j; continue; }
-          let j=i; while(j<s.length&&/[0-9_.eE]/.test(s[j])){ if(/[eE]/.test(s[j])&&/[+-]/.test(s[j+1]||''))j++; j++; }
-          t.push({t:'num',v:parseFloat(s.slice(i,j).replace(/_/g,''))}); i=j; continue;
+        if(c===' '||c==='\t'){i++;continue;}
+        if(d(c)||(c==='.'&&d(s[i+1]))){
+          const rx=/^0[xX][0-9a-fA-F_]+|^0[bB][01_]+|^0[oO][0-7_]+|^\d[\d_]*\.?\d*(?:[eE][+-]?\d+)?|^\.\d+(?:[eE][+-]?\d+)?/;
+          const m=s.slice(i).match(rx); const raw=m[0].replace(/_/g,'');
+          let big=null,val,isInt=false;
+          if(/^0[xX]/.test(raw)){ big=BigInt(raw); val=Number(big); isInt=true; }
+          else if(/^0[bB]/.test(raw)){ big=BigInt(parseInt(raw.slice(2),2)); val=Number(big); isInt=true; }
+          else if(/^0[oO]/.test(raw)){ big=BigInt(parseInt(raw.slice(2),8)); val=Number(big); isInt=true; }
+          else if(/^\d+$/.test(raw)){ big=BigInt(raw); val=Number(raw); isInt=true; }
+          else { val=parseFloat(raw); }
+          t.push({t:'num',big,val,isInt}); i+=m[0].length; continue;
         }
         if(/[a-zA-Z_]/.test(c)){ let j=i; while(j<s.length&&/[a-zA-Z0-9_]/.test(s[j]))j++; t.push({t:'name',v:s.slice(i,j)}); i=j; continue; }
-        const two=s.slice(i,i+2);
-        if(two==='**'||two==='<<'||two==='>>'){ t.push({t:'op',v:two}); i+=2; continue; }
-        if('+-*/%&|^~(),'.includes(c)){ t.push({t:'op',v:c}); i++; continue; }
+        const two=s.slice(i,i+2); if(two==='**'||two==='<<'||two==='>>'){ t.push({t:'op',v:two}); i+=2; continue; }
+        if('+-*/%&|^~(),!'.includes(c)){ t.push({t:'op',v:c}); i++; continue; }
         throw new Error('Unexpected character "'+c+'"');
-      }
-      return t;
-    };
-    const prec = { '|':1,'^':2,'&':3,'<<':4,'>>':4,'+':5,'-':5,'*':6,'/':6,'%':6,'**':8 };
-    const apply = (op,a,b) => ({ '+':a+b,'-':a-b,'*':a*b,'/':a/b,'%':a%b,'**':a**b,'&':a&b,'|':a|b,'^':a^b,'<<':a<<b,'>>':a>>b }[op]);
-    const parse = toks => {
-      let p=0; const peek=()=>toks[p], next=()=>toks[p++];
-      const atom = () => {
-        const tk=next(); if(!tk) throw new Error('Unexpected end of expression');
-        if(tk.t==='num') return tk.v;
-        if(tk.t==='op'&&tk.v==='('){ const v=expr(0); const c=next(); if(!c||c.v!==')')throw new Error('Missing ")"'); return v; }
-        if(tk.t==='name'){ const name=tk.v.toLowerCase();
-          if(peek()&&peek().v==='('){ next(); const args=[]; if(peek()&&peek().v!==')'){ args.push(expr(0)); while(peek()&&peek().v===','){ next(); args.push(expr(0)); } } const c=next(); if(!c||c.v!==')')throw new Error('Missing ")" after '+name); const fn=FUN[name]; if(!fn)throw new Error('Unknown function "'+tk.v+'"'); return fn(...args); }
-          if(name in CON) return CON[name];
-          throw new Error('Unknown name "'+tk.v+'"');
-        }
-        throw new Error('Unexpected "'+tk.v+'"');
-      };
-      const unary = () => { const tk=peek(); if(tk&&tk.t==='op'&&(tk.v==='-'||tk.v==='+'||tk.v==='~')){ next(); const v=unary(); return tk.v==='-'?-v:tk.v==='~'?~v:v; } return atom(); };
-      const expr = minp => { let left=unary(); for(;;){ const tk=peek(); if(!tk||tk.t!=='op'||!(tk.v in prec))break; const pr=prec[tk.v]; if(pr<minp)break; next(); const right=expr(tk.v==='**'?pr:pr+1); left=apply(tk.v,left,right); } return left; };
-      const r=expr(0); if(p<toks.length)throw new Error('Unexpected "'+toks[p].v+'"'); return r;
-    };
-    const inp=$('#calc-in'), errEl=$('#calc-err'), outEl=$('#calc-out'), altEl=$('#calc-alt');
+      } return t; };
+    /* parse → AST */
+    const prec={ '|':1,'^':2,'&':3,'<<':4,'>>':4,'+':5,'-':5,'*':6,'/':6,'%':6,'**':8 };
+    const parse=toks=>{ let p=0; const peek=()=>toks[p], next=()=>toks[p++]; let usesX=false;
+      const atom=()=>{ const tk=next(); if(!tk)throw new Error('Unexpected end');
+        if(tk.t==='num')return {t:'num',big:tk.big,val:tk.val,isInt:tk.isInt};
+        if(tk.t==='op'&&tk.v==='('){ const v=exp(0); const c=next(); if(!c||c.v!==')')throw new Error('Missing ")"'); return v; }
+        if(tk.t==='name'){ const n=tk.v.toLowerCase();
+          if(peek()&&peek().v==='('){ next(); const args=[]; if(peek()&&peek().v!==')'){ args.push(exp(0)); while(peek()&&peek().v===','){ next(); args.push(exp(0)); } } const c=next(); if(!c||c.v!==')')throw new Error('Missing ")" after '+n); if(!F[n])throw new Error('Unknown function "'+tk.v+'"'); return {t:'call',name:n,args}; }
+          if(n==='x'){ usesX=true; return {t:'var'}; }
+          if(n in CON)return {t:'const',name:n};
+          throw new Error('Unknown name "'+tk.v+'"'); }
+        throw new Error('Unexpected "'+tk.v+'"'); };
+      const postfix=()=>{ let v=atom(); while(peek()&&peek().v==='!'){ next(); v={t:'post',op:'!',v}; } return v; };
+      const unary=()=>{ const tk=peek(); if(tk&&tk.t==='op'&&(tk.v==='-'||tk.v==='+'||tk.v==='~')){ next(); return {t:'un',op:tk.v,v:unary()}; } return postfix(); };
+      const exp=mp=>{ let l=unary(); for(;;){ const tk=peek(); if(!tk||tk.t!=='op'||!(tk.v in prec))break; const pr=prec[tk.v]; if(pr<mp)break; next(); l={t:'bin',op:tk.v,l,r:exp(tk.v==='**'?pr:pr+1)}; } return l; };
+      const ast=exp(0); if(p<toks.length)throw new Error('Unexpected "'+toks[p].v+'"'); return {ast,usesX}; };
+    /* exact BigInt evaluator (throws if not an exact integer computation) */
+    const NE=()=>{ throw {ne:true}; };
+    const bfact=n=>{ if(n<0n)NE(); let r=1n; for(let i=2n;i<=n;i++)r*=i; return r; };
+    const eB=n=>{ switch(n.t){
+      case 'num': if(!n.isInt)NE(); return n.big;
+      case 'var': case 'const': NE();
+      case 'un': { const v=eB(n.v); return n.op==='-'?-v:n.op==='~'?~v:v; }
+      case 'post': { const v=eB(n.v); return bfact(v); }
+      case 'bin': { const a=eB(n.l), b=eB(n.r); switch(n.op){
+        case '+':return a+b; case '-':return a-b; case '*':return a*b;
+        case '/': if(b!==0n&&a%b===0n)return a/b; NE();
+        case '%': if(b===0n)NE(); return a%b;
+        case '**': if(b<0n)NE(); return a**b;
+        case '&':return a&b; case '|':return a|b; case '^':return a^b;
+        case '<<': if(b<0n)NE(); return a<<b; case '>>': if(b<0n)NE(); return a>>b; } NE(); }
+      case 'call': { const A=()=>n.args.map(eB); switch(n.name){
+        case 'abs':{const v=eB(n.args[0]);return v<0n?-v:v;}
+        case 'min':return A().reduce((x,y)=>y<x?y:x); case 'max':return A().reduce((x,y)=>y>x?y:x);
+        case 'gcd':{let[a,b]=A().map(x=>x<0n?-x:x);while(b){[a,b]=[b,a%b];}return a;}
+        case 'lcm':{const[a,b]=A().map(x=>x<0n?-x:x);return a&&b?a/((()=>{let[p,q]=[a,b];while(q){[p,q]=[q,p%q];}return p;})())*b:0n;}
+        case 'fact':return bfact(eB(n.args[0]));
+        case 'ncr':{const[a,b]=A();return bfact(a)/(bfact(b)*bfact(a-b));}
+        case 'npr':{const[a,b]=A();return bfact(a)/bfact(a-b);}
+        default: NE(); } } } NE(); };
+    /* float evaluator */
+    const eN=(n,x)=>{ switch(n.t){
+      case 'num': return n.val; case 'var': return x; case 'const': return CON[n.name];
+      case 'un': { const v=eN(n.v,x); return n.op==='-'?-v:n.op==='~'?~v:v; }
+      case 'post': return F.fact(eN(n.v,x));
+      case 'bin': { const a=eN(n.l,x), b=eN(n.r,x); return ({'+':a+b,'-':a-b,'*':a*b,'/':a/b,'%':a%b,'**':a**b,'&':a&b,'|':a|b,'^':a^b,'<<':a<<b,'>>':a>>b})[n.op]; }
+      case 'call': return F[n.name](...n.args.map(a=>eN(a,x))); } };
+    const cleanNum=r=>{ if(typeof r==='bigint')return r.toString();
+      if(!isFinite(r))return Number.isNaN(r)?'NaN':(r>0?'∞':'−∞'); if(r===0)return '0';
+      const a=Math.abs(r); if(Number.isInteger(r)&&a<1e15)return String(r);
+      if(a>=1e15||a<1e-6)return r.toExponential(6).replace(/0+e/,'e').replace(/\.e/,'e');
+      return String(parseFloat(r.toPrecision(12))); };
+    const inp=$('#calc-in'), errEl=$('#calc-err'), outEl=$('#calc-out'), altEl=$('#calc-alt'), cv=$('#calc-graph'), dom=$('#calc-domain');
     const row=(k,v)=>`<div class="out"><span class="k">${k}</span><span class="v">${esc(v)}</span><button class="cpy" data-copy-text="${esc(v)}">Copy</button></div>`;
-    const run=()=>{ errEl.textContent=''; outEl.innerHTML=''; altEl.innerHTML='';
-      const s=inp.value.trim(); if(!s) return;
-      try{ const r=parse(tokenize(s));
-        if(typeof r!=='number'||Number.isNaN(r)){ errEl.textContent='Result is not a number'; return; }
-        outEl.innerHTML=`<b>${esc(fmtNum(r))}</b>`;
-        if(Number.isInteger(r)&&Math.abs(r)<2**53){ const a=Math.abs(r), sg=r<0?'-':'';
-          altEl.innerHTML = row('Hex', sg+'0x'+a.toString(16)) + row('Binary', sg+'0b'+a.toString(2)) + row('Octal', sg+'0o'+a.toString(8)); }
-        setSh('calc',0,`echo ${shq(s.replace(/\*\*/g,'^'))} | bc -l`);
-        setSh('calc',1,`python3 -c ${shq('import math; print('+s+')')}`);
-      }catch(e){ errEl.textContent=e.message||'Invalid expression'; }
+    const drawGraph=(ast)=>{
+      const W=cv.width, H=cv.height, cx=cv.getContext('2d');
+      const x0=parseFloat($('#calc-xmin').value), x1=parseFloat($('#calc-xmax').value);
+      cx.clearRect(0,0,W,H); cx.fillStyle=cssVar('--surface'); cx.fillRect(0,0,W,H);
+      if(!(x1>x0)){ errEl.textContent='x range must have max > min'; return; }
+      const N=W, xs=[], ys=[]; for(let i=0;i<N;i++){ const xx=x0+(x1-x0)*i/(N-1); xs.push(xx); ys.push(eN(ast,xx)); }
+      const fin=ys.filter(isFinite).sort((a,b)=>a-b);
+      if(!fin.length){ errEl.textContent='nothing finite to plot in this range'; return; }
+      // robust y-range: trim outliers so asymptotes don't flatten the curve
+      const lo=fin[Math.floor(fin.length*0.02)], hi=fin[Math.floor(fin.length*0.98)];
+      let yMin=lo, yMax=hi; if(yMin===yMax){ yMin-=1; yMax+=1; } const pad=(yMax-yMin)*0.08; yMin-=pad; yMax+=pad;
+      const X=x=>(x-x0)/(x1-x0)*W, Y=y=>H-(y-yMin)/(yMax-yMin)*H;
+      cx.strokeStyle=cssVar('--border-2'); cx.lineWidth=1; cx.beginPath();
+      if(x0<0&&x1>0){ cx.moveTo(X(0),0); cx.lineTo(X(0),H); } if(yMin<0&&yMax>0){ cx.moveTo(0,Y(0)); cx.lineTo(W,Y(0)); } cx.stroke();
+      cx.strokeStyle=cssVar('--accent'); cx.lineWidth=2; cx.beginPath(); let pen=false;
+      for(let i=0;i<N;i++){ const y=ys[i]; if(!isFinite(y)||y>yMax+1e6||y<yMin-1e6){ pen=false; continue; } const px=X(xs[i]), py=Y(y); if(!pen){ cx.moveTo(px,py); pen=true; } else cx.lineTo(px,py); }
+      cx.stroke();
+      cx.fillStyle=cssVar('--faint'); cx.font='11px '+cssVar('--mono'); cx.fillText('y∈['+cleanNum(yMin)+', '+cleanNum(yMax)+']',6,14);
     };
-    inp.addEventListener('input',run); run();
+    const run=()=>{
+      errEl.textContent=''; outEl.innerHTML=''; altEl.innerHTML='';
+      const s=inp.value.trim(); if(!s){ cv.style.display='none'; dom.style.display='none'; return; }
+      let parsed; try{ parsed=parse(lex(s)); }catch(e){ errEl.textContent=e.message||'Invalid expression'; cv.style.display='none'; dom.style.display='none'; return; }
+      if(parsed.usesX){
+        cv.style.display=''; dom.style.display='inline-flex'; outEl.innerHTML=`<span style="font-size:1rem;color:var(--muted)">y = ${esc(s)}</span>`;
+        try{ drawGraph(parsed.ast); }catch(e){ errEl.textContent=e.message||'Could not plot'; }
+        setSh('calc',0,`# plot with gnuplot`); setSh('calc',1,`gnuplot -e "plot [${$('#calc-xmin').value}:${$('#calc-xmax').value}] ${s.replace(/\*\*/g,'**')}"`);
+        return;
+      }
+      cv.style.display='none'; dom.style.display='none';
+      let r, big=false;
+      try{ r=eB(parsed.ast); big=true; }catch(e){ if(e&&e.ne){ try{ r=eN(parsed.ast,0); }catch(e2){ errEl.textContent=e2.message||'Invalid expression'; return; } } else { errEl.textContent=(e&&e.message)||'Invalid expression'; return; } }
+      if(!big&&(typeof r!=='number'||Number.isNaN(r))){ outEl.innerHTML='<b>NaN</b>'; return; }
+      outEl.innerHTML=`<b>${esc(cleanNum(r))}</b>`;
+      // integer alternate bases
+      let ir=null; if(big)ir=r; else if(Number.isInteger(r)&&Math.abs(r)<2**53)ir=BigInt(r);
+      if(ir!==null){ const neg=ir<0n, a=neg?-ir:ir, sg=neg?'-':'';
+        altEl.innerHTML=row('Hex',sg+'0x'+a.toString(16))+row('Binary',sg+'0b'+a.toString(2))+row('Octal',sg+'0o'+a.toString(8))+(big?row('Digits',String(a.toString().length)):''); }
+      setSh('calc',0,`echo ${shq(s.replace(/\*\*/g,'^'))} | bc -l`);
+      setSh('calc',1,`python3 -c ${shq('print('+s.replace(/\bln\(/g,'__import__("math").log(').replace(/!/g,'')+')')}`);
+    };
+    inp.addEventListener('input',run);
+    ['calc-xmin','calc-xmax'].forEach(id=>$('#'+id).addEventListener('input',run));
+    $$('#calc-ang button').forEach(b=>b.addEventListener('click',()=>{ $$('#calc-ang button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); deg=b.dataset.ang==='deg'; run(); }));
+    run();
   }
 });
 
