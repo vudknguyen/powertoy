@@ -4690,6 +4690,480 @@ tool({
   }
 });
 
+/* ── calculator / expression evaluator ─────────────────────── */
+tool({
+  id:'calc', name:'Calculator', group:'Convert',
+  blurb:'Scientific calculator + function grapher. Exact big-integer math (BigInt — 2**100, 100! are exact), no floating-point noise (0.1 + 0.2 = 0.3), bitwise & hex/bin/oct, functions (sqrt, sin, log, gcd, ncr, factorial…), constants (pi, e). Use the variable x to plot, e.g. sin(x)/x. No eval().',
+  html: `
+    <input type="text" id="calc-in" class="grow" spellcheck="false" autocomplete="off" value="2**100 + 1"
+      placeholder="e.g.  100!   ·   0.1+0.2   ·   0xff & 0b1010   ·   sin(x)/x" style="font-size:1.05rem;padding:.55rem .8rem;width:100%;max-width:34rem">
+    <div class="row" style="margin-top:.5rem;align-items:center">
+      <div class="seg" id="calc-ang"><button class="on" data-ang="rad">radians</button><button data-ang="deg">degrees</button></div>
+      <span class="row" id="calc-domain" style="display:none;gap:.35rem;align-items:center">
+        <span class="tz-sub" style="font-size:.8rem">x from</span>
+        <input type="number" id="calc-xmin" value="-10" step="any" style="width:5rem">
+        <span class="tz-sub" style="font-size:.8rem">to</span>
+        <input type="number" id="calc-xmax" value="10" step="any" style="width:5rem">
+      </span>
+    </div>
+    <div class="err" id="calc-err"></div>
+    <div id="calc-out" style="margin:.7rem 0;font-family:var(--serif);font-size:1.5rem;min-height:1.4rem;word-break:break-all"></div>
+    <canvas id="calc-graph" class="game-cv" width="640" height="380" style="display:none;width:min(100%,640px)"></canvas>
+    <div class="outs" id="calc-alt"></div>
+    ${shPanel('calc', [
+      {why:'bc — arbitrary precision', cmd:`echo '2^100 + 1' | bc`},
+      {why:'python (big ints + math)', cmd:`python3 -c 'import math; print(math.factorial(100))'`},
+    ])}`,
+  wire(){
+    let deg=false;
+    const F={ sqrt:Math.sqrt,cbrt:Math.cbrt,abs:Math.abs,round:Math.round,floor:Math.floor,ceil:Math.ceil,trunc:Math.trunc,sign:Math.sign,
+      exp:Math.exp,ln:Math.log,log:x=>Math.log10(x),log2:Math.log2,log10:Math.log10,
+      sinh:Math.sinh,cosh:Math.cosh,tanh:Math.tanh,hypot:Math.hypot,pow:Math.pow,
+      min:(...a)=>Math.min(...a),max:(...a)=>Math.max(...a),
+      root:(x,n)=>Math.sign(x)*Math.pow(Math.abs(x),1/n),
+      gcd:(a,b)=>{a=Math.abs(a);b=Math.abs(b);while(b){[a,b]=[b,a%b];}return a;},
+      lcm:(a,b)=>a&&b?Math.abs(a*b)/F.gcd(a,b):0,
+      fact:n=>{ if(n<0||!Number.isInteger(n))return NaN; let r=1; for(let i=2;i<=n;i++)r*=i; return r; },
+      ncr:(n,r)=>F.fact(n)/(F.fact(r)*F.fact(n-r)), npr:(n,r)=>F.fact(n)/F.fact(n-r),
+      sin:x=>Math.sin(deg?x*Math.PI/180:x), cos:x=>Math.cos(deg?x*Math.PI/180:x), tan:x=>Math.tan(deg?x*Math.PI/180:x),
+      asin:x=>{const r=Math.asin(x);return deg?r*180/Math.PI:r;}, acos:x=>{const r=Math.acos(x);return deg?r*180/Math.PI:r;},
+      atan:x=>{const r=Math.atan(x);return deg?r*180/Math.PI:r;}, atan2:(y,x)=>{const r=Math.atan2(y,x);return deg?r*180/Math.PI:r;} };
+    const CON={ pi:Math.PI, e:Math.E, tau:Math.PI*2, phi:(1+Math.sqrt(5))/2 };
+    /* tokenize */
+    const lex=s=>{ const t=[]; let i=0; const d=c=>c>='0'&&c<='9';
+      while(i<s.length){ const c=s[i];
+        if(c===' '||c==='\t'){i++;continue;}
+        if(d(c)||(c==='.'&&d(s[i+1]))){
+          const rx=/^0[xX][0-9a-fA-F_]+|^0[bB][01_]+|^0[oO][0-7_]+|^\d[\d_]*\.?\d*(?:[eE][+-]?\d+)?|^\.\d+(?:[eE][+-]?\d+)?/;
+          const m=s.slice(i).match(rx); const raw=m[0].replace(/_/g,'');
+          let big=null,val,isInt=false;
+          if(/^0[xX]/.test(raw)){ big=BigInt(raw); val=Number(big); isInt=true; }
+          else if(/^0[bB]/.test(raw)){ big=BigInt(parseInt(raw.slice(2),2)); val=Number(big); isInt=true; }
+          else if(/^0[oO]/.test(raw)){ big=BigInt(parseInt(raw.slice(2),8)); val=Number(big); isInt=true; }
+          else if(/^\d+$/.test(raw)){ big=BigInt(raw); val=Number(raw); isInt=true; }
+          else { val=parseFloat(raw); }
+          t.push({t:'num',big,val,isInt}); i+=m[0].length; continue;
+        }
+        if(/[a-zA-Z_]/.test(c)){ let j=i; while(j<s.length&&/[a-zA-Z0-9_]/.test(s[j]))j++; t.push({t:'name',v:s.slice(i,j)}); i=j; continue; }
+        const two=s.slice(i,i+2); if(two==='**'||two==='<<'||two==='>>'){ t.push({t:'op',v:two}); i+=2; continue; }
+        if('+-*/%&|^~(),!'.includes(c)){ t.push({t:'op',v:c}); i++; continue; }
+        throw new Error('Unexpected character "'+c+'"');
+      } return t; };
+    /* parse → AST */
+    const prec={ '|':1,'^':2,'&':3,'<<':4,'>>':4,'+':5,'-':5,'*':6,'/':6,'%':6,'**':8 };
+    const parse=toks=>{ let p=0; const peek=()=>toks[p], next=()=>toks[p++]; let usesX=false;
+      const atom=()=>{ const tk=next(); if(!tk)throw new Error('Unexpected end');
+        if(tk.t==='num')return {t:'num',big:tk.big,val:tk.val,isInt:tk.isInt};
+        if(tk.t==='op'&&tk.v==='('){ const v=exp(0); const c=next(); if(!c||c.v!==')')throw new Error('Missing ")"'); return v; }
+        if(tk.t==='name'){ const n=tk.v.toLowerCase();
+          if(peek()&&peek().v==='('){ next(); const args=[]; if(peek()&&peek().v!==')'){ args.push(exp(0)); while(peek()&&peek().v===','){ next(); args.push(exp(0)); } } const c=next(); if(!c||c.v!==')')throw new Error('Missing ")" after '+n); if(!F[n])throw new Error('Unknown function "'+tk.v+'"'); return {t:'call',name:n,args}; }
+          if(n==='x'){ usesX=true; return {t:'var'}; }
+          if(n in CON)return {t:'const',name:n};
+          throw new Error('Unknown name "'+tk.v+'"'); }
+        throw new Error('Unexpected "'+tk.v+'"'); };
+      const postfix=()=>{ let v=atom(); while(peek()&&peek().v==='!'){ next(); v={t:'post',op:'!',v}; } return v; };
+      const unary=()=>{ const tk=peek(); if(tk&&tk.t==='op'&&(tk.v==='-'||tk.v==='+'||tk.v==='~')){ next(); return {t:'un',op:tk.v,v:unary()}; } return postfix(); };
+      const exp=mp=>{ let l=unary(); for(;;){ const tk=peek(); if(!tk||tk.t!=='op'||!(tk.v in prec))break; const pr=prec[tk.v]; if(pr<mp)break; next(); l={t:'bin',op:tk.v,l,r:exp(tk.v==='**'?pr:pr+1)}; } return l; };
+      const ast=exp(0); if(p<toks.length)throw new Error('Unexpected "'+toks[p].v+'"'); return {ast,usesX}; };
+    /* exact BigInt evaluator (throws if not an exact integer computation) */
+    const NE=()=>{ throw {ne:true}; };
+    const bfact=n=>{ if(n<0n)NE(); let r=1n; for(let i=2n;i<=n;i++)r*=i; return r; };
+    const eB=n=>{ switch(n.t){
+      case 'num': if(!n.isInt)NE(); return n.big;
+      case 'var': case 'const': NE();
+      case 'un': { const v=eB(n.v); return n.op==='-'?-v:n.op==='~'?~v:v; }
+      case 'post': { const v=eB(n.v); return bfact(v); }
+      case 'bin': { const a=eB(n.l), b=eB(n.r); switch(n.op){
+        case '+':return a+b; case '-':return a-b; case '*':return a*b;
+        case '/': if(b!==0n&&a%b===0n)return a/b; NE();
+        case '%': if(b===0n)NE(); return a%b;
+        case '**': if(b<0n)NE(); return a**b;
+        case '&':return a&b; case '|':return a|b; case '^':return a^b;
+        case '<<': if(b<0n)NE(); return a<<b; case '>>': if(b<0n)NE(); return a>>b; } NE(); }
+      case 'call': { const A=()=>n.args.map(eB); switch(n.name){
+        case 'abs':{const v=eB(n.args[0]);return v<0n?-v:v;}
+        case 'min':return A().reduce((x,y)=>y<x?y:x); case 'max':return A().reduce((x,y)=>y>x?y:x);
+        case 'gcd':{let[a,b]=A().map(x=>x<0n?-x:x);while(b){[a,b]=[b,a%b];}return a;}
+        case 'lcm':{const[a,b]=A().map(x=>x<0n?-x:x);return a&&b?a/((()=>{let[p,q]=[a,b];while(q){[p,q]=[q,p%q];}return p;})())*b:0n;}
+        case 'fact':return bfact(eB(n.args[0]));
+        case 'ncr':{const[a,b]=A();return bfact(a)/(bfact(b)*bfact(a-b));}
+        case 'npr':{const[a,b]=A();return bfact(a)/bfact(a-b);}
+        default: NE(); } } } NE(); };
+    /* float evaluator */
+    const eN=(n,x)=>{ switch(n.t){
+      case 'num': return n.val; case 'var': return x; case 'const': return CON[n.name];
+      case 'un': { const v=eN(n.v,x); return n.op==='-'?-v:n.op==='~'?~v:v; }
+      case 'post': return F.fact(eN(n.v,x));
+      case 'bin': { const a=eN(n.l,x), b=eN(n.r,x); return ({'+':a+b,'-':a-b,'*':a*b,'/':a/b,'%':a%b,'**':a**b,'&':a&b,'|':a|b,'^':a^b,'<<':a<<b,'>>':a>>b})[n.op]; }
+      case 'call': return F[n.name](...n.args.map(a=>eN(a,x))); } };
+    const cleanNum=r=>{ if(typeof r==='bigint')return r.toString();
+      if(!isFinite(r))return Number.isNaN(r)?'NaN':(r>0?'∞':'−∞'); if(r===0)return '0';
+      const a=Math.abs(r); if(Number.isInteger(r)&&a<1e15)return String(r);
+      if(a>=1e15||a<1e-6)return r.toExponential(6).replace(/0+e/,'e').replace(/\.e/,'e');
+      return String(parseFloat(r.toPrecision(12))); };
+    const inp=$('#calc-in'), errEl=$('#calc-err'), outEl=$('#calc-out'), altEl=$('#calc-alt'), cv=$('#calc-graph'), dom=$('#calc-domain');
+    const row=(k,v)=>`<div class="out"><span class="k">${k}</span><span class="v">${esc(v)}</span><button class="cpy" data-copy-text="${esc(v)}">Copy</button></div>`;
+    const drawGraph=(ast)=>{
+      const W=cv.width, H=cv.height, cx=cv.getContext('2d');
+      const x0=parseFloat($('#calc-xmin').value), x1=parseFloat($('#calc-xmax').value);
+      cx.clearRect(0,0,W,H); cx.fillStyle=cssVar('--surface'); cx.fillRect(0,0,W,H);
+      if(!(x1>x0)){ errEl.textContent='x range must have max > min'; return; }
+      const N=W, xs=[], ys=[]; for(let i=0;i<N;i++){ const xx=x0+(x1-x0)*i/(N-1); xs.push(xx); ys.push(eN(ast,xx)); }
+      const fin=ys.filter(isFinite).sort((a,b)=>a-b);
+      if(!fin.length){ errEl.textContent='nothing finite to plot in this range'; return; }
+      // robust y-range: trim outliers so asymptotes don't flatten the curve
+      const lo=fin[Math.floor(fin.length*0.02)], hi=fin[Math.floor(fin.length*0.98)];
+      let yMin=lo, yMax=hi; if(yMin===yMax){ yMin-=1; yMax+=1; } const pad=(yMax-yMin)*0.08; yMin-=pad; yMax+=pad;
+      const X=x=>(x-x0)/(x1-x0)*W, Y=y=>H-(y-yMin)/(yMax-yMin)*H;
+      cx.strokeStyle=cssVar('--border-2'); cx.lineWidth=1; cx.beginPath();
+      if(x0<0&&x1>0){ cx.moveTo(X(0),0); cx.lineTo(X(0),H); } if(yMin<0&&yMax>0){ cx.moveTo(0,Y(0)); cx.lineTo(W,Y(0)); } cx.stroke();
+      cx.strokeStyle=cssVar('--accent'); cx.lineWidth=2; cx.beginPath(); let pen=false;
+      for(let i=0;i<N;i++){ const y=ys[i]; if(!isFinite(y)||y>yMax+1e6||y<yMin-1e6){ pen=false; continue; } const px=X(xs[i]), py=Y(y); if(!pen){ cx.moveTo(px,py); pen=true; } else cx.lineTo(px,py); }
+      cx.stroke();
+      cx.fillStyle=cssVar('--faint'); cx.font='11px '+cssVar('--mono'); cx.fillText('y∈['+cleanNum(yMin)+', '+cleanNum(yMax)+']',6,14);
+    };
+    const run=()=>{
+      errEl.textContent=''; outEl.innerHTML=''; altEl.innerHTML='';
+      const s=inp.value.trim(); if(!s){ cv.style.display='none'; dom.style.display='none'; return; }
+      let parsed; try{ parsed=parse(lex(s)); }catch(e){ errEl.textContent=e.message||'Invalid expression'; cv.style.display='none'; dom.style.display='none'; return; }
+      if(parsed.usesX){
+        cv.style.display=''; dom.style.display='inline-flex'; outEl.innerHTML=`<span style="font-size:1rem;color:var(--muted)">y = ${esc(s)}</span>`;
+        try{ drawGraph(parsed.ast); }catch(e){ errEl.textContent=e.message||'Could not plot'; }
+        setSh('calc',0,`# plot with gnuplot`); setSh('calc',1,`gnuplot -e "plot [${$('#calc-xmin').value}:${$('#calc-xmax').value}] ${s.replace(/\*\*/g,'**')}"`);
+        return;
+      }
+      cv.style.display='none'; dom.style.display='none';
+      let r, big=false;
+      try{ r=eB(parsed.ast); big=true; }catch(e){ if(e&&e.ne){ try{ r=eN(parsed.ast,0); }catch(e2){ errEl.textContent=e2.message||'Invalid expression'; return; } } else { errEl.textContent=(e&&e.message)||'Invalid expression'; return; } }
+      if(!big&&(typeof r!=='number'||Number.isNaN(r))){ outEl.innerHTML='<b>NaN</b>'; return; }
+      outEl.innerHTML=`<b>${esc(cleanNum(r))}</b>`;
+      // integer alternate bases
+      let ir=null; if(big)ir=r; else if(Number.isInteger(r)&&Math.abs(r)<2**53)ir=BigInt(r);
+      if(ir!==null){ const neg=ir<0n, a=neg?-ir:ir, sg=neg?'-':'';
+        altEl.innerHTML=row('Hex',sg+'0x'+a.toString(16))+row('Binary',sg+'0b'+a.toString(2))+row('Octal',sg+'0o'+a.toString(8))+(big?row('Digits',String(a.toString().length)):''); }
+      setSh('calc',0,`echo ${shq(s.replace(/\*\*/g,'^'))} | bc -l`);
+      setSh('calc',1,`python3 -c ${shq('print('+s.replace(/\bln\(/g,'__import__("math").log(').replace(/!/g,'')+')')}`);
+    };
+    inp.addEventListener('input',run);
+    ['calc-xmin','calc-xmax'].forEach(id=>$('#'+id).addEventListener('input',run));
+    $$('#calc-ang button').forEach(b=>b.addEventListener('click',()=>{ $$('#calc-ang button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); deg=b.dataset.ang==='deg'; run(); }));
+    run();
+  }
+});
+
+/* ── sql formatter ─────────────────────────────────────────── */
+tool({
+  id:'sqlfmt', name:'SQL toolkit', group:'Text',
+  blurb:'Format or minify SQL, run a heuristic lint (syntax sanity-check with suggestions), or draft SQL from plain English. The lint and English→SQL are best-effort starting points — not a full parser — so review before running.',
+  html: `
+    <div class="row">
+      <div class="seg" id="sq-mode"><button class="on" data-m="fmt">Format</button><button data-m="min">Minify</button><button data-m="lint">Lint</button><button data-m="gen">English → SQL</button></div>
+      <label class="check" id="sq-upperwrap"><input type="checkbox" id="sq-upper" checked> uppercase keywords</label>
+    </div>
+    <label class="lbl" id="sq-inlbl">SQL</label>
+    <textarea id="sq-in" spellcheck="false" style="min-height:120px">select id, name, count(*) as n from users u join orders o on o.uid=u.id where u.active=1 and o.total>100 group by id, name order by n desc limit 10</textarea>
+    <div class="err" id="sq-err"></div>
+    <div id="sq-issues" style="display:none;margin-top:.4rem"></div>
+    <label class="lbl" id="sq-outlbl">Output ${cpyBtn('#sq-out')}</label>
+    <textarea id="sq-out" readonly style="min-height:150px;font-family:var(--mono)"></textarea>
+    ${shPanel('sqlfmt',[{why:'format with sqlparse',cmd:`sqlformat -r -k upper query.sql`},{why:'lint with sqlfluff',cmd:`sqlfluff lint query.sql`}])}`,
+  wire(){
+    let mode='fmt';
+    const inp=$('#sq-in'), out=$('#sq-out'), err=$('#sq-err'), issues=$('#sq-issues');
+    const KW=new Set('select from where and or not in is null as join inner left right full outer cross on group by order having limit offset union all insert into values update set delete create table alter drop distinct case when then else end asc desc like between exists count sum avg min max coalesce cast on using with'.split(' '));
+    const BREAK=new Set(['select','from','where','join','group','order','having','limit','union','values','set','into']);
+    const NOGLUE=new Set('select from where and or not in on having by union values set join group order when then else case between like as using all distinct exists is'.split(' '));
+    const tokenize=s=>{ const t=[]; let i=0;
+      while(i<s.length){ const c=s[i], at=i;
+        if(/\s/.test(c)){ i++; continue; }
+        if(c==='-'&&s[i+1]==='-'){ let j=i; while(j<s.length&&s[j]!=='\n')j++; t.push({k:'cmt',v:s.slice(i,j),i:at}); i=j; continue; }
+        if(c==='/'&&s[i+1]==='*'){ let j=i+2; while(j<s.length&&!(s[j]==='*'&&s[j+1]==='/'))j++; const closed=j<s.length; j+=2; t.push({k:'cmt',v:s.slice(i,Math.min(j,s.length)),i:at,unterminated:!closed}); i=j; continue; }
+        if(c==="'"||c==='"'||c==='`'){ let j=i+1, closed=false; while(j<s.length){ if(s[j]===c){ if(s[j+1]===c){j+=2;continue;} j++; closed=true; break; } j++; } t.push({k:'str',v:s.slice(i,j),i:at,unterminated:!closed}); i=j; continue; }
+        if(/[A-Za-z_]/.test(c)){ let j=i; while(j<s.length&&/[A-Za-z0-9_$.]/.test(s[j]))j++; t.push({k:'word',v:s.slice(i,j),i:at}); i=j; continue; }
+        if(/[0-9]/.test(c)){ let j=i; while(j<s.length&&/[0-9.eE]/.test(s[j]))j++; t.push({k:'num',v:s.slice(i,j),i:at}); i=j; continue; }
+        if('(),;'.includes(c)){ t.push({k:'punc',v:c,i:at}); i++; continue; }
+        let j=i; while(j<s.length&&/[^\sA-Za-z0-9_$.'"`(),;]/.test(s[j]))j++; t.push({k:'op',v:s.slice(i,Math.max(j,i+1)),i:at}); i=Math.max(j,i+1); continue;
+      } return t; };
+    const kwCase=w=>{ const up=$('#sq-upper').checked; return KW.has(w.toLowerCase())?(up?w.toUpperCase():w.toLowerCase()):w; };
+    const format=toks=>{ let out='', depth=0, line='', prev='';
+      const nl=d=>{ out+=line.trimEnd()+'\n'; line='  '.repeat(Math.max(0,d)); };
+      for(let idx=0;idx<toks.length;idx++){ const tk=toks[idx], low=tk.v.toLowerCase();
+        if(tk.k==='cmt'){ if(line.trim())nl(depth); line+=tk.v; nl(depth); prev=''; continue; }
+        if(tk.k==='word'&&BREAK.has(low)&&!((prev==='group'||prev==='order')&&low==='by')&&!(['left','right','inner','outer','full','cross'].includes(prev)&&low==='join')&&!(prev==='union'&&low==='all')&&!(prev==='insert'&&low==='into')&&!(prev==='delete')){ if(line.trim())nl(depth); line+=kwCase(tk.v); }
+        else if(tk.k==='punc'&&tk.v==='('){ const pt=toks[idx-1]; const glue=pt&&((pt.k==='word'&&!NOGLUE.has(pt.v.toLowerCase()))||(pt.k==='punc'&&pt.v===')')); line+=(glue?'(':(line.trim()&&!line.endsWith('(')?' (':'(')); depth++; }
+        else if(tk.k==='punc'&&tk.v===')'){ depth=Math.max(0,depth-1); line=line.trimEnd()+')'; }
+        else if(tk.k==='punc'&&tk.v===','){ line=line.trimEnd()+','; nl(depth+1); }
+        else if(tk.k==='punc'&&tk.v===';'){ line=line.trimEnd()+';'; nl(depth); }
+        else if(tk.k==='word'&&(low==='and'||low==='or')){ nl(depth+1); line+=kwCase(tk.v)+' '; }
+        else { const sp=line.trim()&&!line.endsWith(' ')&&!line.endsWith('('); line+=(sp?' ':'')+(tk.k==='word'?kwCase(tk.v):tk.v); }
+        prev=low;
+      }
+      out+=line.trimEnd(); return out.replace(/\n{2,}/g,'\n').replace(/^\n+/,'').trimEnd();
+    };
+    const minify=toks=>{ let s=''; for(const tk of toks){ if(tk.k==='cmt')continue; const w=tk.k==='word'?kwCase(tk.v):tk.v; const noSp=/^[),;]$/.test(tk.v), open=s.endsWith('('); s+=(s&&!noSp&&!open&&!s.endsWith(' ')?' ':'')+w; } return s.replace(/\s*,\s*/g,', ').replace(/\(\s+/g,'(').replace(/\s+\)/g,')').trim(); };
+    const lint=(src,toks)=>{
+      const out=[]; const lc=i=>{ let ln=1,c=1; for(let k=0;k<i&&k<src.length;k++){ if(src[k]==='\n'){ln++;c=1;}else c++; } return ln+':'+c; };
+      const add=(i,msg,fix)=>out.push({at:i<0?'':lc(i),msg,fix:fix||''});
+      // unterminated string / comment
+      for(const tk of toks){ if(tk.unterminated) add(tk.i, tk.k==='str'?'Unterminated string literal':'Unterminated /* comment */','close the '+(tk.k==='str'?'quote':'*/')); }
+      // paren balance
+      let depth=0, firstExtra=-1;
+      for(const tk of toks){ if(tk.k==='punc'&&tk.v==='('){ depth++; } else if(tk.k==='punc'&&tk.v===')'){ depth--; if(depth<0&&firstExtra<0){ firstExtra=tk.i; depth=0; } } }
+      if(firstExtra>=0) add(firstExtra, 'Unmatched closing ")"', 'remove it or add a matching "("');
+      if(depth>0) add(src.length, depth+' unclosed "(" — parentheses not balanced', 'add '+depth+' more ")"');
+      // comma problems (ignore comments)
+      const T=toks.filter(t=>t.k!=='cmt');
+      for(let k=0;k<T.length;k++){ const tk=T[k], nx=T[k+1], pv=T[k-1];
+        if(tk.k==='punc'&&tk.v===','){
+          if(!nx||nx.v===')'||nx.v===';'||(nx.k==='word'&&['from','where','group','order','having','limit'].includes(nx.v.toLowerCase()))) add(tk.i,'Trailing comma before '+(nx?('"'+nx.v+'"'):'end'),'remove the comma');
+          if(nx&&nx.k==='punc'&&nx.v===',') add(tk.i,'Empty item between commas','remove one comma');
+          if(pv&&pv.k==='word'&&pv.v.toLowerCase()==='select') add(tk.i,'Comma immediately after SELECT','remove the leading comma');
+        }
+        // = NULL
+        if(tk.k==='op'&&/^(=|!=|<>)$/.test(tk.v)&&nx&&nx.k==='word'&&nx.v.toLowerCase()==='null') add(tk.i, tk.v+' NULL never matches','use IS '+(tk.v==='='?'':'NOT ')+'NULL');
+      }
+      // statement start
+      const first=T.find(t=>t.k==='word');
+      if(first&&!['select','insert','update','delete','with','create','alter','drop','truncate','explain','replace','merge','begin','commit','rollback','grant','revoke','pragma','show','use','set'].includes(first.v.toLowerCase()))
+        add(first.i, 'Statement starts with "'+first.v+'" — not a known SQL command', 'did you mean SELECT / INSERT / UPDATE …?');
+      return out;
+    };
+    const nl2sql=text=>{
+      const orig=text.toLowerCase();
+      let q=' '+orig.replace(/[?.;]+\s*$/,'').replace(/\s+/g,' ').trim()+' ';
+      const notes=[]; let where=[], group=null, order=null, dir='', limit=null, table=null, cols='*', agg=null, aggCol=null, topN=false, m;
+      const strip=re=>{ const mm=q.match(re); if(mm){ q=(' '+q.replace(mm[0],' ')+' ').replace(/\s+/g,' '); } return mm; };
+      // 1. limit (strip)
+      if((m=strip(/\b(?:top|first)\s+(\d+)\b/))){ limit=+m[1]; topN=true; }
+      else if((m=strip(/\blimit\s+(\d+)\b/))){ limit=+m[1]; }
+      // 2. where / with (parse conditions, then strip)
+      const opFor=p=>{ if(/>=|at least|no less than/.test(p))return '>='; if(/<=|at most|no more than/.test(p))return '<='; if(/!=|<>|not equal|is not|isn'?t/.test(p))return '<>'; if(/>|greater than|more than|over|above|exceeds|bigger than/.test(p))return '>'; if(/<|less than|under|below|fewer than|smaller than/.test(p))return '<'; return '='; };
+      const wm=q.match(/\b(?:where|with)\s+(.+?)(?=\s+(?:group|order|sort|sorted|per|for each|limit)\b|$)/);
+      if(wm){ wm[1].trim().split(/\s+and\s+/).forEach(part=>{ const cm=part.match(/([a-z_]\w*)\s*(?:>=|<=|!=|<>|>|<|=|is|equals?|greater than|less than|more than|over|above|under|below|at least|at most|exceeds|not equal to|equal to)\s*(.+)/);
+          if(cm){ const col=cm[1], op=opFor(part); let val=cm[2].trim().replace(/^(?:than|to)\s+/,'').replace(/[)\s]+$/,''); if(!val)return; const num=/^-?\d+(?:\.\d+)?$/.test(val); where.push(col+' '+op+' '+(num?val:"'"+val.replace(/'/g,"''")+"'")); } });
+        q=(' '+q.replace(wm[0],' ')+' ').replace(/\s+/g,' ');
+      }
+      // 3. aggregate (strip phrase so its column isn't mistaken for the table)
+      if((m=strip(/\b(?:how many|count(?: of)?)\s+([a-z_]\w*)/))){ agg='COUNT'; aggCol='*'; table=m[1]; }
+      else if((m=strip(/\b(?:sum|total)(?: of)?\s+([a-z_]\w*)/))){ agg='SUM'; aggCol=m[1]; }
+      else if((m=strip(/\b(?:average|avg|mean)(?: of)?\s+([a-z_]\w*)/))){ agg='AVG'; aggCol=m[1]; }
+      else if((m=strip(/\b(?:maximum|max)(?: of)?\s+([a-z_]\w*)/))){ agg='MAX'; aggCol=m[1]; }
+      else if((m=strip(/\b(?:minimum|min)(?: of)?\s+([a-z_]\w*)/))){ agg='MIN'; aggCol=m[1]; }
+      // 4. explicit group / order (strip)
+      if((m=strip(/\b(?:group(?:ed)? by|per|for each)\s+([a-z_]\w*)/))) group=m[1];
+      if((m=strip(/\b(?:order(?:ed)? by|sort(?:ed)? by)\s+([a-z_]\w*)(?:\s+(desc|asc|descending|ascending))?/))){ order=m[1]; dir=/desc/.test(m[2]||'')?'DESC':(m[2]?'ASC':''); }
+      // 5. bare "by X" → ORDER (ranking / top) or GROUP (with aggregate)
+      if((m=strip(/\bby\s+([a-z_]\w*)(?:\s+(desc|asc|descending|ascending))?/))){ const col=m[1], d=m[2], wantDesc=topN||/\b(highest|most|largest|biggest|desc)/.test(orig);
+        if(order===null&&!agg&&group===null){ order=col; dir=d?(/desc/.test(d)?'DESC':'ASC'):(wantDesc?'DESC':'ASC'); }
+        else if(agg&&group===null){ group=col; }
+        else if(order===null){ order=col; dir=wantDesc?'DESC':'ASC'; } }
+      // 6. explicit column list: "show/get A and B from …"
+      if(!agg&&(m=q.match(/\b(?:show|select|list|get|display|find)\s+(.+?)\s+(?:from|of|in)\b/))){ const c=m[1].trim(); if(!/\b(all|everything|every|each)\b/.test(c)&&c!=='*') cols=c.replace(/\s+and\s+/g,', ').replace(/\s*,\s*/g,', '); }
+      // 7. table: explicit "from/of/in X", else first meaningful noun
+      if((m=q.match(/\b(?:from|of|in|for)\s+(?:the\s+|all\s+|each\s+|every\s+)?([a-z_]\w*)/))) table=table||m[1];
+      if(!table){ const STOP=new Set('show list get select display find all every each the a an count sum total average avg mean maximum max minimum min how many number records rows where with by per order group sort top first limit and or me give of in for'.split(' ')); const w=q.trim().split(' ').find(x=>/^[a-z_]\w*$/.test(x)&&!STOP.has(x)); if(w)table=w; }
+      // assemble
+      const selCols = agg ? (group?group+', ':'')+agg+'('+aggCol+')' : (group?group+', ':'')+cols;
+      if(!table){ table='table_name'; notes.push('table not detected — replace "table_name"'); }
+      let sql='SELECT '+selCols+'\nFROM '+table;
+      if(where.length) sql+='\nWHERE '+where.join(' AND ');
+      if(group) sql+='\nGROUP BY '+group;
+      if(order) sql+='\nORDER BY '+order+(dir?' '+dir:'');
+      if(limit!=null) sql+='\nLIMIT '+limit;
+      return {sql:sql+';', notes};
+    };
+    const run=()=>{
+      err.textContent=''; out.value=''; issues.style.display='none'; issues.innerHTML='';
+      $('#sq-inlbl').textContent = mode==='gen'?'Describe the query in English':'SQL';
+      $('#sq-outlbl').style.display = mode==='lint'?'none':'';
+      out.style.display = mode==='lint'?'none':'';
+      $('#sq-upperwrap').style.display = (mode==='fmt'||mode==='min')?'':'none';
+      const v=inp.value.trim(); if(!v) return;
+      try{
+        if(mode==='gen'){ const {sql,notes}=nl2sql(v); out.value=sql; if(notes.length) err.textContent='Heuristic draft — '+notes.join('; '); return; }
+        const toks=tokenize(inp.value);
+        if(mode==='min'){ out.value=minify(toks); return; }
+        if(mode==='lint'){ const found=lint(inp.value,toks); issues.style.display='';
+          issues.innerHTML = found.length
+            ? found.map(f=>`<div class="out" style="grid-template-columns:auto 1fr"><span class="k" style="text-transform:none;letter-spacing:0;color:var(--bad)">${f.at||'•'}</span><span class="v">${esc(f.msg)}${f.fix?` <span style="color:var(--faint)">— ${esc(f.fix)}</span>`:''}</span></div>`).join('')
+            : `<div class="out"><span class="v" style="color:var(--accent-2)">✓ No obvious problems (heuristic check — not a full parser)</span></div>`;
+          return; }
+        out.value=format(toks);
+      }catch(e){ err.textContent=e.message||'Failed'; }
+    };
+    inp.addEventListener('input',run);
+    $('#sq-upper').addEventListener('change',run);
+    $$('#sq-mode button').forEach(b=>b.addEventListener('click',()=>{ $$('#sq-mode button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); mode=b.dataset.m;
+      if(mode==='gen'&&!/[a-z]\s+(from|of|in)\b/i.test(inp.value)&&/select|from/i.test(inp.value)){ inp.value='top 10 users by score where active = 1'; }
+      run(); }));
+    run();
+  }
+});
+
+/* ── keypair generator ─────────────────────────────────────── */
+tool({
+  id:'keygen', name:'Key pair generator', group:'Crypto',
+  blurb:'Generate a fresh RSA or EC key pair in the browser (WebCrypto) and export both keys as PEM. Runs entirely offline — keys never leave the page.',
+  html: `
+    <div class="row">
+      <div class="seg" id="kg-alg"><button class="on" data-a="rsa">RSA</button><button data-a="ec">EC</button></div>
+      <select id="kg-size"></select>
+      <button class="act" id="kg-go">Generate</button>
+    </div>
+    <div class="err" id="kg-err"></div>
+    <label class="lbl">Public key (SPKI) ${cpyBtn('#kg-pub')}</label>
+    <textarea id="kg-pub" readonly style="min-height:110px;font-family:var(--mono);font-size:.78rem"></textarea>
+    <label class="lbl">Private key (PKCS#8) ${cpyBtn('#kg-priv')}</label>
+    <textarea id="kg-priv" readonly style="min-height:130px;font-family:var(--mono);font-size:.78rem"></textarea>
+    ${shPanel('keygen',[{why:'OpenSSL — RSA',cmd:`openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out key.pem`},{why:'OpenSSL — EC P-256',cmd:`openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:P-256 -out key.pem`}])}`,
+  wire(){
+    let alg='rsa';
+    const sizeSel=$('#kg-size'), pub=$('#kg-pub'), priv=$('#kg-priv'), err=$('#kg-err');
+    const SIZES={ rsa:[['2048','2048-bit'],['3072','3072-bit'],['4096','4096-bit']], ec:[['P-256','P-256'],['P-384','P-384'],['P-521','P-521']] };
+    const fillSizes=()=>{ sizeSel.innerHTML=SIZES[alg].map(([v,l])=>`<option value="${v}">${l}</option>`).join(''); };
+    const pem=(label,buf)=>{ const b=String.fromCharCode(...new Uint8Array(buf)); const b64=btoa(b).replace(/(.{64})/g,'$1\n').replace(/\n$/,''); return `-----BEGIN ${label}-----\n${b64}\n-----END ${label}-----`; };
+    const gen=async()=>{ err.textContent=''; pub.value='Generating…'; priv.value='';
+      try{
+        let params;
+        if(alg==='rsa') params={ name:'RSASSA-PKCS1-v1_5', modulusLength:+sizeSel.value, publicExponent:new Uint8Array([1,0,1]), hash:'SHA-256' };
+        else params={ name:'ECDSA', namedCurve:sizeSel.value };
+        const kp=await crypto.subtle.generateKey(params, true, ['sign','verify']);
+        const spki=await crypto.subtle.exportKey('spki', kp.publicKey);
+        const pkcs8=await crypto.subtle.exportKey('pkcs8', kp.privateKey);
+        pub.value=pem('PUBLIC KEY', spki);
+        priv.value=pem('PRIVATE KEY', pkcs8);
+      }catch(e){ err.textContent=e.message||'Generation failed'; pub.value=''; }
+    };
+    $$('#kg-alg button').forEach(b=>b.addEventListener('click',()=>{ $$('#kg-alg button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); alg=b.dataset.a; fillSizes(); }));
+    $('#kg-go').addEventListener('click',gen);
+    fillSizes();
+  }
+});
+
+/* ── crc32 / adler32 ───────────────────────────────────────── */
+tool({
+  id:'crc', name:'CRC32 / Adler32', group:'Crypto',
+  blurb:'Non-cryptographic checksums used by ZIP, gzip and PNG (CRC-32) and zlib (Adler-32). For integrity, not security — the crypto hashes are in the Hash tool.',
+  html: `
+    <div class="row"><div class="seg" id="crc-mode"><button class="on" data-m="text">Text</button><button data-m="hex">Hex bytes</button></div></div>
+    <label class="lbl">Input</label>
+    <textarea id="crc-in" spellcheck="false" style="min-height:90px">The quick brown fox</textarea>
+    <div class="err" id="crc-err"></div>
+    <div class="outs" style="margin-top:.6rem">
+      ${outRow('CRC-32 (hex)','crc-c32h')}
+      ${outRow('CRC-32 (decimal)','crc-c32d')}
+      ${outRow('Adler-32 (hex)','crc-a32h')}
+    </div>
+    ${shPanel('crc',[{why:'crc32 (from libarchive/perl)',cmd:`printf '%s' 'The quick brown fox' | crc32 /dev/stdin`},{why:'python zlib',cmd:`python3 -c 'import zlib;print(hex(zlib.crc32(b"The quick brown fox")))'`}])}`,
+  wire(){
+    let mode='text';
+    const TBL=(()=>{ const t=new Uint32Array(256); for(let n=0;n<256;n++){ let c=n; for(let k=0;k<8;k++) c=c&1?0xEDB88320^(c>>>1):c>>>1; t[n]=c>>>0; } return t; })();
+    const crc32=u=>{ let c=0xFFFFFFFF; for(let i=0;i<u.length;i++) c=TBL[(c^u[i])&0xFF]^(c>>>8); return (c^0xFFFFFFFF)>>>0; };
+    const adler32=u=>{ let a=1,b=0; const M=65521; for(let i=0;i<u.length;i++){ a=(a+u[i])%M; b=(b+a)%M; } return ((b<<16)|a)>>>0; };
+    const inp=$('#crc-in'), err=$('#crc-err');
+    const run=()=>{ err.textContent=''; const v=inp.value;
+      try{ let u; if(mode==='text')u=new TextEncoder().encode(v); else { const h=v.replace(/[^0-9a-fA-F]/g,''); if(h.length%2)throw new Error('Odd-length hex'); u=new Uint8Array(h.length/2); for(let i=0;i<u.length;i++)u[i]=parseInt(h.substr(i*2,2),16); }
+        const c=crc32(u), a=adler32(u);
+        $('#crc-c32h').textContent='0x'+c.toString(16).padStart(8,'0');
+        $('#crc-c32d').textContent=String(c);
+        $('#crc-a32h').textContent='0x'+a.toString(16).padStart(8,'0');
+      }catch(e){ err.textContent=e.message; ['crc-c32h','crc-c32d','crc-a32h'].forEach(id=>$('#'+id).textContent='—'); } };
+    inp.addEventListener('input',run);
+    $$('#crc-mode button').forEach(b=>b.addEventListener('click',()=>{ $$('#crc-mode button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); mode=b.dataset.m; run(); }));
+    run();
+  }
+});
+
+/* ── user-agent parser ─────────────────────────────────────── */
+tool({
+  id:'ua', name:'User-Agent parser', group:'Ops',
+  blurb:'Break a User-Agent string into browser, engine, OS and device — a best-effort heuristic parser (UA strings are famously unreliable). Defaults to your own browser.',
+  html: `
+    <label class="lbl">User-Agent string</label>
+    <textarea id="ua-in" spellcheck="false" style="min-height:70px"></textarea>
+    <div class="outs" style="margin-top:.6rem">
+      ${outRow('Browser','ua-br')}
+      ${outRow('Engine','ua-eng')}
+      ${outRow('Operating system','ua-os')}
+      ${outRow('Device','ua-dev')}
+    </div>
+    ${shPanel('ua',[{why:'inspect your own UA',cmd:`curl -s https://example.com -A "$(python3 -c 'print(1)')" >/dev/null; echo "$HTTP_USER_AGENT"`},{why:'parse with a library',cmd:`python3 -c 'from ua_parser import user_agent_parser as p,json; print(json.dumps(p.Parse(open(0).read())))'`}])}`,
+  wire(){
+    const inp=$('#ua-in');
+    const parseUA=ua=>{
+      const r={br:'—',eng:'—',os:'—',dev:'Desktop'};
+      let m;
+      // engine
+      if(/Gecko\/|rv:.*Gecko/.test(ua)&&/Firefox/.test(ua)) r.eng='Gecko';
+      else if(/AppleWebKit/.test(ua)) r.eng=/Chrome|Chromium|Edg\//.test(ua)?'Blink':'WebKit';
+      else if(/Trident/.test(ua)) r.eng='Trident';
+      // browser (order matters)
+      if((m=ua.match(/Edg(?:e|A|iOS)?\/([\d.]+)/))) r.br='Edge '+m[1];
+      else if((m=ua.match(/OPR\/([\d.]+)/))||(m=ua.match(/Opera\/([\d.]+)/))) r.br='Opera '+m[1];
+      else if((m=ua.match(/SamsungBrowser\/([\d.]+)/))) r.br='Samsung Internet '+m[1];
+      else if((m=ua.match(/Firefox\/([\d.]+)/))) r.br='Firefox '+m[1];
+      else if((m=ua.match(/Chrome\/([\d.]+)/))) r.br='Chrome '+m[1];
+      else if(/Safari/.test(ua)&&(m=ua.match(/Version\/([\d.]+)/))) r.br='Safari '+m[1];
+      else if((m=ua.match(/MSIE ([\d.]+)/))||(m=ua.match(/rv:([\d.]+)\) like Gecko/))) r.br='Internet Explorer '+m[1];
+      else if(/bot|crawl|spider|slurp|bingpreview/i.test(ua)) { r.br='Bot / crawler'; r.dev='Bot'; }
+      // os
+      if((m=ua.match(/Windows NT ([\d.]+)/))){ const w={'10.0':'10/11','6.3':'8.1','6.2':'8','6.1':'7'}[m[1]]||m[1]; r.os='Windows '+w; }
+      else if((m=ua.match(/Android ([\d.]+)/))){ r.os='Android '+m[1]; r.dev=/Mobile/.test(ua)?'Mobile':'Tablet'; }
+      else if(/iPhone|iPad|iPod/.test(ua)){ m=ua.match(/OS ([\d_]+)/); r.os='iOS '+(m?m[1].replace(/_/g,'.'):''); r.dev=/iPad/.test(ua)?'Tablet':'Mobile'; }
+      else if((m=ua.match(/Mac OS X ([\d_]+)/))) r.os='macOS '+m[1].replace(/_/g,'.');
+      else if(/CrOS/.test(ua)) r.os='ChromeOS';
+      else if(/Linux/.test(ua)) r.os='Linux';
+      if(/Mobi|Mobile/.test(ua)&&r.dev==='Desktop') r.dev='Mobile';
+      return r;
+    };
+    const run=()=>{ const r=parseUA(inp.value.trim()); $('#ua-br').textContent=r.br; $('#ua-eng').textContent=r.eng; $('#ua-os').textContent=r.os; $('#ua-dev').textContent=r.dev; };
+    inp.addEventListener('input',run);
+    inp.value=navigator.userAgent; run();
+  }
+});
+
+/* ── number toolkit ────────────────────────────────────────── */
+tool({
+  id:'numtool', name:'Number toolkit', group:'Convert',
+  blurb:'Everything about a number — Roman numerals, spelled-out words, ordinal, prime factorisation and primality. Enter a list (commas/spaces) instead and get count, sum, mean, median, min, max and standard deviation.',
+  html: `
+    <label class="lbl">Number, or a list of numbers</label>
+    <input type="text" id="nt-in" class="grow" spellcheck="false" value="1234" placeholder="e.g. 2024  ·  or  4, 8, 15, 16, 23, 42" style="width:100%;max-width:34rem">
+    <div class="err" id="nt-err"></div>
+    <div class="outs" id="nt-out" style="margin-top:.6rem"></div>
+    ${shPanel('numtool',[{why:'factor (GNU coreutils)',cmd:`factor 1234`},{why:'stats with datamash',cmd:`printf '%s\\n' 4 8 15 16 23 42 | datamash mean 1 median 1 sstdev 1`}])}`,
+  wire(){
+    const inp=$('#nt-in'), errEl=$('#nt-err'), outEl=$('#nt-out');
+    const row=(k,v)=>`<div class="out"><span class="k" style="text-transform:none;letter-spacing:0">${k}</span><span class="v">${esc(String(v))}</span><button class="cpy" data-copy-text="${esc(String(v))}">Copy</button></div>`;
+    const RN=[[1000,'M'],[900,'CM'],[500,'D'],[400,'CD'],[100,'C'],[90,'XC'],[50,'L'],[40,'XL'],[10,'X'],[9,'IX'],[5,'V'],[4,'IV'],[1,'I']];
+    const roman=n=>{ if(n<1||n>3999||!Number.isInteger(n))return '—'; let s=''; for(const [v,sym] of RN) while(n>=v){ s+=sym; n-=v; } return s; };
+    const ONES=['zero','one','two','three','four','five','six','seven','eight','nine','ten','eleven','twelve','thirteen','fourteen','fifteen','sixteen','seventeen','eighteen','nineteen'];
+    const TENS=['','','twenty','thirty','forty','fifty','sixty','seventy','eighty','ninety'];
+    const SCALE=['','thousand','million','billion','trillion','quadrillion'];
+    const under1000=n=>{ let s=''; if(n>=100){ s+=ONES[Math.floor(n/100)]+' hundred'; n%=100; if(n)s+=' '; } if(n>=20){ s+=TENS[Math.floor(n/10)]; if(n%10)s+='-'+ONES[n%10]; } else if(n>0) s+=ONES[n]; return s; };
+    const toWords=n=>{ if(!Number.isInteger(n))return '—'; if(n===0)return 'zero'; let neg=n<0; n=Math.abs(n); if(n>=1e18)return '(too large)'; const parts=[]; let g=0; while(n>0){ const c=n%1000; if(c) parts.unshift(under1000(c)+(SCALE[g]?' '+SCALE[g]:'')); n=Math.floor(n/1000); g++; } return (neg?'negative ':'')+parts.join(' '); };
+    const ordinal=n=>{ if(!Number.isInteger(n))return '—'; const s=['th','st','nd','rd'], v=Math.abs(n)%100; return n+(s[(v-20)%10]||s[v]||s[0]); };
+    const factor=n=>{ if(!Number.isInteger(n)||n<2)return '—'; let m=Math.abs(n); const f=[]; for(let d=2;d*d<=m;d++){ while(m%d===0){ f.push(d); m/=d; } } if(m>1)f.push(m); return f.join(' × '); };
+    const isPrime=n=>{ if(!Number.isInteger(n)||n<2)return false; if(n%2===0)return n===2; for(let d=3;d*d<=n;d+=2) if(n%d===0)return false; return true; };
+    const run=()=>{ errEl.textContent=''; outEl.innerHTML='';
+      const raw=inp.value.trim(); if(!raw)return;
+      const nums=raw.split(/[\s,]+/).filter(Boolean).map(Number);
+      if(nums.some(x=>Number.isNaN(x))){ errEl.textContent='Enter a number, or a list of numbers'; return; }
+      if(nums.length===1){ const n=nums[0];
+        outEl.innerHTML = row('Roman numeral', roman(n)) + row('In words', toWords(n)) + row('Ordinal', ordinal(n)) +
+          row('Prime factors', factor(n)) + row('Prime?', isPrime(n)?'yes':'no');
+      } else {
+        const s=[...nums].sort((a,b)=>a-b), sum=nums.reduce((x,y)=>x+y,0), mean=sum/nums.length;
+        const med=s.length%2?s[(s.length-1)/2]:(s[s.length/2-1]+s[s.length/2])/2;
+        const variance=nums.reduce((x,y)=>x+(y-mean)**2,0)/nums.length; const sd=Math.sqrt(variance);
+        outEl.innerHTML = row('Count', nums.length) + row('Sum', fmtNum(sum)) + row('Mean', fmtNum(mean)) +
+          row('Median', fmtNum(med)) + row('Min', fmtNum(s[0])) + row('Max', fmtNum(s[s.length-1])) + row('Std dev (population)', fmtNum(sd));
+      }
+    };
+    inp.addEventListener('input',run); run();
+  }
+});
+
 /* ── cidr / subnet ─────────────────────────────────────────── */
 tool({
   id:'cidr', name:'CIDR subnet', group:'Ops',
@@ -7712,7 +8186,7 @@ tool({
       upd(); draw();
     };
     document.addEventListener('keydown', e => {
-      if (!$('#tool-snake').classList.contains('active')) return;
+      if (!$('#tool-snake').classList.contains('active') || /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
       const m = { arrowup:[0,-1], w:[0,-1], arrowdown:[0,1], s:[0,1], arrowleft:[-1,0], a:[-1,0], arrowright:[1,0], d:[1,0] }[e.key.toLowerCase()];
       if (m){ e.preventDefault(); if (m[0] !== -dir.x || m[1] !== -dir.y) nextDir = { x:m[0], y:m[1] }; }
     });
@@ -7760,7 +8234,7 @@ tool({
       if (!empty().length){ let can = false; for (let r=0;r<4;r++) for (let q=0;q<4;q++){ if (q<3 && g[r][q]===g[r][q+1]) can = true; if (r<3 && g[r][q]===g[r+1][q]) can = true; } if (!can) $('#tf-msg').textContent = 'Game over'; }
     };
     document.addEventListener('keydown', e => {
-      if (!$('#tool-g2048').classList.contains('active')) return;
+      if (!$('#tool-g2048').classList.contains('active') || /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
       const m = { arrowleft:'l', a:'l', arrowright:'r', d:'r', arrowup:'up', w:'up', arrowdown:'dn', s:'dn' }[e.key.toLowerCase()];
       if (m){ e.preventDefault(); move(m); }
     });
@@ -7976,7 +8450,7 @@ tool({
     const reset=()=>{ board=Array.from({length:ROWS},()=>Array(COLS).fill(0)); score=0; lines=0; dead=false; speed=500; piece=spawn(); draw(); upd(); restartTimer(); };
     const restartTimer=()=>{ clearInterval(timer); timer=setInterval(()=>{ if($('#tool-tetris').classList.contains('active')&&!dead)drop(); },speed); };
     document.addEventListener('keydown',e=>{
-      if(!$('#tool-tetris').classList.contains('active')||dead)return;
+      if(!$('#tool-tetris').classList.contains('active')||dead||/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName))return;
       const k=e.key;
       if(k==='ArrowLeft'){ e.preventDefault(); if(!collide(piece,piece.x-1,piece.y))piece.x--; draw(); }
       else if(k==='ArrowRight'){ e.preventDefault(); if(!collide(piece,piece.x+1,piece.y))piece.x++; draw(); }
@@ -8038,7 +8512,7 @@ tool({
     cv.addEventListener('mousemove',e=>aimX(e.clientX));
     cv.addEventListener('touchmove',e=>{ if(e.touches[0]){ e.preventDefault(); aimX(e.touches[0].clientX); } },{passive:false});
     cv.addEventListener('click',launch);
-    document.addEventListener('keydown',e=>{ if(!$('#tool-breakout').classList.contains('active'))return; if(e.key==='ArrowLeft'){e.preventDefault();paddle.x=Math.max(0,paddle.x-24);} else if(e.key==='ArrowRight'){e.preventDefault();paddle.x=Math.min(W-paddle.w,paddle.x+24);} else if(e.key===' '){e.preventDefault();launch();} });
+    document.addEventListener('keydown',e=>{ if(!$('#tool-breakout').classList.contains('active')||/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName))return; if(e.key==='ArrowLeft'){e.preventDefault();paddle.x=Math.max(0,paddle.x-24);} else if(e.key==='ArrowRight'){e.preventDefault();paddle.x=Math.min(W-paddle.w,paddle.x+24);} else if(e.key===' '){e.preventDefault();launch();} });
     $('#bk-play').addEventListener('click',reset); reset();
   }
 });
