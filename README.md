@@ -18,7 +18,7 @@ app release and shows the current version. See [PACKAGING.md](PACKAGING.md).
 ## Quality
 
 - **`tests.html`** — integration suite: drives every tool in a live iframe with
-  known-answer vectors (170 assertions across all 126 tools). Open it to see a pass/fail report.
+  known-answer vectors (182 assertions across all 126 tools). Open it to see a pass/fail report.
 - **`verify-commands.sh`** — runs each tool's documented shell command on your machine and
   confirms it matches the tool's output (43 checks).
 
@@ -128,7 +128,7 @@ app release and shows the current version. See [PACKAGING.md](PACKAGING.md).
 | Text    | Whitespace inspect| `#ws`     |
 | Text    | Slugify           | `#slug`   |
 | Text    | ASCII art         | `#asciiart` |
-| Text    | SQL formatter     | `#sqlfmt` |
+| Text    | SQL toolkit       | `#sqlfmt` |
 | Reference | HTTP status     | `#http`   |
 | Reference | ASCII table     | `#ascii`  |
 | Reference | Common ports    | `#ports`  |
