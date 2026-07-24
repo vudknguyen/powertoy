@@ -303,6 +303,7 @@ t('user-agent parse', async () => { await go('ua'); set('#ua-in','Mozilla/5.0 (W
 t('number toolkit: single', async () => { await go('numtool'); set('#nt-in','1234'); await wait(20); const v=$$('#nt-out .v').map(x=>x.textContent); inc(v.join(' '),'MCCXXXIV'); inc(v.join(' '),'2 × 617'); });
 t('number toolkit: stats', async () => { await go('numtool'); set('#nt-in','4, 8, 15, 16, 23, 42'); await wait(20); const v=$$('#nt-out .v').map(x=>x.textContent); eq(v[0],'6'); inc(v.join(' '),'18'); inc(v.join(' '),'15.5'); });
 t('keygen: RSA PEM', async () => { await go('keygen'); $$('#kg-alg button').find(b=>b.dataset.a==='rsa').click(); $('#kg-go').click(); for(let i=0;i<40 && !/BEGIN PUBLIC KEY/.test(val('#kg-pub')); i++) await wait(200); inc(val('#kg-pub'),'BEGIN PUBLIC KEY'); inc(val('#kg-priv'),'BEGIN PRIVATE KEY'); });
+t('game keys do not hijack typing in inputs', async () => { await go('g2048'); await wait(20); const q=$('#q'); q.focus(); const ev=new (W().KeyboardEvent)('keydown',{key:'a',bubbles:true,cancelable:true}); q.dispatchEvent(ev); assert(!ev.defaultPrevented,'active game swallowed "a" typed into an input'); });
 
 /* ---------- run ---------- */
 async function run(){
