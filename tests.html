@@ -121,6 +121,9 @@ t('convert: volume natural-language', async () => { await go('convert'); set('#c
 t('convert: length with "in" connector', async () => { await go('convert'); set('#cv2-in','50 miles in km'); await wait(30); inc(txt('#cv2-result'),'80.4672'); });
 t('convert: "in" as a unit vs connector', async () => { await go('convert'); set('#cv2-in','5 in to cm'); await wait(30); inc(txt('#cv2-result'),'12.7'); });
 t('convert: temperature', async () => { await go('convert'); set('#cv2-in','100 f to c'); await wait(30); inc(txt('#cv2-result'),'37.7'); });
+t('convert: fuel mpg → L/100km (inverse)', async () => { await go('convert'); set('#cv2-in','30 mpg to l/100km'); await wait(30); inc(txt('#cv2-result'),'7.84'); });
+t('convert: fuel L/100km → mpg', async () => { await go('convert'); set('#cv2-in','8 l/100km to mpg'); await wait(30); inc(txt('#cv2-result'),'29.4'); });
+t('convert: fuel mpg → km/L', async () => { await go('convert'); set('#cv2-in','30 mpg to kml'); await wait(30); inc(txt('#cv2-result'),'12.75'); });
 t('convert: incompatible units error', async () => { await go('convert'); set('#cv2-in','5 oz to ml'); await wait(30); inc(txt('#cv2-err'),'different quantities'); });
 t('convert: value-only lists conversions', async () => { await go('convert'); set('#cv2-in','1 kg'); await wait(30); assert($$('#cv2-more .out').length>=4,'no conversion rows'); });
 t('area ha→acre', async () => { await go('area'); set('#area-u','ha'); set('#area-v','1'); eq(txt('#area-ac'),'2.471053815'); });

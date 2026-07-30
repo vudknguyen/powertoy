@@ -2463,7 +2463,7 @@ function unitTool(cfg){
 /* ── smart convert (natural-language units) ────────────────── */
 tool({
   id:'convert', name:'Convert (type it)', group:'Units',
-  blurb:'Type a conversion in plain English — "5 gal to litres", "50 miles in km", "100 F to C", "2.5 kg to lb". Covers length, mass, volume, area, speed, temperature, data, time and angle. No dropdowns, and fully offline (no LLM).',
+  blurb:'Type a conversion in plain English — "5 gal to litres", "50 miles in km", "100 F to C", "30 mpg to l/100km". Covers length, mass, volume, area, speed, temperature, fuel economy, data, time and angle. No dropdowns, and fully offline (no LLM).',
   html: `
     <input type="text" id="cv2-in" class="grow" spellcheck="false" autocomplete="off"
       placeholder='e.g.  5 gal to litres  ·  50 miles in km  ·  100 f to c'
@@ -2564,28 +2564,38 @@ tool({
       f:{n:'°F',a:['f','fahrenheit','degf','°f'],toC:x=>(x-32)*5/9,fromC:x=>x*9/5+32},
       k:{n:'K',a:['k','kelvin'],toC:x=>x-273.15,fromC:x=>x+273.15},
     };
+    const FUEL = { // special: base = km/L (efficiency); L/100 km & gal/100 mi are inverse
+      mpg:{n:'MPG (US)',g:'mpg',a:['mpg','mpgus','mpg us','miles per gallon','miles/gallon'],toB:v=>v*1.609344/3.785411784,fromB:b=>b*3.785411784/1.609344},
+      mpgimp:{n:'MPG (imperial)',g:'ukmpg',a:['mpgimp','mpg imp','imperial mpg','uk mpg','impmpg'],toB:v=>v*1.609344/4.54609,fromB:b=>b*4.54609/1.609344},
+      kml:{n:'km/L',g:'km/liter',a:['kml','km/l','kmpl','km per l','km per litre','km per liter','kilometers per liter','kilometres per litre'],toB:v=>v,fromB:b=>b},
+      mil:{n:'miles/L',g:'miles/liter',a:['mil','mi/l','miles per l','miles per litre','miles per liter','miles/l'],toB:v=>v*1.609344,fromB:b=>b/1.609344},
+      l100:{n:'L/100 km',g:'liters/100km',a:['l100','l/100km','l/100 km','liters per 100 km','litres per 100 km','l per 100 km','liters/100km','litres/100km'],toB:v=>100/v,fromB:b=>100/b},
+      gal100mi:{n:'gal/100 mi (US)',g:'gallons/(100 miles)',a:['gal100mi','gal/100mi','gal/100 mi','gallons per 100 miles','gal per 100 miles'],toB:v=>100*1.609344/(v*3.785411784),fromB:b=>100*1.609344/(b*3.785411784)},
+    };
     // alias index: normalized string → list of {cat,key}
     const norm = s => s.toLowerCase().replace(/\./g,'').replace(/\s+/g,' ').trim();
     const idx = {};
     const add = (key,ref) => { (idx[key]=idx[key]||[]).push(ref); const sp=key.replace(/\s+/g,''); if(sp!==key)(idx[sp]=idx[sp]||[]).push(ref); };
     for (const cat in C) for (const key in C[cat].u) for (const al of C[cat].u[key].a) add(norm(al), {cat,key});
     for (const key in TEMP) for (const al of TEMP[key].a) add(norm(al), {cat:'temp',key});
+    for (const key in FUEL) for (const al of FUEL[key].a) add(norm(al), {cat:'fuel',key});
     const resolve = phrase => {
       const p = norm(phrase); if (!p) return [];
       let hits = idx[p] || idx[p.replace(/\s+/g,'')];
       if (!hits && p.endsWith('s')) hits = idx[p.slice(0,-1)];   // lenient plural
       return hits || [];
     };
-    const uinfo = ref => ref.cat==='temp' ? TEMP[ref.key] : C[ref.cat].u[ref.key];
+    const uinfo = ref => ref.cat==='temp' ? TEMP[ref.key] : ref.cat==='fuel' ? FUEL[ref.key] : C[ref.cat].u[ref.key];
     const convert = (val, from, to) => {
       if (from.cat==='temp') return TEMP[to.key].fromC(TEMP[from.key].toC(val));
+      if (from.cat==='fuel') return FUEL[to.key].fromB(FUEL[from.key].toB(val));
       return val * C[from.cat].u[from.key].f / C[to.cat].u[to.key].f;
     };
     const inp=$('#cv2-in'), errEl=$('#cv2-err'), resEl=$('#cv2-result'), moreEl=$('#cv2-more'), moreLbl=$('#cv2-morelbl');
     const CONN = /\s+(?:to|into|as|in|=|->|→|>)\s+/i;
     const CONN_G = /\s+(to|into|as|in|=|->|→|>)\s+/gi;
     const rowsFor = (val, from) => {
-      const cat = from.cat, keys = cat==='temp' ? Object.keys(TEMP) : Object.keys(C[cat].u);
+      const cat = from.cat, keys = cat==='temp' ? Object.keys(TEMP) : cat==='fuel' ? Object.keys(FUEL) : Object.keys(C[cat].u);
       return keys.filter(k => k!==from.key).map(k => {
         const to = {cat,key:k}, out = convert(val, from, to), s = fmtNum(out);
         return `<div class="out"><span class="k" style="text-transform:none;letter-spacing:0">${esc(uinfo(to).n)}</span><span class="v">${s}</span><button class="cpy" data-copy-text="${esc(s)}">Copy</button></div>`;

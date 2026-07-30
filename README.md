@@ -18,7 +18,7 @@ app release and shows the current version. See [PACKAGING.md](PACKAGING.md).
 ## Quality
 
 - **`tests.html`** — integration suite: drives every tool in a live iframe with
-  known-answer vectors (189 assertions across all 127 tools). Open it to see a pass/fail report.
+  known-answer vectors (192 assertions across all 127 tools). Open it to see a pass/fail report.
 - **`verify-commands.sh`** — runs each tool's documented shell command on your machine and
   confirms it matches the tool's output (43 checks).
 
