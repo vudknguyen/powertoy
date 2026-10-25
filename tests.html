@@ -193,7 +193,7 @@ t('sharpen: CLAHE lifts a flat histogram', async () => {
   const before = lumaStdev(grab('#sp-a')), after = lumaStdev(grab('#sp-b'));
   assert(after > before * 1.5, `clahe did not raise contrast: ${before} -> ${after}`);
 });
-t('sharpen: luma-only, so a flat colour is untouched', async () => {
+t('sharpen: luma-only, so a flat color is untouched', async () => {
   await go('sharpen');
   await feedImage('#sp-file', cx => { cx.fillStyle = '#3366cc'; cx.fillRect(0,0,80,80); }, 80, 80);
   await wait(400); await pickMode('#sp-mode', 'unsharp'); await wait(400);
@@ -237,7 +237,7 @@ t('colorize: greys the source and waits for a stroke', async () => {
   assert(satOf(pixAt('#cz-a', 100, 90)) <= 2, 'base layer is not greyscale');
   assert($('#cz-run').disabled, 'Colorize enabled with no strokes');
 });
-t('colorize: colour spreads through a region and stops at the edge', async () => {
+t('colorize: color spreads through a region and stops at the edge', async () => {
   await go('colorize');
   await feedImage('#cz-file', cx => { cx.fillStyle='#3a3a3a'; cx.fillRect(0,0,200,120);
     cx.fillStyle='#c4c4c4'; cx.fillRect(0,0,200,58); }, 200, 120);
@@ -250,8 +250,8 @@ t('colorize: colour spreads through a region and stops at the edge', async () =>
   $('#cz-run').click();
   for (let i = 0; i < 80 && !/done/.test(txt('#cz-prog') || ''); i++) await wait(150);
   const light = pixAt('#cz-a', 185, 25), dark = pixAt('#cz-a', 185, 100);
-  assert(satOf(light) > 12, 'colour did not cross the light band: ' + light);
-  assert(satOf(dark)  > 12, 'colour did not cross the dark band: ' + dark);
+  assert(satOf(light) > 12, 'color did not cross the light band: ' + light);
+  assert(satOf(dark)  > 12, 'color did not cross the dark band: ' + dark);
   assert(light[0] > light[2] + 15, 'light band is not reddish: ' + light);
   assert(dark[2]  > dark[0]  + 15, 'dark band is not bluish: ' + dark);
 });
