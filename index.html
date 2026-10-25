@@ -418,7 +418,7 @@ button.ghost:hover{color:var(--accent-2);border-color:var(--accent)}
 .sudoku{display:grid;grid-template-columns:repeat(9,1fr);width:min(430px,94vw);aspect-ratio:1;border:2px solid var(--ink);border-radius:4px;overflow:hidden}
 .sudoku input{border:1px solid var(--border);text-align:center;font-family:var(--mono);font-size:clamp(.9rem,4vw,1.15rem);padding:0;width:100%;height:100%;background:var(--surface);color:var(--accent-2);outline:none}
 .sudoku input.given{color:var(--ink);font-weight:700;background:var(--code-bg)}
-.sudoku input.bad{background:#ffd9d4;color:var(--bad)}
+.sudoku input.bad{background:rgba(200,66,50,.18);color:var(--bad)}
 .sudoku input:focus{box-shadow:inset 0 0 0 2px var(--accent)}
 .beatdot{width:16px;height:16px;border-radius:50%;background:var(--border-2);display:inline-block;transition:background .05s}
 .beatdot.on{background:var(--accent)}.beatdot.accent.on{background:var(--bad)}
@@ -1381,7 +1381,11 @@ tool({
       };
       for (let guard = 0; guard < 366*24*60 && out.length < n; guard++){
         if (d.getHours() === 0 && d.getMinutes() === 0 && !dayOk(d)){
-          d = new Date(d.getTime() + 86400000);   // skip whole non-matching days
+          // Skip whole non-matching days. Build the next local midnight rather
+          // than adding 86400000 ms: on a DST spring-forward the day is only 23
+          // hours, so a fixed 24h jump overshoots into 01:00 and steps straight
+          // over that day's 00:00–00:59 runs.
+          d = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1, 0, 0, 0, 0);
           guard += 1439;
           continue;
         }
@@ -2378,7 +2382,11 @@ tool({
       $('#dm-iso').textContent = r.toISOString();
       $('#dm-epoch').textContent = String(Math.floor(r.getTime() / 1000));
       $('#dm-week').textContent = isoWeek(r);
-      $('#dm-doy').textContent = String(Math.floor((r - new Date(r.getFullYear(), 0, 0)) / 86400000));
+      // Both endpoints must be local midnights: dividing raw elapsed ms by a
+      // fixed 86400000 loses an hour across a DST change, which pushed every
+      // time between 00:00 and 01:00 back a day.
+      $('#dm-doy').textContent = String(Math.round(
+        (new Date(r.getFullYear(), r.getMonth(), r.getDate()) - new Date(r.getFullYear(), 0, 1)) / 86400000) + 1);
       const u = { minutes:'M', hours:'H', days:'d', weeks:'w', months:'m', years:'y' }[unit.value];
       setSh('dmath', 0, `date -d ${shq(base.value.replace('T',' ') + ' ' + (dir > 0 ? '+' : '-') + Math.abs(+amt.value || 0) + ' ' + unit.value)}`);
       setSh('dmath', 1, `date -v ${dir > 0 ? '+' : '-'}${Math.abs(+amt.value || 0)}${u}`);
@@ -8616,7 +8624,7 @@ tool({
       <span class="score" id="ty-acc">100%</span>
       <span class="score" id="ty-time">0.0s</span>
     </div>
-    <div id="ty-text" style="font-family:var(--mono);font-size:1.05rem;line-height:1.8;background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:.8rem 1rem;margin-bottom:.6rem;min-height:3rem"></div>
+    <div id="ty-text" style="font-family:var(--mono);font-size:1.05rem;line-height:1.8;background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:.8rem 1rem;margin-bottom:.6rem;min-height:3rem;white-space:pre-wrap;overflow-wrap:break-word"></div>
     <textarea id="ty-in" spellcheck="false" autocomplete="off" style="min-height:70px" placeholder="start typing here…"></textarea>`,
   wire(){
     const WORDS='the of and to a in is be that have it for not on with he as you do at this but his by from they we say her she or an will my one all would there their what so up out if about who get which go me when make can like time no just him know take people into year your good some could them see other than then now look only come its over think also back after use two how our work first well way even new want because any these give day most us able about above among great small large place where while there those think under begin point world group while right still life part'.split(' ');
@@ -8624,7 +8632,7 @@ tool({
     const txt=$('#ty-text'), inp=$('#ty-in');
     let target, started, raf;
     const fresh=()=>{ target=gen(); inp.value=''; started=0; render(); cancelAnimationFrame(raf); $('#ty-wpm').textContent='0 wpm'; $('#ty-acc').textContent='100%'; $('#ty-time').textContent='0.0s'; };
-    const render=()=>{ const v=inp.value; let h=''; for(let i=0;i<target.length;i++){ const ch=target[i]; let col=''; if(i<v.length) col=v[i]===ch?'color:var(--good)':'background:#ffd9d4;color:var(--bad)'; else if(i===v.length) col='border-bottom:2px solid var(--accent)'; h+=`<span style="${col}">${ch===' '?'&nbsp;':esc(ch)}</span>`; } txt.innerHTML=h; };
+    const render=()=>{ const v=inp.value; let h=''; for(let i=0;i<target.length;i++){ const ch=target[i]; let col=''; if(i<v.length) col=v[i]===ch?'color:var(--good)':'background:rgba(200,66,50,.18);color:var(--bad)'; else if(i===v.length) col='border-bottom:2px solid var(--accent)'; h+=`<span style="${col}">${esc(ch)}</span>`; } txt.innerHTML=h; };
     const tick=()=>{ if(!started)return; const t=(Date.now()-started)/1000; $('#ty-time').textContent=t.toFixed(1)+'s'; const v=inp.value; const correct=[...v].filter((c,i)=>c===target[i]).length; const wpm=Math.round((correct/5)/(t/60)||0); $('#ty-wpm').textContent=wpm+' wpm'; const acc=v.length?Math.round(correct/v.length*100):100; $('#ty-acc').textContent=acc+'%'; if(v.length<target.length)raf=requestAnimationFrame(tick); };
     inp.addEventListener('input',()=>{ if(!started){ started=Date.now(); raf=requestAnimationFrame(tick); } if(inp.value.length>target.length)inp.value=inp.value.slice(0,target.length); render(); if(inp.value.length>=target.length){ cancelAnimationFrame(raf); tick(); txt.innerHTML+=' <b style="color:var(--accent-2)">done!</b>'; } });
     $('#ty-new').addEventListener('click',fresh); fresh();

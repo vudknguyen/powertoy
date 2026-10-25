@@ -293,6 +293,36 @@ t('fuel mpg→l100', async () => { await go('fuel'); set('#fuel-u','mpgus'); set
 t('epoch decode', async () => { await go('time'); set('#time-in','1718000000'); eq(txt('#time-iso'),'2024-06-10T06:13:20.000Z'); });
 t('cron describe', async () => { await go('cron'); set('#cron-in','0 9 * * 1'); inc(txt('#cron-desc'),'09:00'); inc(txt('#cron-desc'),'Monday'); });
 t('cron next runs', async () => { await go('cron'); set('#cron-in','*/15 9-17 * * 1-5'); assert($$('#cron-next .out').length===5,'expected 5 next runs'); });
+t('cron: weekly schedule stays weekly across a DST change', async () => {
+  /* The day-skip used to advance by a flat 86400000 ms. On a 23-hour
+     spring-forward day that lands at 01:00 and steps over the next day's
+     00:00 runs, so "midnight every Monday" skipped a whole week.
+     Caveat: nextRuns() starts from the real clock, so this only exercises the
+     DST path when a spring-forward happens to fall inside the five runs shown
+     — roughly late January to early March. The rest of the year it is a
+     spacing sanity check. The day-skip was proven equivalent to a brute-force
+     minute-by-minute scan across three DST zones separately. */
+  await go('cron'); set('#cron-in','0 0 * * 1'); await wait(40);
+  const utc = $$('#cron-next .out').map(r => {
+    const t = r.querySelectorAll('.v')[1];
+    return t ? Date.parse(t.textContent.trim().replace(' UTC','Z').replace(' ','T')) : NaN;
+  });
+  assert(utc.length >= 3 && utc.every(t => !isNaN(t)), 'could not read UTC stamps: ' + utc.length);
+  for (let i = 1; i < utc.length; i++){
+    const hrs = (utc[i] - utc[i-1]) / 3600000;
+    assert(hrs >= 167 && hrs <= 169, `runs ${i-1}->${i} are ${(hrs/24).toFixed(2)} days apart, not 7`);
+  }
+});
+t('date math: day-of-year survives DST', async () => {
+  /* Day-of-year divided raw elapsed ms by 86400000, so in any DST zone every
+     time between 00:00 and 01:00 came out a day short for most of the year. */
+  await go('dmath');
+  for (const [iso, want] of [['2026-01-01T00:30',1],['2026-03-15T00:30',74],
+                             ['2026-06-01T00:30',152],['2026-12-31T00:30',365]]){
+    set('#dm-base', iso); set('#dm-amt','0'); await wait(40);
+    eq(+txt('#dm-doy'), want, `day-of-year for ${iso}`);
+  }
+});
 t('date math add', async () => { await go('dmath'); set('#dm-base','2026-06-10T12:00'); $$('#dm-dir [data-d]')[0].click(); set('#dm-amt','3'); set('#dm-unit','days'); inc(txt('#dm-iso'),'2026-06-13'); });
 t('duration convert', async () => { await go('dur'); set('#dur-u','1000'); set('#dur-v','90061'); eq(txt('#dur-clock'),'25:01:01'); });
 t('timezone rows render', async () => { await go('tz'); set('#tz-dt','2026-06-10T12:00'); await wait(40); assert($$('#tz-rows .tz-row').length>0,'no tz rows'); assert($$('#tz-rows .tz-cell').length>=24,'no strip cells'); });
