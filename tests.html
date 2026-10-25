@@ -40,6 +40,59 @@ const eq = (g, w) => assert(g === w, `expected ${JSON.stringify(w)}, got ${JSON.
 const inc = (g, w) => assert(String(g).includes(w), `expected to include ${JSON.stringify(w)}, got ${JSON.stringify(g)}`);
 const rx = (g, re) => assert(re.test(g), `expected to match ${re}, got ${JSON.stringify(g)}`);
 
+/* ---------- image-tool helpers ---------- */
+/* Paint a synthetic scene and hand it to a tool's file input. Image tools have no
+   known-answer string, so these assert measurable properties of the output canvas
+   (edge gradient, contrast, alpha coverage) against the input canvas instead. */
+async function feedImage(fileSel, paint, w, h){
+  const cv = D().createElement('canvas'); cv.width = w; cv.height = h;
+  paint(cv.getContext('2d'));
+  const blob = await new Promise(r => cv.toBlob(r, 'image/png'));
+  const dt = new DataTransfer(); dt.items.add(new File([blob], 't.png', {type:'image/png'}));
+  const f = $(fileSel);
+  Object.defineProperty(f, 'files', { value: dt.files, configurable: true });
+  f.dispatchEvent(new Event('change'));
+}
+const grab = sel => { const c = $(sel); return c.getContext('2d').getImageData(0, 0, c.width, c.height); };
+const lumaAt = (px, i) => 0.299*px.data[i] + 0.587*px.data[i+1] + 0.114*px.data[i+2];
+const pixAt = (sel, x, y) => { const px = grab(sel), i = (y*px.width + x)*4;
+  return [px.data[i], px.data[i+1], px.data[i+2], px.data[i+3]]; };
+const satOf = p => Math.max(p[0],p[1],p[2]) - Math.min(p[0],p[1],p[2]);
+/* steepest horizontal luma step along the middle row */
+function edgeSlope(px){
+  let best = 0, y = px.height >> 1;
+  for (let x = 1; x < px.width; x++)
+    best = Math.max(best, Math.abs(lumaAt(px, (y*px.width+x)*4) - lumaAt(px, (y*px.width+x-1)*4)));
+  return best;
+}
+function lumaStdev(px){
+  let s = 0, s2 = 0, n = px.width*px.height;
+  for (let i = 0; i < n; i++){ const v = lumaAt(px, i*4); s += v; s2 += v*v; }
+  return Math.sqrt(s2/n - (s/n)**2);
+}
+const meanAlpha = sel => { const px = grab(sel); let a = 0;
+  for (let i = 0; i < px.width*px.height; i++) a += px.data[i*4+3];
+  return a / (px.width*px.height*255); };
+/* a red disc on flat blue — the same scene verify-commands.sh builds with magick */
+const discScene = (w, h) => cx => {
+  cx.fillStyle = '#2050c8'; cx.fillRect(0, 0, w, h);
+  cx.fillStyle = '#d03028'; cx.beginPath(); cx.arc(w/2, h/2, Math.min(w,h)*0.28, 0, 7); cx.fill();
+};
+const blurredEdge = (w, h, px) => cx => {
+  cx.fillStyle = '#fff'; cx.fillRect(0, 0, w, h);
+  cx.filter = `blur(${px}px)`; cx.fillStyle = '#000'; cx.fillRect(0, 0, w/2, h);
+};
+/* tools hydrate once, so a mode left selected by an earlier test persists */
+const pickMode = async (segSel, m) => { $$(segSel + ' button').find(b => b.dataset.m === m).click(); await wait(60); };
+const drawBox = (sel, w, h, x0, y0, x1, y1) => {
+  const P = W().PointerEvent, o = $(sel), b = o.getBoundingClientRect();
+  o.setPointerCapture = () => {};
+  const pt = (x, y) => ({ clientX: b.left + x/w*b.width, clientY: b.top + y/h*b.height, bubbles:true, pointerId:1 });
+  o.dispatchEvent(new P('pointerdown', pt(x0, y0)));
+  o.dispatchEvent(new P('pointermove', pt(x1, y1)));
+  o.dispatchEvent(new P('pointerup',   pt(x1, y1)));
+};
+
 const T = [];
 const t = (name, fn) => T.push({ name, fn });
 
@@ -112,6 +165,110 @@ t('contrast fail', async () => { await go('contrast'); set('#ct-fg','#777777'); 
 t('palette scale', async () => { await go('palette'); set('#pal-in','#106b5b'); eq($$('#pal-scale div').length,10); inc(val('#pal-css'),'--color-50'); });
 t('image resize', async () => { await go('img'); const cv=D().createElement('canvas'); cv.width=400;cv.height=300; cv.getContext('2d').fillRect(0,0,400,300); const blob=await new Promise(r=>cv.toBlob(r,'image/png')); const dt=new DataTransfer(); dt.items.add(new File([blob],'t.png',{type:'image/png'})); const f=$('#im-file'); Object.defineProperty(f,'files',{value:dt.files,configurable:true}); f.dispatchEvent(new Event('change')); await wait(400); inc(txt('#im-res'),'image/jpeg'); });
 t('image palette', async () => { await go('imgpal'); const cv=D().createElement('canvas'); cv.width=60;cv.height=60; const cx=cv.getContext('2d'); cx.fillStyle='#cc2222';cx.fillRect(0,0,60,30); cx.fillStyle='#2244cc';cx.fillRect(0,30,60,30); const blob=await new Promise(r=>cv.toBlob(r,'image/png')); const dt=new DataTransfer(); dt.items.add(new File([blob],'t.png',{type:'image/png'})); const f=$('#ip-file'); Object.defineProperty(f,'files',{value:dt.files,configurable:true}); f.dispatchEvent(new Event('change')); await wait(500); assert($$('#ip-list .out').length>=2,'no palette extracted'); });
+
+t('sharpen: unsharp mask steepens a blurred edge', async () => {
+  await go('sharpen');
+  await feedImage('#sp-file', blurredEdge(200,120,3), 200, 120); await wait(400);
+  await pickMode('#sp-mode', 'unsharp'); await wait(400);
+  const before = edgeSlope(grab('#sp-a')), after = edgeSlope(grab('#sp-b'));
+  assert(after > before * 1.15, `unsharp did not sharpen: ${before} -> ${after}`);
+});
+t('sharpen: Richardson–Lucy recovers a gaussian blur', async () => {
+  await go('sharpen');
+  await feedImage('#sp-file', blurredEdge(200,120,2), 200, 120); await wait(400);
+  await pickMode('#sp-mode', 'deconv');
+  $('#sp-run').click();
+  for (let i = 0; i < 80 && txt('#sp-prog') !== ''; i++) await wait(120);
+  const before = edgeSlope(grab('#sp-a')), after = edgeSlope(grab('#sp-b'));
+  inc(txt('#sp-o-app'), 'Richardson–Lucy');
+  assert(after > before * 1.3, `deconvolution did not sharpen: ${before} -> ${after}`);
+});
+t('sharpen: CLAHE lifts a flat histogram', async () => {
+  await go('sharpen');
+  await feedImage('#sp-file', cx => {
+    for (let x = 0; x < 200; x++){ const v = 110 + Math.round(20*Math.sin(x/9));
+      cx.fillStyle = `rgb(${v},${v},${v})`; cx.fillRect(x, 0, 1, 120); }
+  }, 200, 120); await wait(400);
+  await pickMode('#sp-mode', 'clahe'); await wait(400);
+  const before = lumaStdev(grab('#sp-a')), after = lumaStdev(grab('#sp-b'));
+  assert(after > before * 1.5, `clahe did not raise contrast: ${before} -> ${after}`);
+});
+t('sharpen: luma-only, so a flat colour is untouched', async () => {
+  await go('sharpen');
+  await feedImage('#sp-file', cx => { cx.fillStyle = '#3366cc'; cx.fillRect(0,0,80,80); }, 80, 80);
+  await wait(400); await pickMode('#sp-mode', 'unsharp'); await wait(400);
+  const src = pixAt('#sp-a', 40, 40), got = pixAt('#sp-b', 40, 40);
+  got.slice(0,3).forEach((v, k) => assert(v === src[k], `channel ${k} drifted: ${src} -> ${got}`));
+});
+
+t('cutout: magic wand drops a flat background', async () => {
+  await go('cutout'); await pickMode('#ct-mode', 'wand');
+  await feedImage('#ct-file', discScene(240,180), 240, 180); await wait(400);
+  $('#ct-o').dispatchEvent(new (W().PointerEvent)('pointerdown', {clientX:0, clientY:0, bubbles:true}));
+  await wait(300);
+  assert(pixAt('#ct-a', 120, 90)[3] > 200, 'wand erased the subject');
+  assert(pixAt('#ct-a', 3, 3)[3] < 60, 'wand did not remove the background');
+});
+t('cutout: spectral-residual saliency finds the subject', async () => {
+  await go('cutout'); await pickMode('#ct-mode', 'box');
+  await feedImage('#ct-file', discScene(240,180), 240, 180); await wait(400);
+  $('#ct-auto').click(); await wait(300);
+  inc(txt('#ct-prog'), 'box placed');
+  assert(!$('#ct-run').disabled, 'cut-out button still disabled after auto-place');
+});
+t('cutout: GrabCut isolates the subject from a box', async () => {
+  await go('cutout'); await pickMode('#ct-mode', 'box');
+  await feedImage('#ct-file', discScene(240,180), 240, 180); await wait(400);
+  drawBox('#ct-o', 240, 180, 60, 30, 180, 150); await wait(100);
+  assert(!$('#ct-run').disabled, 'box drag did not register');
+  $('#ct-run').click();
+  for (let i = 0; i < 80 && !/GrabCut ·/.test(txt('#ct-prog') || ''); i++) await wait(150);
+  assert(pixAt('#ct-a', 120, 90)[3] > 200, 'grabcut dropped the subject');
+  assert(pixAt('#ct-a', 3, 3)[3] < 60, 'grabcut kept the background');
+  const cov = meanAlpha('#ct-a');   // the disc is ~18.6% of the frame
+  assert(cov > 0.10 && cov < 0.30, 'implausible subject coverage: ' + cov);
+});
+
+t('colorize: greys the source and waits for a stroke', async () => {
+  await go('colorize');
+  await feedImage('#cz-file', cx => { cx.fillStyle='#3a3a3a'; cx.fillRect(0,0,200,120);
+    cx.fillStyle='#c4c4c4'; cx.fillRect(0,0,200,58); }, 200, 120);
+  await wait(400);
+  assert(satOf(pixAt('#cz-a', 100, 90)) <= 2, 'base layer is not greyscale');
+  assert($('#cz-run').disabled, 'Colorize enabled with no strokes');
+});
+t('colorize: colour spreads through a region and stops at the edge', async () => {
+  await go('colorize');
+  await feedImage('#cz-file', cx => { cx.fillStyle='#3a3a3a'; cx.fillRect(0,0,200,120);
+    cx.fillStyle='#c4c4c4'; cx.fillRect(0,0,200,58); }, 200, 120);
+  await wait(400);
+  $$('#cz-pal button').find(b => b.dataset.c === '#b5453c').click();
+  drawBox('#cz-o', 200, 120, 30, 28, 48, 28); await wait(120);
+  $$('#cz-pal button').find(b => b.dataset.c === '#4a7fb5').click();
+  drawBox('#cz-o', 200, 120, 30, 92, 48, 92); await wait(120);
+  assert(!$('#cz-run').disabled, 'Colorize still disabled after two strokes');
+  $('#cz-run').click();
+  for (let i = 0; i < 80 && !/done/.test(txt('#cz-prog') || ''); i++) await wait(150);
+  const light = pixAt('#cz-a', 185, 25), dark = pixAt('#cz-a', 185, 100);
+  assert(satOf(light) > 12, 'colour did not cross the light band: ' + light);
+  assert(satOf(dark)  > 12, 'colour did not cross the dark band: ' + dark);
+  assert(light[0] > light[2] + 15, 'light band is not reddish: ' + light);
+  assert(dark[2]  > dark[0]  + 15, 'dark band is not bluish: ' + dark);
+});
+t('colorize: luminance survives untouched where chroma is in gamut', async () => {
+  const a = grab('#cz-a');
+  const g = $('#cz-showgrey'); g.checked = true; g.dispatchEvent(new Event('change'));
+  await wait(120);
+  const b = grab('#cz-a');
+  let worst = 0, checked = 0;
+  for (let i = 0; i < a.width*a.height; i++){
+    const p = i*4;
+    if (![0,1,2].every(c => a.data[p+c] > 0 && a.data[p+c] < 255)) continue;  // clipped: gamut, not a bug
+    worst = Math.max(worst, Math.abs(lumaAt(a, p) - lumaAt(b, p))); checked++;
+  }
+  assert(checked > a.width*a.height*0.5, 'too few in-gamut pixels to judge');
+  assert(worst < 1.5, 'colorizing shifted luminance by ' + worst);
+});
 
 /* ---------- Units ---------- */
 t('weight kg→lb', async () => { await go('wt'); set('#wt-u','kg'); set('#wt-v','1'); eq(txt('#wt-lb'),'2.204622622'); });

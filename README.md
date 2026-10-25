@@ -1,6 +1,6 @@
 # powertoy — developer utilities
 
-A single-file webapp with 127 everyday utilities for developers and power users.
+A single-file webapp with 130 everyday utilities for developers and power users.
 Every tool shows its **shell equivalent** (bash / unix command) alongside the result.
 Works offline from a plain `file://` open — no build, no install, no server.
 
@@ -18,9 +18,9 @@ app release and shows the current version. See [PACKAGING.md](PACKAGING.md).
 ## Quality
 
 - **`tests.html`** — integration suite: drives every tool in a live iframe with
-  known-answer vectors (192 assertions across all 127 tools). Open it to see a pass/fail report.
+  known-answer vectors (202 assertions across all 130 tools). Open it to see a pass/fail report.
 - **`verify-commands.sh`** — runs each tool's documented shell command on your machine and
-  confirms it matches the tool's output (43 checks).
+  confirms it matches the tool's output (49 checks).
 
 ## Tools
 
@@ -54,6 +54,9 @@ app release and shows the current version. See [PACKAGING.md](PACKAGING.md).
 | Convert | Image palette     | `#imgpal` |
 | Convert | Bitwise calc      | `#bitw`   |
 | Convert | Image resize      | `#img`    |
+| Convert | Image sharpen     | `#sharpen` |
+| Convert | Extract subject   | `#cutout` |
+| Convert | Scribble colorize | `#colorize` |
 | Convert | IEEE 754 float    | `#ieee`   |
 | Convert | Easing curve      | `#bezier` |
 | Convert | CSS gradient      | `#gradient` |
@@ -161,6 +164,14 @@ app release and shows the current version. See [PACKAGING.md](PACKAGING.md).
   `base64(salt[16] ∥ iv[12] ∥ ciphertext+tag)` — decrypt with the same tool.
 - Cron supports 5-field expressions plus `@daily`-style aliases, with next-run preview.
 - Timezone list comes from the browser's own IANA database (`Intl.supportedValuesOf`).
+- The image tools are classical DSP, not models — nothing is downloaded and nothing is uploaded.
+  **Image sharpen** does unsharp masking and CLAHE on the BT.601 luma channel and Richardson–Lucy
+  deconvolution (Gaussian or linear-motion PSF) on linear-light luminance, so sharpening never
+  introduces a colour fringe. **Extract subject** offers a magic wand (contiguous flood fill) and
+  GrabCut — two 5-component RGB Gaussian mixtures and a Dinic min-cut over an 8-neighbour pixel
+  graph — with the box optionally placed by spectral-residual saliency. **Scribble colorize** solves
+  Levin–Lischinski–Weiss colour propagation on an image pyramid, so the grey channel is preserved
+  exactly and only Cb/Cr are filled in.
 - Press `/` to search tools, or `⌘K`/`Ctrl-K` for the command palette; tools are deep-linkable via URL hash (e.g. `index.html#cron`).
 - Smart paste: paste a JWT, epoch, JSON, curl command, CIDR, color, etc. anywhere (outside a field) and the app offers to open the right tool prefilled.
 - Pin tools with the ☆ star — they float to the top of the sidebar.

@@ -7,6 +7,12 @@ ok(){ printf '  \033[32m✓\033[0m %s\n' "$1"; pass=$((pass+1)); }
 no(){ printf '  \033[31m✗\033[0m %s\n     got: %q\n     want: %q\n' "$1" "$2" "$3"; fail=$((fail+1)); }
 chk(){ local name="$1" got="$2" want="$3"; [ "$got" = "$want" ] && ok "$name" || no "$name" "$got" "$want"; }
 has(){ local name="$1" got="$2" want="$3"; case "$got" in *"$want"*) ok "$name";; *) no "$name" "$got" "$want";; esac; }
+rng(){ local name="$1" got="$2" lo="$3" hi="$4"
+  case "$got" in ''|*[!0-9]*) no "$name" "$got" "$lo..$hi"; return;; esac
+  if [ "$got" -ge "$lo" ] && [ "$got" -le "$hi" ]; then ok "$name (got $got)"; else no "$name" "$got" "$lo..$hi"; fi; }
+gt(){ local name="$1" got="$2" base="$3"
+  case "$got$base" in ''|*[!0-9]*) no "$name" "$got" "> $base"; return;; esac
+  if [ "$got" -gt "$base" ]; then ok "$name ($base -> $got)"; else no "$name" "$got" "> $base"; fi; }
 
 # GNU sed if available (macOS sed lacks \U); fall back to sed
 SED=sed; command -v gsed >/dev/null && SED=gsed
@@ -93,6 +99,41 @@ has "x509 subject CN (openssl)" "$(openssl x509 -in "$T" -noout -subject 2>/dev/
 has "x509 SAN (openssl)"        "$(openssl x509 -in "$T" -noout -ext subjectAltName 2>/dev/null)" "alt.powertoy.dev"
 has "x509 sig alg (openssl)"    "$(openssl x509 -in "$T" -noout -text 2>/dev/null | grep -m1 'Signature Algorithm')" "sha256WithRSA"
 rm -f "$T"
+
+echo "IMAGE"
+if command -v magick >/dev/null 2>&1; then
+  IMG=$(mktemp -d)
+  # the same synthetic scene the browser suite feeds the image tools:
+  # a red disc covering ~18.6% of a flat blue frame
+  magick -size 240x180 xc:'#2050c8' -fill '#d03028' -draw 'circle 120,90 120,40' "$IMG/photo.png"
+  magick -size 200x120 xc:white -fill black -draw 'rectangle 0,0 99,119' -blur 0x3 "$IMG/blur.png"
+  magick -size 200x120 gradient:'#6a6a6a-#8a8a8a' "$IMG/ramp.png"
+  sobel(){ magick "$1" -colorspace Gray -define convolve:scale='!' -morphology Convolve Sobel -format '%[fx:int(1000*maxima)]' info:; }
+  sdev(){  magick "$1" -format '%[fx:int(1000*standard_deviation)]' info:; }
+  alpha(){ magick "$1" -format '%[fx:int(1000*mean.a)]' info:; }
+
+  # Image sharpen
+  magick "$IMG/blur.png" -unsharp 0x1.2+1.00+0.008 "$IMG/sharp.png"
+  gt  "unsharp raises edge gradient (magick -unsharp)" "$(sobel "$IMG/sharp.png")" "$(sobel "$IMG/blur.png")"
+  magick "$IMG/ramp.png" -clahe 13x13%+256+2.5 "$IMG/clahe.png"
+  gt  "clahe raises local contrast (magick -clahe)" "$(sdev "$IMG/clahe.png")" "$(sdev "$IMG/ramp.png")"
+
+  # Extract subject — the wand's shell equivalent should keep the same ~18.6%
+  # of the frame the in-app magic wand keeps on this exact scene.
+  magick "$IMG/photo.png" -alpha set -fuzz 7% -fill none -draw 'alpha 0,0 floodfill' "$IMG/cut.png"
+  rng "magic wand keeps just the subject (magick floodfill)" "$(alpha "$IMG/cut.png")" 150 230
+  magick "$IMG/photo.png" -fuzz 8% -transparent '#2050c8' "$IMG/cut2.png"
+  rng "flat-background drop (magick -transparent)" "$(alpha "$IMG/cut2.png")" 150 230
+
+  # Scribble colorize
+  magick "$IMG/photo.png" -colorspace Gray "$IMG/grey.png"
+  chk "greyscale flatten (magick -colorspace Gray)" "$(magick "$IMG/grey.png" -format '%[colorspace]' info:)" "Gray"
+  magick "$IMG/grey.png" -fill '#c08457' -tint 60 "$IMG/tint.png"
+  chk "global tint keeps geometry (magick -tint)" "$(magick "$IMG/tint.png" -format '%wx%h' info:)" "240x180"
+  rm -rf "$IMG"
+else
+  printf '  \033[33m–\033[0m ImageMagick not installed; skipping the IMAGE section\n'
+fi
 
 echo
 printf '\033[1m%d passed, %d failed\033[0m\n' "$pass" "$fail"
