@@ -4,59 +4,62 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="description" content="powertoy — offline developer utilities: base64, color, epoch, timezone, cron, regex, hashing, AES, JSON and more.">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23106b5b'/%3E%3Ctext x='32' y='46' font-size='40' text-anchor='middle' fill='%23fffefb' font-family='Georgia,serif' font-weight='bold'%3Ep%3C/text%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%235a5fd4'/%3E%3Ctext x='32' y='46' font-size='40' text-anchor='middle' fill='%23ffffff' font-family='Georgia,serif' font-weight='bold'%3Ep%3C/text%3E%3C/svg%3E">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icon-192.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="powertoy">
-<meta name="theme-color" content="#f6f5f0" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#14130f" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#fbfbfc" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0d0e12" media="(prefers-color-scheme: dark)">
 <title>powertoy — developer utilities</title>
 <style>
 /* ────────────────────────────────────────────────────────────
-   powertoy — warm minimal
-   paper white · deep teal · serif display, mono for data
+   powertoy — dense utility
+   slate neutrals · indigo accent · system sans, mono for data
    ──────────────────────────────────────────────────────────── */
 :root{
-  --bg:        #f6f5f0;
-  --surface:   #fffefb;
-  --ink:       #21201c;
-  --muted:     #6f6c61;
-  --faint:     #a6a294;
-  --border:    #e6e3d8;
-  --border-2:  #d4d0c2;
-  --accent:    #106b5b;
-  --accent-2:  #0c5547;
-  --tint:      #e9f1ed;
-  --code-bg:   #f0eee6;
-  --good:      #106b5b;
-  --bad:       #b3382c;
-  --sans: "Avenir Next", Avenir, Seravek, "Gill Sans", "Segoe UI", system-ui, sans-serif;
-  --serif: "Iowan Old Style", Charter, "Palatino Linotype", Palatino, Georgia, serif;
+  --bg:        #fbfbfc;
+  --surface:   #ffffff;
+  --ink:       #15171c;
+  --muted:     #5c6270;
+  --faint:     #8b91a0;
+  --border:    #e7e9ee;
+  --border-2:  #d6dae3;
+  --accent:    #5a5fd4;
+  --accent-2:  #474bbf;
+  --tint:      #eeeefc;
+  --on-accent: #ffffff;
+  --hover:     rgba(0,0,0,.045);
+  --code-bg:   #f5f6f9;
+  --good:      #1a7f52;
+  --bad:       #c23b32;
+  --sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
   --mono: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
-  --radius: 10px;
-  --headbg: rgba(246,245,240,.92);
-  --check1: #e9e6dc;
+  --radius: 7px;
+  --headbg: rgba(251,251,252,.85);
+  --check1: #eceef2;
   --check2: #ffffff;
   color-scheme: light;
 }
 [data-theme="dark"]{
-  --bg:        #14130f;
-  --surface:   #1c1b16;
-  --ink:       #e6e2d3;
-  --muted:     #9b9684;
-  --faint:     #6e6a5c;
-  --border:    #2c2a22;
-  --border-2:  #3b382e;
-  --accent:    #2e9c82;
-  --accent-2:  #5cc2a7;
-  --tint:      #1e2e28;
-  --code-bg:   #211f18;
-  --good:      #5cc2a7;
-  --bad:       #e57364;
-  --headbg:    rgba(20,19,15,.92);
-  --check1:    #26241d;
-  --check2:    #1c1b16;
+  --bg:        #0d0e12;
+  --surface:   #15171d;
+  --ink:       #e6e8ee;
+  --muted:     #9aa1b2;
+  --faint:     #6a7183;
+  --border:    #232630;
+  --border-2:  #333845;
+  --accent:    #7c82f0;
+  --accent-2:  #9ea3ff;
+  --tint:      #1d1f36;
+  --on-accent: #10121a;
+  --hover:     rgba(255,255,255,.055);
+  --code-bg:   #121419;
+  --good:      #4ec38a;
+  --bad:       #f0776a;
+  --headbg:    rgba(13,14,18,.85);
+  --check1:    #1b1e25;
+  --check2:    #15171d;
   color-scheme: dark;
 }
 *{box-sizing:border-box;margin:0;padding:0}
@@ -65,70 +68,88 @@ body{
   background:var(--bg);
   color:var(--ink);
   font-family:var(--sans);
-  font-size:15px;
-  line-height:1.6;
+  font-size:13.5px;
+  line-height:1.55;
+  -webkit-font-smoothing:antialiased;
   min-height:100vh;
 }
-::selection{background:var(--accent);color:#fff}
+::selection{background:var(--accent);color:var(--on-accent)}
 a{color:var(--accent)}
 
 /* ── header ──────────────────────────────────────────────── */
 header.top{
   display:flex;align-items:center;gap:1.5rem;
-  padding:.9rem clamp(1rem,3vw,2.2rem);
+  padding:.58rem clamp(.9rem,2.4vw,1.6rem);
   border-bottom:1px solid var(--border);
   background:var(--headbg);backdrop-filter:blur(8px);
   position:sticky;top:0;z-index:50;
 }
-.brand{font-family:var(--serif);font-size:1.35rem;font-weight:600;letter-spacing:-.01em}
+.brand{font-family:var(--sans);font-size:1.02rem;font-weight:680;letter-spacing:-.022em}
 .brand i{color:var(--accent);font-style:normal}
-.tagline{color:var(--muted);font-size:.85rem;flex:1}
+.tagline{color:var(--muted);font-size:.775rem;flex:1}
 .search{position:sticky;top:0;z-index:6;background:var(--bg);width:auto;margin-bottom:.5rem}
 .search input{
   width:100%;background:var(--surface);border:1px solid var(--border-2);
-  color:var(--ink);font-family:var(--sans);font-size:.85rem;
-  padding:.45rem 2.2rem .45rem .9rem;border-radius:999px;outline:none;
+  color:var(--ink);font-family:var(--sans);font-size:.8rem;
+  padding:.4rem 2.1rem .4rem .7rem;border-radius:6px;outline:none;
 }
 .search input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--tint)}
 .search kbd{
-  position:absolute;right:.7rem;top:.42rem;font-size:.7rem;color:var(--faint);
+  position:absolute;right:.6rem;top:.36rem;font-size:.7rem;color:var(--faint);
   border:1px solid var(--border);padding:0 .35rem;border-radius:4px;pointer-events:none;
   font-family:var(--mono);background:var(--bg);
 }
-.hdrlink{font-size:.78rem;color:var(--muted);text-decoration:none;white-space:nowrap;
-  border:1px solid var(--border-2);padding:.32rem .6rem;border-radius:999px}
+.hdrlink{font-size:.73rem;color:var(--muted);text-decoration:none;white-space:nowrap;
+  border:1px solid var(--border-2);padding:.26rem .55rem;border-radius:6px}
 .hdrlink:hover{color:var(--accent-2);border-color:var(--accent)}
+.home-grid{columns:238px;column-gap:1.9rem;margin-top:.2rem}
+.home-group{break-inside:avoid;-webkit-column-break-inside:avoid;display:inline-block;width:100%;margin:0 0 1.35rem}
+.home-group h3{display:flex;align-items:baseline;gap:.45rem;font-size:.625rem;letter-spacing:.11em;
+  text-transform:uppercase;color:var(--faint);font-weight:600;margin:0 0 .3rem .4rem}
+.blurb kbd{font-family:var(--mono);font-size:.78em;border:1px solid var(--border-2);
+  background:var(--surface);color:var(--ink);padding:.05em .35em;border-radius:4px}
+.home-links{display:flex;flex-direction:column}
+.home-links button{text-align:left;background:none;border:0;cursor:pointer;font-family:var(--sans);
+  font-size:.83rem;color:var(--muted);padding:.18rem .4rem;border-radius:5px;width:100%}
+.home-links button:hover{color:var(--accent-2);background:var(--hover)}
+.navhome{font-weight:600 !important}
+.brand{cursor:pointer}
+.navtoggle{display:none;background:none;border:1px solid var(--border-2);border-radius:6px;
+  color:var(--muted);cursor:pointer;font-size:.95rem;line-height:1;padding:.26rem .48rem}
+.navtoggle:hover{color:var(--accent-2);border-color:var(--accent)}
 #dlBtn{color:var(--accent-2);border-color:var(--accent)}
 @media (max-width:600px){ .hdrlink{display:none} }
 
 /* ── frame ───────────────────────────────────────────────── */
-.frame{display:grid;grid-template-columns:230px 1fr;max-width:1180px;margin:0 auto}
-aside{padding:1.4rem .9rem 3rem .6rem}
+.frame{display:grid;grid-template-columns:214px 1fr;max-width:1340px;margin:0 auto}
+aside{padding:1rem .7rem 3rem .5rem}
 .navgroup{margin:.1rem 0}
 .navgroup.hidden{display:none}
 .navhead{
   display:flex;align-items:center;justify-content:space-between;gap:.5rem;
-  margin:.55rem .6rem .15rem;padding:.2rem .05rem;background:none;border:0;cursor:pointer;
-  font-family:var(--sans);font-size:.68rem;letter-spacing:.14em;text-transform:uppercase;
+  margin:.5rem .5rem .1rem;padding:.2rem .05rem;background:none;border:0;cursor:pointer;
+  font-family:var(--sans);font-size:.625rem;letter-spacing:.11em;text-transform:uppercase;
   color:var(--faint);font-weight:600;
 }
 .navhead:hover{color:var(--muted)}
+.navmeta{display:inline-flex;align-items:center;gap:.4rem}
+.navcount{font-family:var(--mono);font-size:.6rem;color:var(--faint);font-weight:400;letter-spacing:0}
 .navchev{font-size:.6rem;opacity:.7;transition:transform .15s ease}
 .navgroup.collapsed .navchev{transform:rotate(-90deg)}
 .navgroup.collapsed .navitems{display:none}
 nav.searching .navgroup .navitems{display:block}   /* force-expand collapsed groups while searching (beats .collapsed) */
 nav button[data-tool]{
   display:block;width:100%;text-align:left;background:none;border:0;cursor:pointer;
-  font-family:var(--sans);font-size:.9rem;color:var(--muted);
-  padding:.36rem .65rem;border-radius:8px;
+  font-family:var(--sans);font-size:.82rem;color:var(--muted);
+  padding:.25rem .55rem;border-radius:5px;
 }
-nav button[data-tool]:hover{color:var(--ink);background:rgba(0,0,0,.04)}
-nav button[data-tool].active{color:var(--accent-2);background:var(--tint);font-weight:600}
+nav button[data-tool]:hover{color:var(--ink);background:var(--hover)}
+nav button[data-tool].active{color:var(--accent-2);background:var(--tint);font-weight:600;box-shadow:inset 2px 0 0 var(--accent)}
 nav button[data-tool].hidden{display:none}
 
 /* ── tool panels ─────────────────────────────────────────── */
-main{padding:1.8rem clamp(1rem,3vw,2.4rem) 4rem;min-width:0;border-left:1px solid var(--border)}
-section.tool{display:none;max-width:54rem}
+main{padding:1.35rem clamp(1rem,2.6vw,2rem) 4rem;min-width:0;border-left:1px solid var(--border)}
+section.tool{display:none;max-width:58rem}
 section.tool.active{display:block}
 section.tool.active > *{animation:rise .35s cubic-bezier(.2,.7,.2,1) both}
 section.tool.active > *:nth-child(2){animation-delay:.04s}
@@ -137,47 +158,47 @@ section.tool.active > *:nth-child(4){animation-delay:.12s}
 @keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 
 .tool-head{display:flex;justify-content:space-between;align-items:baseline;gap:1rem;flex-wrap:wrap;margin-bottom:.3rem}
-.tool-head h2{font-family:var(--serif);font-size:1.7rem;font-weight:600;letter-spacing:-.015em}
-.chip{font-size:.68rem;letter-spacing:.12em;text-transform:uppercase;color:var(--accent-2);background:var(--tint);padding:.18rem .6rem;border-radius:999px;font-weight:600}
-.blurb{color:var(--muted);font-size:.95rem;margin-bottom:1.3rem;max-width:42rem}
+.tool-head h2{font-family:var(--sans);font-size:1.3rem;font-weight:660;letter-spacing:-.024em}
+.chip{font-size:.61rem;letter-spacing:.1em;text-transform:uppercase;color:var(--accent-2);background:var(--tint);padding:.16rem .5rem;border-radius:5px;font-weight:600}
+.blurb{color:var(--muted);font-size:.855rem;margin-bottom:1.05rem;max-width:44rem}
 
 /* controls */
 textarea,input[type=text],input[type=password],input[type=number],input[type=datetime-local],select{
   background:var(--surface);border:1px solid var(--border-2);color:var(--ink);
-  font-family:var(--mono);font-size:.85rem;padding:.55rem .75rem;border-radius:8px;
+  font-family:var(--mono);font-size:.8rem;padding:.45rem .62rem;border-radius:6px;
   outline:none;width:100%;
 }
-textarea{resize:vertical;min-height:96px;line-height:1.55}
+textarea{resize:vertical;min-height:84px;line-height:1.55}
 textarea:focus,input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--tint)}
 textarea[readonly]{background:var(--code-bg);color:var(--accent-2)}
 select{font-family:var(--sans);width:auto}
 input[type=range]{width:200px;accent-color:var(--accent)}
 label.lbl{
   display:flex;align-items:center;gap:.6rem;
-  font-size:.7rem;letter-spacing:.12em;text-transform:uppercase;
-  color:var(--faint);font-weight:600;margin:1rem 0 .35rem;
+  font-size:.635rem;letter-spacing:.11em;text-transform:uppercase;
+  color:var(--faint);font-weight:600;margin:.8rem 0 .3rem;
 }
 .row{display:flex;gap:.7rem;flex-wrap:wrap;align-items:center}
 .row > *{flex:0 0 auto}
 .grow{flex:1 1 12rem !important}
 button.act{
-  background:var(--accent);color:#fff;border:0;cursor:pointer;
-  font-family:var(--sans);font-weight:600;font-size:.85rem;
-  padding:.55rem 1.2rem;border-radius:8px;
+  background:var(--accent);color:var(--on-accent);border:0;cursor:pointer;
+  font-family:var(--sans);font-weight:620;font-size:.785rem;
+  padding:.42rem .95rem;border-radius:6px;
   transition:background .12s ease;
 }
 button.act:hover{background:var(--accent-2)}
 button.ghost{
   background:var(--surface);border:1px solid var(--border-2);color:var(--muted);cursor:pointer;
-  font-family:var(--sans);font-size:.85rem;padding:.5rem 1rem;border-radius:8px;
+  font-family:var(--sans);font-size:.785rem;padding:.38rem .78rem;border-radius:6px;
 }
 button.ghost:hover{color:var(--accent-2);border-color:var(--accent)}
-.seg{display:inline-flex;background:var(--surface);border:1px solid var(--border-2);border-radius:8px;padding:2px;gap:2px}
+.seg{display:inline-flex;background:var(--surface);border:1px solid var(--border-2);border-radius:6px;padding:2px;gap:2px}
 .seg button{
   background:none;border:0;cursor:pointer;color:var(--muted);
-  font-family:var(--sans);font-size:.82rem;padding:.35rem .9rem;border-radius:6px;
+  font-family:var(--sans);font-size:.76rem;padding:.28rem .72rem;border-radius:4px;
 }
-.seg button.on{background:var(--accent);color:#fff;font-weight:600}
+.seg button.on{background:var(--accent);color:var(--on-accent);font-weight:600}
 .check{display:inline-flex;align-items:center;gap:.4rem;font-size:.85rem;color:var(--muted);cursor:pointer;user-select:none}
 .check input{accent-color:var(--accent);width:auto}
 
@@ -185,7 +206,7 @@ button.ghost:hover{color:var(--accent-2);border-color:var(--accent)}
 .outs{border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-top:.4rem;background:var(--surface)}
 .out{
   display:grid;grid-template-columns:9.5rem 1fr auto;align-items:center;gap:.8rem;
-  padding:.55rem .9rem;border-bottom:1px solid var(--border);
+  padding:.45rem .8rem;border-bottom:1px solid var(--border);
 }
 .out:last-child{border-bottom:0}
 .out .k{font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);font-weight:600}
@@ -199,19 +220,19 @@ button.ghost:hover{color:var(--accent-2);border-color:var(--accent)}
 /* copy buttons */
 .cpy{
   background:var(--surface);border:1px solid var(--border-2);color:var(--muted);cursor:pointer;
-  font-family:var(--sans);font-size:.7rem;font-weight:600;letter-spacing:.06em;
-  padding:.2rem .6rem;border-radius:6px;white-space:nowrap;
+  font-family:var(--sans);font-size:.655rem;font-weight:600;letter-spacing:.06em;
+  padding:.18rem .5rem;border-radius:5px;white-space:nowrap;
 }
 .cpy:hover{color:var(--accent-2);border-color:var(--accent)}
-.cpy.done{color:#fff;background:var(--accent);border-color:var(--accent)}
+.cpy.done{color:var(--on-accent);background:var(--accent);border-color:var(--accent)}
 
 /* shell panel */
-.shpanel{margin-top:1.7rem;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);overflow:hidden}
+.shpanel{margin-top:1.3rem;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);overflow:hidden}
 .shpanel .shead{
-  padding:.5rem .9rem;border-bottom:1px solid var(--border);
-  font-size:.7rem;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);font-weight:600;
+  padding:.42rem .8rem;border-bottom:1px solid var(--border);
+  font-size:.625rem;letter-spacing:.11em;text-transform:uppercase;color:var(--faint);font-weight:600;
 }
-.cmd{display:flex;align-items:flex-start;gap:.6rem;padding:.6rem .9rem;border-bottom:1px solid var(--border)}
+.cmd{display:flex;align-items:flex-start;gap:.6rem;padding:.5rem .8rem;border-bottom:1px solid var(--border)}
 .cmd:last-child{border-bottom:0}
 .cmd .pr{color:var(--accent);font-family:var(--mono);user-select:none}
 .cmd code{flex:1;font-family:var(--mono);color:var(--ink);word-break:break-all;white-space:pre-wrap;font-size:.8rem;line-height:1.6}
@@ -248,7 +269,7 @@ button.ghost:hover{color:var(--accent-2);border-color:var(--accent)}
 .md-prev > :first-child{margin-top:0}
 .md-prev > :last-child{margin-bottom:0}
 .md-prev h1,.md-prev h2,.md-prev h3,.md-prev h4,.md-prev h5,.md-prev h6{
-  font-family:var(--serif);font-weight:600;line-height:1.25;margin:1.4em 0 .5em}
+  font-family:var(--sans);font-weight:600;line-height:1.25;margin:1.4em 0 .5em}
 .md-prev h1{font-size:1.7em;border-bottom:1px solid var(--border);padding-bottom:.25em}
 .md-prev h2{font-size:1.4em;border-bottom:1px solid var(--border);padding-bottom:.2em}
 .md-prev h3{font-size:1.18em}
@@ -302,8 +323,19 @@ button.ghost:hover{color:var(--accent-2);border-color:var(--accent)}
 .drop.over{border-color:var(--accent);color:var(--accent-2);background:var(--tint)}
 .drop img{max-height:120px;max-width:100%;border-radius:6px;display:block;margin:0 auto .6rem}
 
+/* image workbench: before/after compare, mask overlays, brush swatches */
+.imgwrap{position:relative;margin-top:.8rem;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;background:var(--surface);line-height:0;width:fit-content;max-width:100%}
+.imgwrap canvas,.imgwrap img{display:block;max-width:100%;height:auto}
+.imgwrap canvas.lay{position:absolute;left:0;top:0;width:100%;height:100%}
+.alphabg{background-image:linear-gradient(45deg,var(--border-2) 25%,transparent 25%),linear-gradient(-45deg,var(--border-2) 25%,transparent 25%),linear-gradient(45deg,transparent 75%,var(--border-2) 75%),linear-gradient(-45deg,transparent 75%,var(--border-2) 75%);background-size:16px 16px;background-position:0 0,0 8px,8px -8px,-8px 0}
+.check .v{font-family:var(--mono);font-size:.82rem;color:var(--ink)}
+.prog{font-family:var(--mono);font-size:.8rem;color:var(--faint);min-height:1.25em;margin-top:.55rem}
+.swatches{display:inline-flex;gap:.3rem;flex-wrap:wrap}
+.swatches button{width:1.5rem;height:1.5rem;border-radius:6px;border:2px solid var(--border-2);cursor:pointer;padding:0}
+.swatches button.on{border-color:var(--ink)}
+
 /* command palette */
-.pal-ov{position:fixed;inset:0;background:rgba(15,14,10,.45);z-index:200;display:none;
+.pal-ov{position:fixed;inset:0;background:rgba(10,11,15,.55);z-index:200;display:none;
   align-items:flex-start;justify-content:center;padding-top:13vh;backdrop-filter:blur(2px)}
 .pal-ov.open{display:flex}
 .pal{width:min(560px,92vw);background:var(--surface);border:1px solid var(--border-2);
@@ -344,14 +376,29 @@ button.ghost:hover{color:var(--accent-2);border-color:var(--accent)}
   main{overflow-y:auto;min-height:0;overscroll-behavior:contain}
 }
 
+.navscrim{display:none}
 @media (max-width:840px){
   .tagline{display:none}
+  .navtoggle{display:inline-flex;align-items:center}
   .frame{grid-template-columns:1fr}
-  main{border-left:0}
-  aside{padding:1rem}
-  nav .navitems{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:0 .4rem}
+  main{border-left:0;padding-top:1.1rem}
+  /* The sidebar becomes a slide-over. The old layout stacked 130 tool names
+     above the panel, so reaching a tool you had already chosen meant scrolling
+     past every tool you had not. */
+  aside{
+    position:fixed;z-index:60;left:0;top:0;bottom:0;width:min(86vw,320px);
+    background:var(--bg);border-right:1px solid var(--border-2);
+    padding:1rem .8rem 3rem;overflow-y:auto;overscroll-behavior:contain;
+    transform:translateX(-101%);transition:transform .22s cubic-bezier(.2,.7,.2,1);
+  }
+  body.navopen{overflow:hidden}
+  body.navopen aside{transform:none}
+  .navscrim{display:block;position:fixed;inset:0;z-index:55;background:rgba(10,11,15,.5);
+    opacity:0;pointer-events:none;transition:opacity .22s ease}
+  body.navopen .navscrim{opacity:1;pointer-events:auto}
   .out{grid-template-columns:7rem 1fr auto}
 }
+@media (prefers-reduced-motion:reduce){ aside,.navscrim{transition:none} }
 
 /* ── toys ─────────────────────────────────────────────────── */
 .toybar{display:flex;gap:.6rem;align-items:center;flex-wrap:wrap;margin:.2rem 0 .8rem}
@@ -371,7 +418,7 @@ button.ghost:hover{color:var(--accent-2);border-color:var(--accent)}
 .sudoku{display:grid;grid-template-columns:repeat(9,1fr);width:min(430px,94vw);aspect-ratio:1;border:2px solid var(--ink);border-radius:4px;overflow:hidden}
 .sudoku input{border:1px solid var(--border);text-align:center;font-family:var(--mono);font-size:clamp(.9rem,4vw,1.15rem);padding:0;width:100%;height:100%;background:var(--surface);color:var(--accent-2);outline:none}
 .sudoku input.given{color:var(--ink);font-weight:700;background:var(--code-bg)}
-.sudoku input.bad{background:#ffd9d4;color:var(--bad)}
+.sudoku input.bad{background:rgba(200,66,50,.18);color:var(--bad)}
 .sudoku input:focus{box-shadow:inset 0 0 0 2px var(--accent)}
 .beatdot{width:16px;height:16px;border-radius:50%;background:var(--border-2);display:inline-block;transition:background .05s}
 .beatdot.on{background:var(--accent)}.beatdot.accent.on{background:var(--bad)}
@@ -469,13 +516,15 @@ details.rules li{margin:.15rem 0}
 <body>
 
 <header class="top">
-  <div class="brand">powertoy<i>.</i></div>
+  <button id="navBtn" class="navtoggle" aria-label="Browse tools" aria-expanded="false">☰</button>
+  <div class="brand" id="brandHome" role="button" tabindex="0" title="All tools">powertoy<i>.</i></div>
   <div class="tagline">Everyday developer utilities — each with its shell equivalent.</div>
   <a id="dlBtn" class="hdrlink" target="_blank" rel="noopener" hidden>⤓ macOS app</a>
   <a id="verBadge" class="hdrlink" target="_blank" rel="noopener">v0.0.0</a>
   <button id="themeBtn" class="ghost" title="Toggle dark mode" style="padding:.35rem .65rem;font-size:1rem;line-height:1">◐</button>
 </header>
 
+<div class="navscrim" id="navscrim" hidden></div>
 <div class="frame">
   <aside>
     <div class="search">
@@ -1332,7 +1381,11 @@ tool({
       };
       for (let guard = 0; guard < 366*24*60 && out.length < n; guard++){
         if (d.getHours() === 0 && d.getMinutes() === 0 && !dayOk(d)){
-          d = new Date(d.getTime() + 86400000);   // skip whole non-matching days
+          // Skip whole non-matching days. Build the next local midnight rather
+          // than adding 86400000 ms: on a DST spring-forward the day is only 23
+          // hours, so a fixed 24h jump overshoots into 01:00 and steps straight
+          // over that day's 00:00–00:59 runs.
+          d = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1, 0, 0, 0, 0);
           guard += 1439;
           continue;
         }
@@ -2329,7 +2382,11 @@ tool({
       $('#dm-iso').textContent = r.toISOString();
       $('#dm-epoch').textContent = String(Math.floor(r.getTime() / 1000));
       $('#dm-week').textContent = isoWeek(r);
-      $('#dm-doy').textContent = String(Math.floor((r - new Date(r.getFullYear(), 0, 0)) / 86400000));
+      // Both endpoints must be local midnights: dividing raw elapsed ms by a
+      // fixed 86400000 loses an hour across a DST change, which pushed every
+      // time between 00:00 and 01:00 back a day.
+      $('#dm-doy').textContent = String(Math.round(
+        (new Date(r.getFullYear(), r.getMonth(), r.getDate()) - new Date(r.getFullYear(), 0, 1)) / 86400000) + 1);
       const u = { minutes:'M', hours:'H', days:'d', weeks:'w', months:'m', years:'y' }[unit.value];
       setSh('dmath', 0, `date -d ${shq(base.value.replace('T',' ') + ' ' + (dir > 0 ? '+' : '-') + Math.abs(+amt.value || 0) + ' ' + unit.value)}`);
       setSh('dmath', 1, `date -v ${dir > 0 ? '+' : '-'}${Math.abs(+amt.value || 0)}${u}`);
@@ -2463,13 +2520,13 @@ function unitTool(cfg){
 /* ── smart convert (natural-language units) ────────────────── */
 tool({
   id:'convert', name:'Convert (type it)', group:'Units',
-  blurb:'Type a conversion in plain English — "5 gal to litres", "50 miles in km", "100 F to C", "30 mpg to l/100km". Covers length, mass, volume, area, speed, temperature, fuel economy, data, time and angle. No dropdowns, and fully offline (no LLM).',
+  blurb:'Type a conversion in plain English — "5 gal to litres", "50 miles in km", "100 F to C", "30 mpg to l/100km". Covers length, mass, volume, area, speed, temperature, fuel economy, data, time and angle. No dropdowns, and no model behind it — just a parser.',
   html: `
     <input type="text" id="cv2-in" class="grow" spellcheck="false" autocomplete="off"
       placeholder='e.g.  5 gal to litres  ·  50 miles in km  ·  100 f to c'
       value="5 gal to litres" style="font-size:1.05rem;padding:.6rem .8rem;width:100%;max-width:34rem">
     <div class="err" id="cv2-err"></div>
-    <div id="cv2-result" style="margin:.7rem 0;font-family:var(--serif);font-size:1.5rem;min-height:1.6rem"></div>
+    <div id="cv2-result" style="margin:.7rem 0;font-family:var(--sans);font-size:1.5rem;min-height:1.6rem"></div>
     <label class="lbl" id="cv2-morelbl" style="display:none">Also</label>
     <div class="outs" id="cv2-more"></div>
     ${shPanel('cv2', [
@@ -4717,7 +4774,7 @@ tool({
       </span>
     </div>
     <div class="err" id="calc-err"></div>
-    <div id="calc-out" style="margin:.7rem 0;font-family:var(--serif);font-size:1.5rem;min-height:1.4rem;word-break:break-all"></div>
+    <div id="calc-out" style="margin:.7rem 0;font-family:var(--sans);font-size:1.5rem;min-height:1.4rem;word-break:break-all"></div>
     <canvas id="calc-graph" class="game-cv" width="640" height="380" style="display:none;width:min(100%,640px)"></canvas>
     <div class="outs" id="calc-alt"></div>
     ${shPanel('calc', [
@@ -5619,7 +5676,7 @@ tool({
 /* ── http status codes ─────────────────────────────────────── */
 tool({
   id:'http', name:'HTTP status', group:'Reference',
-  blurb:'Every status code you’ll actually meet, with what it really means — searchable, offline, no more tab to MDN.',
+  blurb:'Every status code you’ll actually meet, and what it really means in practice. Searchable, so that is one fewer tab open on MDN.',
   html: `
     <div class="row"><input class="grow" type="text" id="ht-q" spellcheck="false" placeholder="filter: 404, teapot, redirect…" style="max-width:20rem"></div>
     <div class="outs" id="ht-list" style="max-height:520px;overflow:auto"></div>
@@ -6051,7 +6108,7 @@ tool({
 /* ── image resize ──────────────────────────────────────────── */
 tool({
   id:'img', name:'Image resize', group:'Convert',
-  blurb:'Resize, convert and compress images entirely in this tab — PNG, JPEG or WebP out. Re-encoding also strips EXIF metadata, GPS coordinates included.',
+  blurb:'Resize, convert and compress to PNG, JPEG or WebP. Re-encoding strips EXIF on the way through, GPS coordinates included.',
   html: `
     <div class="drop" id="im-drop">Drop an image here or click to choose</div>
     <input type="file" id="im-file" accept="image/*" style="display:none">
@@ -6782,7 +6839,7 @@ tool({
 /* ── emoji & unicode search ────────────────────────────────── */
 tool({
   id:'emoji', name:'Emoji search', group:'Reference',
-  blurb:'Find an emoji or symbol by name — “rocket” → 🚀 — and copy it, or read its code point. Offline, with a curated set of the ones you actually use.',
+  blurb:'Find an emoji or symbol by name — “rocket” → 🚀 — then copy it or read its code point. A curated set, not the whole unicode haystack.',
   html: `
     <div class="row"><input class="grow" type="text" id="em-q" spellcheck="false" placeholder="search: rocket, fire, check, heart, arrow…" style="max-width:22rem" autofocus></div>
     <div id="em-grid" style="display:flex;flex-wrap:wrap;gap:.3rem;margin-top:.8rem;max-height:340px;overflow:auto"></div>
@@ -7535,7 +7592,7 @@ tool({
 /* ── favicon generator ─────────────────────────────────────── */
 tool({
   id:'favicon', name:'Favicon generator', group:'Convert',
-  blurb:'Drop an image and get every favicon size, a multi-resolution .ico, and the HTML link tags — rendered on a canvas, entirely offline.',
+  blurb:'Drop an image and get every favicon size, a multi-resolution .ico, and the HTML link tags ready to paste.',
   html: `
     <div class="drop" id="fv-drop">Drop a square image here or click to choose</div>
     <input type="file" id="fv-file" accept="image/*" style="display:none">
@@ -8567,7 +8624,7 @@ tool({
       <span class="score" id="ty-acc">100%</span>
       <span class="score" id="ty-time">0.0s</span>
     </div>
-    <div id="ty-text" style="font-family:var(--mono);font-size:1.05rem;line-height:1.8;background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:.8rem 1rem;margin-bottom:.6rem;min-height:3rem"></div>
+    <div id="ty-text" style="font-family:var(--mono);font-size:1.05rem;line-height:1.8;background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:.8rem 1rem;margin-bottom:.6rem;min-height:3rem;white-space:pre-wrap;overflow-wrap:break-word"></div>
     <textarea id="ty-in" spellcheck="false" autocomplete="off" style="min-height:70px" placeholder="start typing here…"></textarea>`,
   wire(){
     const WORDS='the of and to a in is be that have it for not on with he as you do at this but his by from they we say her she or an will my one all would there their what so up out if about who get which go me when make can like time no just him know take people into year your good some could them see other than then now look only come its over think also back after use two how our work first well way even new want because any these give day most us able about above among great small large place where while there those think under begin point world group while right still life part'.split(' ');
@@ -8575,7 +8632,7 @@ tool({
     const txt=$('#ty-text'), inp=$('#ty-in');
     let target, started, raf;
     const fresh=()=>{ target=gen(); inp.value=''; started=0; render(); cancelAnimationFrame(raf); $('#ty-wpm').textContent='0 wpm'; $('#ty-acc').textContent='100%'; $('#ty-time').textContent='0.0s'; };
-    const render=()=>{ const v=inp.value; let h=''; for(let i=0;i<target.length;i++){ const ch=target[i]; let col=''; if(i<v.length) col=v[i]===ch?'color:var(--good)':'background:#ffd9d4;color:var(--bad)'; else if(i===v.length) col='border-bottom:2px solid var(--accent)'; h+=`<span style="${col}">${ch===' '?'&nbsp;':esc(ch)}</span>`; } txt.innerHTML=h; };
+    const render=()=>{ const v=inp.value; let h=''; for(let i=0;i<target.length;i++){ const ch=target[i]; let col=''; if(i<v.length) col=v[i]===ch?'color:var(--good)':'background:rgba(200,66,50,.18);color:var(--bad)'; else if(i===v.length) col='border-bottom:2px solid var(--accent)'; h+=`<span style="${col}">${esc(ch)}</span>`; } txt.innerHTML=h; };
     const tick=()=>{ if(!started)return; const t=(Date.now()-started)/1000; $('#ty-time').textContent=t.toFixed(1)+'s'; const v=inp.value; const correct=[...v].filter((c,i)=>c===target[i]).length; const wpm=Math.round((correct/5)/(t/60)||0); $('#ty-wpm').textContent=wpm+' wpm'; const acc=v.length?Math.round(correct/v.length*100):100; $('#ty-acc').textContent=acc+'%'; if(v.length<target.length)raf=requestAnimationFrame(tick); };
     inp.addEventListener('input',()=>{ if(!started){ started=Date.now(); raf=requestAnimationFrame(tick); } if(inp.value.length>target.length)inp.value=inp.value.slice(0,target.length); render(); if(inp.value.length>=target.length){ cancelAnimationFrame(raf); tick(); txt.innerHTML+=' <b style="color:var(--accent-2)">done!</b>'; } });
     $('#ty-new').addEventListener('click',fresh); fresh();
@@ -9073,7 +9130,7 @@ tool({
 /* ── image palette ─────────────────────────────────────────── */
 tool({
   id:'imgpal', name:'Image palette', group:'Convert',
-  blurb:'Drop, pick or paste an image and get its dominant colors — median-cut quantization, entirely in this tab. Click a swatch to copy its hex.',
+  blurb:'Drop, pick or paste an image and get its dominant colors by median-cut quantization. Click a swatch to copy the hex.',
   html: `
     <div class="drop" id="ip-drop">Drop an image here, click to choose, or paste from the clipboard</div>
     <input type="file" id="ip-file" accept="image/*" style="display:none">
@@ -9167,6 +9224,1380 @@ tool({
   }
 });
 
+/* ═══════════════════ shared image plumbing (sharpen / cutout / colorize) ═══════════════════ */
+
+/* Drop, click-to-pick and paste an image into a tool. cb(img, file) fires once
+   the bitmap has decoded. Returns the handler so a tool can feed it a Blob. */
+function wireImageDrop(toolId, dropSel, fileSel, cb){
+  const drop = $(dropSel), file = $(fileSel);
+  const handle = f => {
+    if (!f || !f.type.startsWith('image/')) return;
+    const img = new Image();
+    img.onload = () => cb(img, f);
+    img.src = URL.createObjectURL(f);
+  };
+  drop.addEventListener('click', () => file.click());
+  file.addEventListener('change', () => handle(file.files[0]));
+  drop.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('over'); });
+  drop.addEventListener('dragleave', () => drop.classList.remove('over'));
+  drop.addEventListener('drop', e => { e.preventDefault(); drop.classList.remove('over'); handle(e.dataTransfer.files[0]); });
+  document.addEventListener('paste', e => {
+    if (!$('#tool-' + toolId).classList.contains('active')) return;
+    const item = [...(e.clipboardData?.items || [])].find(i => i.type.startsWith('image/'));
+    if (item) handle(item.getAsFile());
+  });
+  return handle;
+}
+
+/* Draw an image into a canvas capped at maxEdge (never upscales). */
+function fitCanvas(img, maxEdge){
+  const k = Math.min(1, maxEdge / Math.max(img.width, img.height));
+  const cv = document.createElement('canvas');
+  cv.width = Math.max(1, Math.round(img.width * k));
+  cv.height = Math.max(1, Math.round(img.height * k));
+  const cx = cv.getContext('2d', { willReadFrequently:true });
+  cx.drawImage(img, 0, 0, cv.width, cv.height);
+  return { cv, cx, w:cv.width, h:cv.height, data:cx.getImageData(0, 0, cv.width, cv.height) };
+}
+
+const fmtBytes = n => n > 1048576 ? (n/1048576).toFixed(2) + ' MB' : (n/1024).toFixed(1) + ' KB';
+
+/* sRGB transfer function, both directions. srgbLin() (0..255 → 0..1 linear)
+   already exists above; this is its inverse. */
+const SRGB_LUT = Float32Array.from({length:256}, (_, i) => srgbLin(i));
+const linToSrgb = v =>
+  v <= 0 ? 0 : v >= 1 ? 255
+  : (v <= 0.0031308 ? v * 12.92 : 1.055 * Math.pow(v, 1/2.4) - 0.055) * 255;
+
+/* ITU-R BT.601 YCbCr — the space unsharp mask and CLAHE work in, so they change
+   brightness detail without touching hue or saturation. */
+function rgbToYcc(d, w, h){
+  const n = w * h, Y = new Float32Array(n), Cb = new Float32Array(n), Cr = new Float32Array(n);
+  for (let i = 0, p = 0; i < n; i++, p += 4){
+    const r = d[p], g = d[p+1], b = d[p+2];
+    Y[i]  =  0.299*r + 0.587*g + 0.114*b;
+    Cb[i] = -0.168736*r - 0.331264*g + 0.5*b;
+    Cr[i] =  0.5*r - 0.418688*g - 0.081312*b;
+  }
+  return { Y, Cb, Cr };
+}
+function yccToRgb(Y, Cb, Cr, d, n){
+  const cl = v => v < 0 ? 0 : v > 255 ? 255 : v;
+  for (let i = 0, p = 0; i < n; i++, p += 4){
+    const y = Y[i], cb = Cb[i], cr = Cr[i];
+    d[p]   = cl(y + 1.402*cr);
+    d[p+1] = cl(y - 0.344136*cb - 0.714136*cr);
+    d[p+2] = cl(y + 1.772*cb);
+  }
+}
+
+/* 1-D Gaussian taps truncated at 3σ, normalized to unit sum. */
+function gaussKernel(sigma){
+  const r = Math.max(1, Math.ceil(sigma * 3));
+  const k = new Float32Array(2*r + 1);
+  let sum = 0;
+  for (let i = -r; i <= r; i++){ const v = Math.exp(-(i*i) / (2*sigma*sigma)); k[i+r] = v; sum += v; }
+  for (let i = 0; i < k.length; i++) k[i] /= sum;
+  return { k, r };
+}
+
+/* Separable Gaussian convolution of one Float32 plane. Edges clamp. */
+function blurPlane(src, w, h, kern, tmp, dst){
+  const { k, r } = kern;
+  for (let y = 0; y < h; y++){
+    const row = y * w;
+    for (let x = 0; x < w; x++){
+      let s = 0;
+      for (let i = -r; i <= r; i++){
+        let xx = x + i; if (xx < 0) xx = 0; else if (xx >= w) xx = w - 1;
+        s += src[row + xx] * k[i + r];
+      }
+      tmp[row + x] = s;
+    }
+  }
+  for (let y = 0; y < h; y++){
+    const row = y * w;
+    for (let x = 0; x < w; x++){
+      let s = 0;
+      for (let i = -r; i <= r; i++){
+        let yy = y + i; if (yy < 0) yy = 0; else if (yy >= h) yy = h - 1;
+        s += tmp[yy * w + x] * k[i + r];
+      }
+      dst[row + x] = s;
+    }
+  }
+}
+
+/* Linear-motion PSF: a line of `len` px at `deg`, bilinearly splatted onto
+   integer offsets so shallow angles still get a smooth kernel. */
+function motionTaps(len, deg){
+  const n = Math.max(2, Math.round(len * 3));
+  const a = deg * Math.PI / 180, cs = Math.cos(a), sn = Math.sin(a);
+  const acc = new Map();
+  const add = (x, y, wt) => { const key = x + ',' + y; acc.set(key, (acc.get(key) || 0) + wt); };
+  for (let i = 0; i < n; i++){
+    const t = (i / (n - 1) - 0.5) * len;
+    const fx = cs * t, fy = sn * t;
+    const x0 = Math.floor(fx), y0 = Math.floor(fy), ax = fx - x0, ay = fy - y0;
+    add(x0, y0, (1-ax)*(1-ay)); add(x0+1, y0, ax*(1-ay));
+    add(x0, y0+1, (1-ax)*ay);   add(x0+1, y0+1, ax*ay);
+  }
+  let sum = 0; for (const v of acc.values()) sum += v;
+  return [...acc].map(([key, v]) => {
+    const c = key.indexOf(',');
+    return [+key.slice(0, c), +key.slice(c+1), v / sum];
+  }).filter(t => t[2] > 1e-5);
+}
+
+/* Convolve a plane with an arbitrary tap list. Edges clamp. */
+function convTaps(src, w, h, taps, dst){
+  dst.fill(0);
+  for (let t = 0; t < taps.length; t++){
+    const dx = taps[t][0], dy = taps[t][1], wt = taps[t][2];
+    for (let y = 0; y < h; y++){
+      let sy = y + dy; if (sy < 0) sy = 0; else if (sy >= h) sy = h - 1;
+      const so = sy * w, dof = y * w;
+      for (let x = 0; x < w; x++){
+        let sx = x + dx; if (sx < 0) sx = 0; else if (sx >= w) sx = w - 1;
+        dst[dof + x] += src[so + sx] * wt;
+      }
+    }
+  }
+}
+
+/* ── image sharpen / deblur ────────────────────────────────────────────────── */
+tool({
+  id:'sharpen', name:'Image sharpen', group:'Convert',
+  blurb:'Three ways to rescue a soft photo: unsharp mask, Richardson–Lucy deconvolution for genuine Gaussian or motion blur, and CLAHE for flat local contrast. All three work on luminance, so colors stay exactly where they were.',
+  html: `
+    <div class="drop" id="sp-drop">Drop an image here, click to choose, or paste from the clipboard</div>
+    <input type="file" id="sp-file" accept="image/*" style="display:none">
+
+    <div class="row" style="margin-top:.8rem">
+      <div class="seg" id="sp-mode">
+        <button class="on" data-m="unsharp">Unsharp mask</button>
+        <button data-m="deconv">Deconvolve</button>
+        <button data-m="clahe">Local contrast</button>
+      </div>
+    </div>
+
+    <div class="row" id="sp-c-unsharp" style="margin-top:.7rem">
+      <label class="check">radius <input type="range" id="sp-u-rad" min="2" max="60" value="12" style="width:110px"> <span class="v" id="sp-u-radv">1.2</span> px</label>
+      <label class="check">amount <input type="range" id="sp-u-amt" min="0" max="300" value="100" style="width:110px"> <span class="v" id="sp-u-amtv">1.00</span>×</label>
+      <label class="check">threshold <input type="range" id="sp-u-thr" min="0" max="40" value="2" style="width:90px"> <span class="v" id="sp-u-thrv">2</span></label>
+    </div>
+
+    <div class="row" id="sp-c-deconv" style="margin-top:.7rem;display:none">
+      <div class="seg" id="sp-psf"><button class="on" data-p="gauss">Gaussian</button><button data-p="motion">Motion</button></div>
+      <label class="check" id="sp-d-sigwrap">blur σ <input type="range" id="sp-d-sig" min="3" max="60" value="15" style="width:100px"> <span class="v" id="sp-d-sigv">1.5</span> px</label>
+      <label class="check" id="sp-d-lenwrap" style="display:none">length <input type="range" id="sp-d-len" min="2" max="40" value="9" style="width:100px"> <span class="v" id="sp-d-lenv">9</span> px</label>
+      <label class="check" id="sp-d-angwrap" style="display:none">angle <input type="range" id="sp-d-ang" min="0" max="179" value="0" style="width:100px"> <span class="v" id="sp-d-angv">0</span>°</label>
+      <label class="check">iterations <input type="range" id="sp-d-it" min="1" max="40" value="12" style="width:100px"> <span class="v" id="sp-d-itv">12</span></label>
+      <button class="act" id="sp-run">Deconvolve</button>
+    </div>
+
+    <div class="row" id="sp-c-clahe" style="margin-top:.7rem;display:none">
+      <label class="check">tiles <input type="range" id="sp-cl-t" min="2" max="16" value="8" style="width:100px"> <span class="v" id="sp-cl-tv">8</span>×<span class="v" id="sp-cl-tv2">8</span></label>
+      <label class="check">clip limit <input type="range" id="sp-cl-c" min="10" max="60" value="25" style="width:100px"> <span class="v" id="sp-cl-cv">2.5</span></label>
+    </div>
+
+    <div class="prog" id="sp-prog"></div>
+
+    <div class="imgwrap" id="sp-wrap" style="display:none">
+      <canvas id="sp-a"></canvas>
+      <canvas id="sp-b" class="lay"></canvas>
+    </div>
+    <div class="row" id="sp-cmp" style="display:none;margin-top:.6rem">
+      <label class="check" style="flex:1 1 14rem">before <input type="range" id="sp-split" min="0" max="100" value="100" style="flex:1 1 auto"> after</label>
+      <button class="act" id="sp-dl">Download PNG</button>
+    </div>
+
+    <div class="outs" id="sp-outs" style="display:none;margin-top:.8rem">
+      ${outRow('Source','sp-o-src')}
+      ${outRow('Working size','sp-o-work')}
+      ${outRow('Applied','sp-o-app')}
+    </div>
+
+    ${shPanel('sharpen', [
+      {why:'the same unsharp mask with ImageMagick', cmd:`magick photo.jpg -unsharp 0x1.2+1.0+0.008 out.jpg`},
+      {why:"Richardson–Lucy deconvolution with G'MIC", cmd:`gmic photo.jpg deblur_richardsonlucy 1.5,12,1 -o out.jpg`},
+      {why:'contrast limited adaptive histogram equalization', cmd:`magick photo.jpg -clahe 12x12%+256+2.5 out.jpg`},
+    ])}
+
+    <div class="note">Unsharp mask and CLAHE work on the BT.601 luma channel; deconvolution works on
+      linear-light luminance and re-applies the result to RGB as a gain, which is where the physics
+      actually lives. Deconvolution is capped at 1100 px on the long edge — it is O(iterations × pixels)
+      and the browser is single-threaded.</div>`,
+  wire(){
+    const WORK_MAX = 1600, DECONV_MAX = 1100;   // DECONV_MAX is quoted in the note above
+
+    const cvA = $('#sp-a'), cvB = $('#sp-b');
+    const prog = $('#sp-prog');
+    let src = null, srcFile = null, mode = 'unsharp', psf = 'gauss', runId = 0, timer = null;
+
+    const V = {
+      urad: () => +$('#sp-u-rad').value / 10,
+      uamt: () => +$('#sp-u-amt').value / 100,
+      uthr: () => +$('#sp-u-thr').value,
+      dsig: () => +$('#sp-d-sig').value / 10,
+      dlen: () => +$('#sp-d-len').value,
+      dang: () => +$('#sp-d-ang').value,
+      dit:  () => +$('#sp-d-it').value,
+      clt:  () => +$('#sp-cl-t').value,
+      clc:  () => +$('#sp-cl-c').value / 10,
+    };
+    const syncLabels = () => {
+      $('#sp-u-radv').textContent = V.urad().toFixed(1);
+      $('#sp-u-amtv').textContent = V.uamt().toFixed(2);
+      $('#sp-u-thrv').textContent = V.uthr();
+      $('#sp-d-sigv').textContent = V.dsig().toFixed(1);
+      $('#sp-d-lenv').textContent = V.dlen();
+      $('#sp-d-angv').textContent = V.dang();
+      $('#sp-d-itv').textContent  = V.dit();
+      $('#sp-cl-tv').textContent = $('#sp-cl-tv2').textContent = V.clt();
+      $('#sp-cl-cv').textContent = V.clc().toFixed(1);
+      setSh('sharpen', 0, `magick photo.jpg -unsharp 0x${V.urad().toFixed(1)}+${V.uamt().toFixed(2)}+${(V.uthr()/255).toFixed(3)} out.jpg`);
+      setSh('sharpen', 1, psf === 'gauss'
+        ? `gmic photo.jpg deblur_richardsonlucy ${V.dsig().toFixed(1)},${V.dit()},1 -o out.jpg`
+        : `gmic photo.jpg deblur_richardsonlucy ${(V.dlen()/4).toFixed(1)},${V.dit()},1 -o out.jpg   # G'MIC has no motion PSF`);
+      setSh('sharpen', 2, `magick photo.jpg -clahe ${Math.round(100/V.clt())}x${Math.round(100/V.clt())}%+256+${V.clc().toFixed(1)} out.jpg`);
+    };
+
+    /* ── unsharp mask on luma, classic radius/amount/threshold ── */
+    const unsharp = () => {
+      const { Y, Cb, Cr } = src.ycc, n = src.w * src.h;
+      const bl = new Float32Array(n), tmp = new Float32Array(n), out = new Float32Array(n);
+      blurPlane(Y, src.w, src.h, gaussKernel(V.urad()), tmp, bl);
+      const amt = V.uamt(), thr = V.uthr();
+      for (let i = 0; i < n; i++){
+        const d = Y[i] - bl[i];
+        out[i] = Math.abs(d) < thr ? Y[i] : Y[i] + amt * d;
+      }
+      const px = new ImageData(src.w, src.h);
+      px.data.set(src.data.data);
+      yccToRgb(out, Cb, Cr, px.data, n);
+      return { px, label: `unsharp mask · radius ${V.urad().toFixed(1)} px · amount ${V.uamt().toFixed(2)}× · threshold ${thr}` };
+    };
+
+    /* ── CLAHE on luma: clipped per-tile histogram equalization, bilinearly blended ── */
+    const clahe = () => {
+      const { Y, Cb, Cr } = src.ycc, w = src.w, h = src.h, n = w * h;
+      const tx = V.clt(), ty = V.clt(), clip = V.clc();
+      const bw = Math.ceil(w / tx), bh = Math.ceil(h / ty);
+      const maps = [];
+      for (let j = 0; j < ty; j++) for (let i = 0; i < tx; i++){
+        const x0 = i*bw, x1 = Math.min(w, x0+bw), y0 = j*bh, y1 = Math.min(h, y0+bh);
+        const hist = new Float32Array(256);
+        for (let yy = y0; yy < y1; yy++) for (let xx = x0; xx < x1; xx++){
+          let v = Y[yy*w+xx] | 0; if (v < 0) v = 0; else if (v > 255) v = 255;
+          hist[v]++;
+        }
+        const cnt = Math.max(1, (x1-x0) * (y1-y0));
+        const limit = Math.max(1, clip * cnt / 256);
+        let excess = 0;
+        for (let v = 0; v < 256; v++) if (hist[v] > limit){ excess += hist[v] - limit; hist[v] = limit; }
+        const share = excess / 256;
+        const lut = new Uint8Array(256);
+        let c = 0;
+        for (let v = 0; v < 256; v++){ c += hist[v] + share; lut[v] = Math.max(0, Math.min(255, Math.round(c / cnt * 255))); }
+        maps.push(lut);
+      }
+      const out = new Float32Array(n);
+      for (let yy = 0; yy < h; yy++){
+        const gy = Math.min(ty - 1, Math.max(0, (yy - bh/2) / bh));
+        const j0 = Math.floor(gy), j1 = Math.min(ty-1, j0+1), fy = gy - j0;
+        for (let xx = 0; xx < w; xx++){
+          const gx = Math.min(tx - 1, Math.max(0, (xx - bw/2) / bw));
+          const i0 = Math.floor(gx), i1 = Math.min(tx-1, i0+1), fx = gx - i0;
+          let v = Y[yy*w+xx] | 0; if (v < 0) v = 0; else if (v > 255) v = 255;
+          const a = maps[j0*tx+i0][v], b = maps[j0*tx+i1][v];
+          const c = maps[j1*tx+i0][v], d = maps[j1*tx+i1][v];
+          out[yy*w+xx] = (a*(1-fx) + b*fx)*(1-fy) + (c*(1-fx) + d*fx)*fy;
+        }
+      }
+      const px = new ImageData(w, h);
+      px.data.set(src.data.data);
+      yccToRgb(out, Cb, Cr, px.data, n);
+      return { px, label: `CLAHE · ${tx}×${ty} tiles · clip limit ${clip.toFixed(1)}` };
+    };
+
+    /* ── Richardson–Lucy on linear luminance ──────────────────────────────────
+       u ← u · ((d / (u ⊛ p)) ⊛ p*).  Runs on one plane and re-applies the result
+       to linear RGB as a per-pixel gain, which keeps chroma exactly where it was
+       and costs a third of a per-channel deconvolution. Yields between iterations
+       so the progress line paints and a newer run can cancel this one. */
+    const deconvolve = async id => {
+      const w = src.dw, h = src.dh, n = w * h, d = src.dlum;
+      const gauss = psf === 'gauss', kern = gauss ? gaussKernel(V.dsig()) : null;
+      const taps = gauss ? null : motionTaps(V.dlen(), V.dang());
+      const flip = gauss ? null : taps.map(t => [-t[0], -t[1], t[2]]);
+      const est = Float32Array.from(d), blur = new Float32Array(n),
+            ratio = new Float32Array(n), corr = new Float32Array(n), tmp = new Float32Array(n);
+      const fwd = (a, b) => gauss ? blurPlane(a, w, h, kern, tmp, b) : convTaps(a, w, h, taps, b);
+      const rev = (a, b) => gauss ? blurPlane(a, w, h, kern, tmp, b) : convTaps(a, w, h, flip, b);
+      const iters = V.dit();
+      const t0 = performance.now();
+      for (let it = 0; it < iters; it++){
+        fwd(est, blur);
+        for (let i = 0; i < n; i++) ratio[i] = d[i] / Math.max(blur[i], 1e-5);
+        rev(ratio, corr);
+        for (let i = 0; i < n; i++){
+          const v = est[i] * corr[i];
+          est[i] = v < 0 ? 0 : v > 4 ? 4 : v;
+        }
+        prog.textContent = `deconvolving — iteration ${it+1}/${iters}`;
+        await new Promise(r => setTimeout(r, 0));
+        if (id !== runId) return null;
+      }
+      const ms = Math.round(performance.now() - t0);
+      const px = new ImageData(w, h);
+      const sd = src.ddata.data, od = px.data;
+      for (let i = 0, p = 0; i < n; i++, p += 4){
+        const g = (est[i] + 1e-4) / (d[i] + 1e-4);
+        od[p]   = linToSrgb(SRGB_LUT[sd[p]]   * g);
+        od[p+1] = linToSrgb(SRGB_LUT[sd[p+1]] * g);
+        od[p+2] = linToSrgb(SRGB_LUT[sd[p+2]] * g);
+        od[p+3] = sd[p+3];
+      }
+      const kind = gauss ? `Gaussian σ ${V.dsig().toFixed(1)} px`
+                         : `motion ${V.dlen()} px @ ${V.dang()}°`;
+      return { px, label: `Richardson–Lucy · ${kind} · ${iters} iterations · ${ms} ms` };
+    };
+
+    const show = res => {
+      if (!res) return;
+      cvB.width = res.px.width; cvB.height = res.px.height;
+      cvB.getContext('2d').putImageData(res.px, 0, 0);
+      $('#sp-o-app').textContent = res.label;
+      $('#sp-wrap').style.display = ''; $('#sp-cmp').style.display = '';
+      $('#sp-outs').style.display = '';
+      applySplit();
+    };
+
+    const run = async () => {
+      if (!src) return;
+      const id = ++runId;
+      if (mode === 'deconv'){
+        // the deconvolve view is a smaller crop of the source; swap the "before" canvas to match
+        drawBefore(src.dcv);
+        $('#sp-o-work').textContent = `${src.dw} × ${src.dh} (deconvolution cap ${DECONV_MAX} px)`;
+        const res = await deconvolve(id);
+        if (id !== runId) return;
+        prog.textContent = '';
+        show(res);
+      } else {
+        drawBefore(src.cv);
+        $('#sp-o-work').textContent = src.w === src.iw && src.h === src.ih
+          ? `${src.w} × ${src.h} (full size)` : `${src.w} × ${src.h} (from ${src.iw} × ${src.ih})`;
+        prog.textContent = '';
+        show(mode === 'unsharp' ? unsharp() : clahe());
+      }
+    };
+    const queue = () => { clearTimeout(timer); timer = setTimeout(run, 90); };
+
+    const drawBefore = cv => {
+      cvA.width = cv.width; cvA.height = cv.height;
+      cvA.getContext('2d').drawImage(cv, 0, 0);
+    };
+    const applySplit = () => {
+      const p = +$('#sp-split').value;
+      cvB.style.clipPath = `inset(0 0 0 ${100 - p}%)`;
+    };
+
+    wireImageDrop('sharpen', '#sp-drop', '#sp-file', (img, f) => {
+      const full = fitCanvas(img, WORK_MAX);
+      const dec  = fitCanvas(img, DECONV_MAX);
+      const dn = dec.w * dec.h, dlum = new Float32Array(dn);
+      const dd = dec.data.data;
+      for (let i = 0, p = 0; i < dn; i++, p += 4)
+        dlum[i] = 0.2126*SRGB_LUT[dd[p]] + 0.7152*SRGB_LUT[dd[p+1]] + 0.0722*SRGB_LUT[dd[p+2]];
+      src = {
+        iw:img.width, ih:img.height,
+        cv:full.cv, w:full.w, h:full.h, data:full.data, ycc:rgbToYcc(full.data.data, full.w, full.h),
+        dcv:dec.cv, dw:dec.w, dh:dec.h, ddata:dec.data, dlum,
+      };
+      srcFile = f;
+      $('#sp-drop').textContent = `${f.name} — drop, click or paste to replace`;
+      $('#sp-o-src').textContent = `${img.width} × ${img.height} · ${fmtBytes(f.size)} · ${f.type}`;
+      run();
+    });
+
+    $('#sp-mode').addEventListener('click', e => {
+      const b = e.target.closest('button[data-m]'); if (!b) return;
+      $$('#sp-mode button').forEach(x => x.classList.toggle('on', x === b));
+      mode = b.dataset.m;
+      $('#sp-c-unsharp').style.display = mode === 'unsharp' ? '' : 'none';
+      $('#sp-c-deconv').style.display  = mode === 'deconv'  ? '' : 'none';
+      $('#sp-c-clahe').style.display   = mode === 'clahe'   ? '' : 'none';
+      runId++; prog.textContent = '';
+      if (mode !== 'deconv') run(); else if (src) drawBefore(src.dcv);
+    });
+    $('#sp-psf').addEventListener('click', e => {
+      const b = e.target.closest('button[data-p]'); if (!b) return;
+      $$('#sp-psf button').forEach(x => x.classList.toggle('on', x === b));
+      psf = b.dataset.p;
+      const g = psf === 'gauss';
+      $('#sp-d-sigwrap').style.display = g ? '' : 'none';
+      $('#sp-d-lenwrap').style.display = g ? 'none' : '';
+      $('#sp-d-angwrap').style.display = g ? 'none' : '';
+      syncLabels();
+    });
+    $('#sp-run').addEventListener('click', run);
+    ['sp-u-rad','sp-u-amt','sp-u-thr','sp-cl-t','sp-cl-c'].forEach(id =>
+      $('#'+id).addEventListener('input', () => { syncLabels(); queue(); }));
+    ['sp-d-sig','sp-d-len','sp-d-ang','sp-d-it'].forEach(id =>
+      $('#'+id).addEventListener('input', syncLabels));
+    $('#sp-split').addEventListener('input', applySplit);
+    $('#sp-dl').addEventListener('click', () => {
+      const a = document.createElement('a');
+      a.href = cvB.toDataURL('image/png');
+      a.download = `${(srcFile?.name || 'image').replace(/\.[^.]+$/, '')}-${mode}.png`;
+      a.click();
+    });
+    syncLabels();
+  }
+});
+
+/* ═══════════════════ segmentation machinery (used by the cutout tool) ═══════════════════ */
+
+/* Dinic max-flow over a fixed arc list. Arcs live in pairs, so the reverse of
+   arc e is e^1. Phases are capped — on a vision grid the level graph is shallow
+   (every pixel touches both terminals) and a near-optimal cut is fine here. */
+function Dinic(nNodes, maxArcs){
+  const head = new Int32Array(nNodes).fill(-1);
+  const nxt  = new Int32Array(maxArcs * 2);
+  const to   = new Int32Array(maxArcs * 2);
+  const cap  = new Float64Array(maxArcs * 2);
+  const level = new Int32Array(nNodes), iter = new Int32Array(nNodes), q = new Int32Array(nNodes);
+  let m = 0;
+  const addEdge = (u, v, c, rc) => {
+    to[m] = v; cap[m] = c;  nxt[m] = head[u]; head[u] = m++;
+    to[m] = u; cap[m] = rc; nxt[m] = head[v]; head[v] = m++;
+  };
+  const bfs = (s, t) => {
+    level.fill(-1); level[s] = 0;
+    let qh = 0, qt = 0; q[qt++] = s;
+    while (qh < qt){
+      const u = q[qh++];
+      for (let e = head[u]; e !== -1; e = nxt[e])
+        if (cap[e] > 1e-9 && level[to[e]] < 0){ level[to[e]] = level[u] + 1; q[qt++] = to[e]; }
+    }
+    return level[t] >= 0;
+  };
+  const dfs = (u, t, f) => {
+    if (u === t) return f;
+    for (; iter[u] !== -1; iter[u] = nxt[iter[u]]){
+      const e = iter[u], v = to[e];
+      if (cap[e] > 1e-9 && level[v] === level[u] + 1){
+        const d = dfs(v, t, Math.min(f, cap[e]));
+        if (d > 1e-9){ cap[e] -= d; cap[e ^ 1] += d; return d; }
+      }
+    }
+    return 0;
+  };
+  const run = (s, t) => {
+    for (let phase = 0; phase < 200 && bfs(s, t); phase++){
+      for (let i = 0; i < nNodes; i++) iter[i] = head[i];
+      for (;;){ const f = dfs(s, t, Infinity); if (f <= 1e-9) break; }
+    }
+  };
+  /* nodes still reachable from the source through residual capacity = source side */
+  const sourceSide = s => {
+    const seen = new Uint8Array(nNodes); seen[s] = 1;
+    let qh = 0, qt = 0; q[qt++] = s;
+    while (qh < qt){
+      const u = q[qh++];
+      for (let e = head[u]; e !== -1; e = nxt[e])
+        if (cap[e] > 1e-9 && !seen[to[e]]){ seen[to[e]] = 1; q[qt++] = to[e]; }
+    }
+    return seen;
+  };
+  return { addEdge, run, sourceSide };
+}
+
+/* 5-component RGB Gaussian mixture. GrabCut assigns each pixel to its single
+   best component rather than running full EM, so k-means plus one moment pass
+   is the whole model. Returns null if the sample is too small to fit. */
+function fitGMM(d, idx, K){
+  const n = idx.length;
+  if (n < K * 6) return null;
+  const cen = new Float64Array(K * 3);
+  for (let k = 0; k < K; k++){
+    const p = idx[Math.floor((k + 0.5) * n / K)] * 4;
+    cen[k*3] = d[p]; cen[k*3+1] = d[p+1]; cen[k*3+2] = d[p+2];
+  }
+  const assign = new Int32Array(n);
+  for (let it = 0; it < 8; it++){
+    for (let i = 0; i < n; i++){
+      const p = idx[i] * 4, r = d[p], g = d[p+1], b = d[p+2];
+      let bk = 0, bd = Infinity;
+      for (let k = 0; k < K; k++){
+        const dr = r - cen[k*3], dg = g - cen[k*3+1], db = b - cen[k*3+2];
+        const dd = dr*dr + dg*dg + db*db;
+        if (dd < bd){ bd = dd; bk = k; }
+      }
+      assign[i] = bk;
+    }
+    const sum = new Float64Array(K * 3), cnt = new Float64Array(K);
+    for (let i = 0; i < n; i++){
+      const p = idx[i] * 4, k = assign[i];
+      sum[k*3] += d[p]; sum[k*3+1] += d[p+1]; sum[k*3+2] += d[p+2]; cnt[k]++;
+    }
+    for (let k = 0; k < K; k++) if (cnt[k])
+      for (let c = 0; c < 3; c++) cen[k*3+c] = sum[k*3+c] / cnt[k];
+  }
+  const comps = [];
+  for (let k = 0; k < K; k++){
+    let cnt = 0;
+    const s = [0,0,0], mm = new Float64Array(9);
+    for (let i = 0; i < n; i++){
+      if (assign[i] !== k) continue;
+      const p = idx[i] * 4, v0 = d[p], v1 = d[p+1], v2 = d[p+2];
+      cnt++; s[0] += v0; s[1] += v1; s[2] += v2;
+      mm[0]+=v0*v0; mm[1]+=v0*v1; mm[2]+=v0*v2;
+      mm[3]+=v1*v0; mm[4]+=v1*v1; mm[5]+=v1*v2;
+      mm[6]+=v2*v0; mm[7]+=v2*v1; mm[8]+=v2*v2;
+    }
+    if (cnt < 6) continue;
+    const mu = [s[0]/cnt, s[1]/cnt, s[2]/cnt];
+    const c = new Float64Array(9);
+    for (let a = 0; a < 3; a++) for (let b = 0; b < 3; b++) c[a*3+b] = mm[a*3+b]/cnt - mu[a]*mu[b];
+    for (let a = 0; a < 3; a++) c[a*3+a] += 12;   // regularize away from a singular covariance
+    const det = c[0]*(c[4]*c[8]-c[5]*c[7]) - c[1]*(c[3]*c[8]-c[5]*c[6]) + c[2]*(c[3]*c[7]-c[4]*c[6]);
+    if (!(det > 1e-6)) continue;
+    const inv = new Float64Array(9);
+    inv[0]=(c[4]*c[8]-c[5]*c[7])/det; inv[1]=(c[2]*c[7]-c[1]*c[8])/det; inv[2]=(c[1]*c[5]-c[2]*c[4])/det;
+    inv[3]=(c[5]*c[6]-c[3]*c[8])/det; inv[4]=(c[0]*c[8]-c[2]*c[6])/det; inv[5]=(c[2]*c[3]-c[0]*c[5])/det;
+    inv[6]=(c[3]*c[7]-c[4]*c[6])/det; inv[7]=(c[1]*c[6]-c[0]*c[7])/det; inv[8]=(c[0]*c[4]-c[1]*c[3])/det;
+    comps.push({ w: cnt/n, mu, inv, norm: 1/Math.sqrt(det) });
+  }
+  return comps.length ? comps : null;
+}
+
+/* −log P(colour | mixture). The (2π)^-3/2 factor is dropped: it shifts both the
+   source and the sink capacity of every pixel by the same constant, and a cut
+   severs exactly one of the two, so the minimum cut is unchanged. */
+function gmmCost(comps, r, g, b){
+  let p = 0;
+  for (let i = 0; i < comps.length; i++){
+    const c = comps[i];
+    const x = r - c.mu[0], y = g - c.mu[1], z = b - c.mu[2];
+    const qd = x*(c.inv[0]*x + c.inv[1]*y + c.inv[2]*z)
+             + y*(c.inv[3]*x + c.inv[4]*y + c.inv[5]*z)
+             + z*(c.inv[6]*x + c.inv[7]*y + c.inv[8]*z);
+    p += c.w * c.norm * Math.exp(-0.5 * qd);
+  }
+  return -Math.log(Math.max(p, 1e-12));
+}
+
+/* GrabCut (Rother/Kolmogorov/Blake 2004): alternate between refitting the two
+   colour mixtures and re-cutting the graph. Everything outside `rect` is pinned
+   to background; everything inside starts as a foreground guess. */
+async function grabCut(d, w, h, rect, iters, onStep){
+  const n = w * h;
+  const alpha = new Uint8Array(n), pinnedBg = new Uint8Array(n);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++){
+    const i = y*w + x;
+    const inside = x >= rect.x && x < rect.x + rect.w && y >= rect.y && y < rect.y + rect.h;
+    alpha[i] = inside ? 1 : 0;
+    pinnedBg[i] = inside ? 0 : 1;
+  }
+  /* n-links: contrast-sensitive smoothness, precomputed once (colour never changes) */
+  const NB = [[1,0,1],[0,1,1],[1,1,Math.SQRT1_2],[-1,1,Math.SQRT1_2]];
+  let acc = 0, cnt = 0;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++){
+    const p = (y*w + x) * 4;
+    for (let k = 0; k < 4; k++){
+      const xx = x + NB[k][0], yy = y + NB[k][1];
+      if (xx < 0 || xx >= w || yy < 0 || yy >= h) continue;
+      const q = (yy*w + xx) * 4;
+      const dr = d[p]-d[q], dg = d[p+1]-d[q+1], db = d[p+2]-d[q+2];
+      acc += dr*dr + dg*dg + db*db; cnt++;
+    }
+  }
+  const beta = (cnt && acc > 0) ? 1 / (2 * acc / cnt) : 0;
+  const GAMMA = 50, LAMBDA = 9 * GAMMA;
+  const eu = [], ev = [], ew = [];
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++){
+    const i = y*w + x, p = i * 4;
+    for (let k = 0; k < 4; k++){
+      const xx = x + NB[k][0], yy = y + NB[k][1];
+      if (xx < 0 || xx >= w || yy < 0 || yy >= h) continue;
+      const j = yy*w + xx, q = j * 4;
+      const dr = d[p]-d[q], dg = d[p+1]-d[q+1], db = d[p+2]-d[q+2];
+      const wgt = GAMMA * NB[k][2] * Math.exp(-beta * (dr*dr + dg*dg + db*db));
+      eu.push(i); ev.push(j); ew.push(wgt);
+    }
+  }
+  const S = n, T = n + 1;
+  const fgIdx = [], bgIdx = [];
+  for (let it = 0; it < iters; it++){
+    fgIdx.length = 0; bgIdx.length = 0;
+    for (let i = 0; i < n; i++) (alpha[i] ? fgIdx : bgIdx).push(i);
+    const fg = fitGMM(d, fgIdx, 5), bg = fitGMM(d, bgIdx, 5);
+    if (!fg || !bg) break;
+
+    const g = Dinic(n + 2, eu.length + n * 2);
+    for (let i = 0; i < n; i++){
+      const p = i * 4, r = d[p], gg = d[p+1], b = d[p+2];
+      let src, snk;
+      if (pinnedBg[i]){ src = 0; snk = LAMBDA; }
+      else { src = gmmCost(bg, r, gg, b); snk = gmmCost(fg, r, gg, b); }
+      g.addEdge(S, i, src, 0);
+      g.addEdge(i, T, snk, 0);
+    }
+    for (let e = 0; e < eu.length; e++) g.addEdge(eu[e], ev[e], ew[e], ew[e]);
+    g.run(S, T);
+    const side = g.sourceSide(S);
+    let changed = 0;
+    for (let i = 0; i < n; i++){
+      const a = side[i] ? 1 : 0;
+      if (a !== alpha[i]) changed++;
+      alpha[i] = a;
+    }
+    if (onStep) await onStep(it + 1, changed);
+    if (!changed) break;
+  }
+  return alpha;
+}
+
+/* Bilinearly upscale a binary mask to (dw, dh), then snap the soft edge back to
+   the full-resolution colour edges: inside the uncertain band each alpha becomes
+   a colour-similarity-weighted average of its neighbours. */
+function refineMask(alpha, sw, sh, dw, dh, rgb, passes){
+  const out = new Float32Array(dw * dh);
+  for (let y = 0; y < dh; y++){
+    const gy = Math.min(sh - 1, Math.max(0, (y + 0.5) * sh / dh - 0.5));
+    const y0 = Math.floor(gy), y1 = Math.min(sh - 1, y0 + 1), fy = gy - y0;
+    for (let x = 0; x < dw; x++){
+      const gx = Math.min(sw - 1, Math.max(0, (x + 0.5) * sw / dw - 0.5));
+      const x0 = Math.floor(gx), x1 = Math.min(sw - 1, x0 + 1), fx = gx - x0;
+      const a = alpha[y0*sw + x0], b = alpha[y0*sw + x1];
+      const c = alpha[y1*sw + x0], e = alpha[y1*sw + x1];
+      out[y*dw + x] = (a*(1-fx) + b*fx)*(1-fy) + (c*(1-fx) + e*fx)*fy;
+    }
+  }
+  const tmp = new Float32Array(dw * dh);
+  const SIG2 = 2 * 18 * 18;
+  for (let pass = 0; pass < passes; pass++){
+    tmp.set(out);
+    for (let y = 1; y < dh - 1; y++) for (let x = 1; x < dw - 1; x++){
+      const i = y*dw + x, a = tmp[i];
+      if (a < 0.02 || a > 0.98) continue;
+      const p = i * 4;
+      let num = 0, den = 0;
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++){
+        const j = i + dy*dw + dx, q = j * 4;
+        const dr = rgb[p]-rgb[q], dg = rgb[p+1]-rgb[q+1], db = rgb[p+2]-rgb[q+2];
+        const wgt = Math.exp(-(dr*dr + dg*dg + db*db) / SIG2);
+        num += wgt * tmp[j]; den += wgt;
+      }
+      out[i] = num / den;
+    }
+  }
+  return out;
+}
+
+/* In-place radix-2 FFT of one complex row (length must be a power of two). */
+function fft(re, im, inverse){
+  const n = re.length;
+  for (let i = 1, j = 0; i < n; i++){
+    let bit = n >> 1;
+    for (; j & bit; bit >>= 1) j ^= bit;
+    j ^= bit;
+    if (i < j){ let t = re[i]; re[i] = re[j]; re[j] = t; t = im[i]; im[i] = im[j]; im[j] = t; }
+  }
+  for (let len = 2; len <= n; len <<= 1){
+    const ang = (inverse ? 2 : -2) * Math.PI / len;
+    const wr = Math.cos(ang), wi = Math.sin(ang);
+    for (let i = 0; i < n; i += len){
+      let cr = 1, ci = 0;
+      for (let k = 0; k < len/2; k++){
+        const ur = re[i+k], ui = im[i+k];
+        const vr = re[i+k+len/2]*cr - im[i+k+len/2]*ci;
+        const vi = re[i+k+len/2]*ci + im[i+k+len/2]*cr;
+        re[i+k] = ur + vr; im[i+k] = ui + vi;
+        re[i+k+len/2] = ur - vr; im[i+k+len/2] = ui - vi;
+        const nr = cr*wr - ci*wi; ci = cr*wi + ci*wr; cr = nr;
+      }
+    }
+  }
+  if (inverse) for (let i = 0; i < n; i++){ re[i] /= n; im[i] /= n; }
+}
+/* 2-D FFT over an N×N plane, rows then columns. */
+function fft2(re, im, N, inverse){
+  const rr = new Float64Array(N), ri = new Float64Array(N);
+  for (let y = 0; y < N; y++){
+    for (let x = 0; x < N; x++){ rr[x] = re[y*N+x]; ri[x] = im[y*N+x]; }
+    fft(rr, ri, inverse);
+    for (let x = 0; x < N; x++){ re[y*N+x] = rr[x]; im[y*N+x] = ri[x]; }
+  }
+  for (let x = 0; x < N; x++){
+    for (let y = 0; y < N; y++){ rr[y] = re[y*N+x]; ri[y] = im[y*N+x]; }
+    fft(rr, ri, inverse);
+    for (let y = 0; y < N; y++){ re[y*N+x] = rr[y]; im[y*N+x] = ri[y]; }
+  }
+}
+
+/* Spectral-residual saliency (Hou & Zhang, CVPR 2007): whatever the log-spectrum
+   does NOT predict about itself is the interesting part of the picture. Runs at
+   64×64 — the method is defined at that scale — and returns the bounding box of
+   the salient region in source pixels. */
+function saliencyBox(img, iw, ih){
+  const N = 64;
+  const cv = document.createElement('canvas'); cv.width = cv.height = N;
+  const cx = cv.getContext('2d', { willReadFrequently:true });
+  cx.drawImage(img, 0, 0, N, N);
+  const d = cx.getImageData(0, 0, N, N).data;
+  const re = new Float64Array(N*N), im = new Float64Array(N*N);
+  for (let i = 0; i < N*N; i++) re[i] = 0.299*d[i*4] + 0.587*d[i*4+1] + 0.114*d[i*4+2];
+  fft2(re, im, N, false);
+  const logAmp = new Float64Array(N*N), phase = new Float64Array(N*N);
+  for (let i = 0; i < N*N; i++){
+    const a = Math.hypot(re[i], im[i]);
+    logAmp[i] = Math.log(a + 1e-9);
+    phase[i] = Math.atan2(im[i], re[i]);
+  }
+  const smooth = new Float64Array(N*N);   // 3×3 box average of the log spectrum
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++){
+    let s = 0, c = 0;
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++){
+      const yy = y+dy, xx = x+dx;
+      if (yy < 0 || yy >= N || xx < 0 || xx >= N) continue;
+      s += logAmp[yy*N+xx]; c++;
+    }
+    smooth[y*N+x] = s / c;
+  }
+  for (let i = 0; i < N*N; i++){
+    const r = Math.exp(logAmp[i] - smooth[i]);
+    re[i] = r * Math.cos(phase[i]); im[i] = r * Math.sin(phase[i]);
+  }
+  fft2(re, im, N, true);
+  const sal = new Float64Array(N*N);
+  for (let i = 0; i < N*N; i++) sal[i] = re[i]*re[i] + im[i]*im[i];
+  const bl = new Float64Array(N*N);       // blur, as the paper prescribes
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++){
+    let s = 0, c = 0;
+    for (let dy = -3; dy <= 3; dy++) for (let dx = -3; dx <= 3; dx++){
+      const yy = y+dy, xx = x+dx;
+      if (yy < 0 || yy >= N || xx < 0 || xx >= N) continue;
+      s += sal[yy*N+xx]; c++;
+    }
+    bl[y*N+x] = s / c;
+  }
+  const sorted = Float64Array.from(bl).sort();
+  const thr = sorted[Math.floor(N*N * 0.80)];       // keep the top fifth
+  let x0 = N, y0 = N, x1 = -1, y1 = -1;
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++)
+    if (bl[y*N+x] >= thr){
+      if (x < x0) x0 = x; if (x > x1) x1 = x;
+      if (y < y0) y0 = y; if (y > y1) y1 = y;
+    }
+  if (x1 < x0 || y1 < y0) return null;
+  /* Pad a little so the box contains the subject, but always leave a margin:
+     everything outside the box is what GrabCut learns "background" from, so a
+     box that reaches the frame edge leaves it with nothing to model. */
+  const pad = 1.2, margin = 0.04;
+  const cxm = (x0+x1)/2, cym = (y0+y1)/2;
+  const hw = Math.max(2, (x1-x0+1)/2 * pad), hh = Math.max(2, (y1-y0+1)/2 * pad);
+  const lo = N * margin, hi = N * (1 - margin);
+  const bx0 = Math.max(lo, cxm - hw), bx1 = Math.min(hi, cxm + hw);
+  const by0 = Math.max(lo, cym - hh), by1 = Math.min(hi, cym + hh);
+  if (bx1 - bx0 < 2 || by1 - by0 < 2) return null;
+  const sx = iw / N, sy = ih / N;
+  return {
+    x: Math.round(bx0 * sx), y: Math.round(by0 * sy),
+    w: Math.max(2, Math.round((bx1 - bx0) * sx)),
+    h: Math.max(2, Math.round((by1 - by0) * sy)),
+  };
+}
+
+/* ── extract subject ───────────────────────────────────────────────────────── */
+tool({
+  id:'cutout', name:'Extract subject', group:'Convert',
+  blurb:'Cut a subject out and get a transparent PNG back. The magic wand handles flat backgrounds; for anything busier, draw a box and GrabCut works the edges out from color and contrast.',
+  html: `
+    <div class="drop" id="ct-drop">Drop an image here, click to choose, or paste from the clipboard</div>
+    <input type="file" id="ct-file" accept="image/*" style="display:none">
+
+    <div class="row" style="margin-top:.8rem">
+      <div class="seg" id="ct-mode">
+        <button class="on" data-m="wand">Magic wand</button>
+        <button data-m="box">Box (GrabCut)</button>
+      </div>
+      <button class="ghost" id="ct-reset">Reset</button>
+      <label class="check"><input type="checkbox" id="ct-showmask"> show mask</label>
+    </div>
+
+    <div class="row" id="ct-c-wand" style="margin-top:.7rem">
+      <label class="check">tolerance <input type="range" id="ct-tol" min="2" max="120" value="30" style="width:120px"> <span class="v" id="ct-tolv">30</span></label>
+      <label class="check">feather <input type="range" id="ct-fea" min="0" max="10" value="1" style="width:90px"> <span class="v" id="ct-feav">1</span> px</label>
+    </div>
+
+    <div class="row" id="ct-c-box" style="margin-top:.7rem;display:none">
+      <button class="ghost" id="ct-auto">Auto-place box</button>
+      <button class="act" id="ct-run" disabled>Cut out</button>
+      <label class="check">passes <input type="range" id="ct-it" min="1" max="6" value="3" style="width:90px"> <span class="v" id="ct-itv">3</span></label>
+      <label class="check">feather <input type="range" id="ct-bfea" min="0" max="10" value="1" style="width:90px"> <span class="v" id="ct-bfeav">1</span> px</label>
+    </div>
+
+    <div class="prog" id="ct-prog">Drop an image to start.</div>
+
+    <div class="imgwrap alphabg" id="ct-wrap" style="display:none">
+      <canvas id="ct-a"></canvas>
+      <canvas id="ct-o" class="lay" style="cursor:crosshair"></canvas>
+    </div>
+    <div class="row" id="ct-actions" style="display:none;margin-top:.6rem">
+      <button class="act" id="ct-dl">Download PNG</button>
+    </div>
+
+    <div class="outs" id="ct-outs" style="display:none;margin-top:.8rem">
+      ${outRow('Source','ct-o-src')}
+      ${outRow('Working size','ct-o-work')}
+      ${outRow('Subject','ct-o-cov')}
+    </div>
+
+    ${shPanel('cutout', [
+      {why:'magic wand — flood fill the corner colour to transparent', cmd:`magick photo.png -alpha set -fuzz 12% -fill none -draw 'alpha 0,0 floodfill' cut.png`},
+      {why:'GrabCut from a box, with OpenCV', cmd:`python3 -c "import cv2,numpy as np;i=cv2.imread('photo.jpg');m=np.zeros(i.shape[:2],'u1');cv2.grabCut(i,m,(50,50,400,400),np.zeros((1,65)),np.zeros((1,65)),3,cv2.GC_INIT_WITH_RECT);cv2.imwrite('cut.png',np.dstack([i,(m&1)*255]))"`},
+      {why:'drop a flat white studio background', cmd:`magick photo.jpg -fuzz 8% -transparent white cut.png`},
+    ])}
+
+    <div class="note">GrabCut segments at 360&nbsp;px and the mask is scaled back up, with the soft edge
+      re-snapped to full-resolution colour edges — the graph has one node per pixel and one 8-neighbour
+      arc per pair, so full-size cuts are not something a single JS thread should attempt.
+      <b>Auto-place box</b> uses spectral-residual saliency to guess where the subject is; drag your own box
+      when it guesses wrong.</div>`,
+  wire(){
+    const WORK_MAX = 1600, SEG_MAX = 360;
+    const cvA = $('#ct-a'), cvO = $('#ct-o'), prog = $('#ct-prog');
+    let src = null, srcFile = null, mode = 'wand';
+    let removed = null;          // wand: 1 = flood-filled away
+    let alphaFull = null;        // current alpha, working resolution
+    let rect = null, drag = null, busy = false;
+
+    const V = {
+      tol:  () => +$('#ct-tol').value,
+      fea:  () => +$('#ct-fea').value,
+      it:   () => +$('#ct-it').value,
+      bfea: () => +$('#ct-bfea').value,
+    };
+    const feather = () => mode === 'wand' ? V.fea() : V.bfea();
+    const syncLabels = () => {
+      $('#ct-tolv').textContent = V.tol();
+      $('#ct-feav').textContent = V.fea();
+      $('#ct-itv').textContent = V.it();
+      $('#ct-bfeav').textContent = V.bfea();
+      setSh('cutout', 0, `magick photo.png -alpha set -fuzz ${Math.round(V.tol()/441*100)}% -fill none -draw 'alpha 0,0 floodfill' cut.png`);
+      if (rect) setSh('cutout', 1,
+        `python3 -c "import cv2,numpy as np;i=cv2.imread('photo.jpg');m=np.zeros(i.shape[:2],'u1');cv2.grabCut(i,m,(${rect.x},${rect.y},${rect.w},${rect.h}),np.zeros((1,65)),np.zeros((1,65)),${V.it()},cv2.GC_INIT_WITH_RECT);cv2.imwrite('cut.png',np.dstack([i,(m&1)*255]))"`);
+    };
+
+    /* paint the RGBA result: source colour, current alpha, optional mask view */
+    const paint = () => {
+      if (!src || !alphaFull) return;
+      const { w, h } = src, n = w * h;
+      const px = new ImageData(w, h), sd = src.data.data, od = px.data;
+      const maskView = $('#ct-showmask').checked;
+      const soft = featherAlpha(alphaFull, w, h, feather());
+      for (let i = 0, p = 0; i < n; i++, p += 4){
+        const a = soft[i];
+        if (maskView){
+          const v = Math.round(a * 255);
+          od[p] = od[p+1] = od[p+2] = v; od[p+3] = 255;
+        } else {
+          od[p] = sd[p]; od[p+1] = sd[p+1]; od[p+2] = sd[p+2];
+          od[p+3] = Math.round(a * (sd[p+3] / 255) * 255);
+        }
+      }
+      cvA.width = w; cvA.height = h;
+      cvA.getContext('2d').putImageData(px, 0, 0);
+      let keep = 0;
+      for (let i = 0; i < n; i++) keep += soft[i];
+      $('#ct-o-cov').textContent = `${(keep / n * 100).toFixed(1)}% of the frame kept`;
+      $('#ct-wrap').style.display = ''; $('#ct-actions').style.display = ''; $('#ct-outs').style.display = '';
+      src.soft = soft;
+    };
+    /* a small Gaussian on the alpha channel only — softens the cut without moving it */
+    const featherAlpha = (a, w, h, px) => {
+      if (px <= 0) return a;
+      const tmp = new Float32Array(w*h), out = new Float32Array(w*h);
+      blurPlane(a, w, h, gaussKernel(px / 2), tmp, out);
+      return out;
+    };
+
+    const drawOverlay = () => {
+      cvO.width = src ? src.w : 0; cvO.height = src ? src.h : 0;
+      if (!src) return;
+      const cx = cvO.getContext('2d');
+      cx.clearRect(0, 0, cvO.width, cvO.height);
+      const r = drag || rect;
+      if (mode === 'box' && r){
+        cx.lineWidth = Math.max(1.5, src.w / 300);
+        cx.setLineDash([cx.lineWidth * 4, cx.lineWidth * 3]);
+        cx.strokeStyle = '#fff'; cx.strokeRect(r.x, r.y, r.w, r.h);
+        cx.strokeStyle = '#000'; cx.lineDashOffset = cx.lineWidth * 4;
+        cx.strokeRect(r.x, r.y, r.w, r.h);
+      }
+    };
+
+    /* pointer position in working-image pixels */
+    const at = e => {
+      const b = cvO.getBoundingClientRect();
+      return {
+        x: Math.max(0, Math.min(src.w - 1, Math.round((e.clientX - b.left) / b.width * src.w))),
+        y: Math.max(0, Math.min(src.h - 1, Math.round((e.clientY - b.top) / b.height * src.h))),
+      };
+    };
+
+    /* ── magic wand: contiguous flood fill against the clicked colour ── */
+    const wandAt = (x, y) => {
+      const { w, h } = src, d = src.data.data, n = w * h;
+      const seed = (y*w + x) * 4;
+      const sr = d[seed], sg = d[seed+1], sb = d[seed+2];
+      const tol = V.tol(), tol2 = tol * tol;
+      const seen = new Uint8Array(n), stack = new Int32Array(n);
+      let sp = 0; stack[sp++] = y*w + x; seen[y*w + x] = 1;
+      while (sp){
+        const i = stack[--sp];
+        removed[i] = 1;
+        const cxp = i % w, cyp = (i / w) | 0;
+        for (let k = 0; k < 4; k++){
+          const nx = cxp + [1,-1,0,0][k], ny = cyp + [0,0,1,-1][k];
+          if (nx < 0 || nx >= w || ny < 0 || ny >= h) continue;
+          const j = ny*w + nx;
+          if (seen[j]) continue;
+          const q = j * 4;
+          const dr = d[q]-sr, dg = d[q+1]-sg, db = d[q+2]-sb;
+          if (dr*dr + dg*dg + db*db > tol2) continue;
+          seen[j] = 1; stack[sp++] = j;
+        }
+      }
+      alphaFull = new Float32Array(n);
+      for (let i = 0; i < n; i++) alphaFull[i] = removed[i] ? 0 : 1;
+    };
+
+    /* ── box mode: GrabCut at SEG_MAX, mask refined back to working size ── */
+    const runGrabCut = async () => {
+      if (!src || !rect || busy) return;
+      busy = true; $('#ct-run').disabled = true;
+      const k = Math.min(1, SEG_MAX / Math.max(src.w, src.h));
+      const sw = Math.max(8, Math.round(src.w * k)), sh = Math.max(8, Math.round(src.h * k));
+      const sc = document.createElement('canvas'); sc.width = sw; sc.height = sh;
+      const scx = sc.getContext('2d', { willReadFrequently:true });
+      scx.drawImage(src.cv, 0, 0, sw, sh);
+      const sd = scx.getImageData(0, 0, sw, sh).data;
+      const r = {
+        x: Math.max(0, Math.round(rect.x * sw / src.w)),
+        y: Math.max(0, Math.round(rect.y * sh / src.h)),
+        w: Math.max(2, Math.round(rect.w * sw / src.w)),
+        h: Math.max(2, Math.round(rect.h * sh / src.h)),
+      };
+      const t0 = performance.now();
+      prog.textContent = 'fitting colour mixtures…';
+      await new Promise(rz => setTimeout(rz, 0));
+      const alpha = await grabCut(sd, sw, sh, r, V.it(), async (i, changed) => {
+        prog.textContent = `graph cut — pass ${i}/${V.it()} · ${changed.toLocaleString()} pixels moved`;
+        await new Promise(rz => setTimeout(rz, 0));
+      });
+      const af = new Float32Array(sw * sh);
+      for (let i = 0; i < sw*sh; i++) af[i] = alpha[i];
+      alphaFull = refineMask(af, sw, sh, src.w, src.h, src.data.data, 3);
+      prog.textContent = `GrabCut · ${sw}×${sh} graph · ${V.it()} passes · ${Math.round(performance.now() - t0)} ms`;
+      paint(); drawOverlay();
+      busy = false; $('#ct-run').disabled = false;
+    };
+
+    const resetMask = () => {
+      if (!src) return;
+      const n = src.w * src.h;
+      removed = new Uint8Array(n);
+      alphaFull = new Float32Array(n).fill(1);
+      rect = drag = null;
+      $('#ct-run').disabled = true;
+      paint(); drawOverlay();
+      prog.textContent = mode === 'wand'
+        ? 'Click the background to flood it away. Click again to take more.'
+        : 'Drag a box around the subject, or use Auto-place box.';
+    };
+
+    wireImageDrop('cutout', '#ct-drop', '#ct-file', (img, f) => {
+      const fit = fitCanvas(img, WORK_MAX);
+      src = { img, cv:fit.cv, w:fit.w, h:fit.h, data:fit.data };
+      srcFile = f;
+      $('#ct-drop').textContent = `${f.name} — drop, click or paste to replace`;
+      $('#ct-o-src').textContent = `${img.width} × ${img.height} · ${fmtBytes(f.size)} · ${f.type}`;
+      $('#ct-o-work').textContent = fit.w === img.width && fit.h === img.height
+        ? `${fit.w} × ${fit.h} (full size)` : `${fit.w} × ${fit.h} (from ${img.width} × ${img.height})`;
+      resetMask();
+    });
+
+    $('#ct-mode').addEventListener('click', e => {
+      const b = e.target.closest('button[data-m]'); if (!b) return;
+      $$('#ct-mode button').forEach(x => x.classList.toggle('on', x === b));
+      mode = b.dataset.m;
+      $('#ct-c-wand').style.display = mode === 'wand' ? '' : 'none';
+      $('#ct-c-box').style.display  = mode === 'box'  ? '' : 'none';
+      resetMask();
+    });
+    $('#ct-reset').addEventListener('click', resetMask);
+    $('#ct-showmask').addEventListener('change', paint);
+    ['ct-tol','ct-fea','ct-it','ct-bfea'].forEach(id =>
+      $('#'+id).addEventListener('input', () => { syncLabels(); if (id.includes('fea')) paint(); }));
+
+    $('#ct-auto').addEventListener('click', () => {
+      if (!src) return;
+      const r = saliencyBox(src.img, src.w, src.h);
+      if (!r){ prog.textContent = 'saliency found nothing to box — drag one yourself.'; return; }
+      rect = r; $('#ct-run').disabled = false; syncLabels(); drawOverlay();
+      prog.textContent = `box placed by spectral-residual saliency — ${r.w}×${r.h}. Adjust it or hit Cut out.`;
+    });
+    $('#ct-run').addEventListener('click', runGrabCut);
+
+    cvO.addEventListener('pointerdown', e => {
+      if (!src || busy) return;
+      if (mode === 'wand'){
+        const p = at(e); wandAt(p.x, p.y); paint();
+        prog.textContent = 'flood filled — click more background, or Reset.';
+        return;
+      }
+      const p = at(e);
+      drag = { x0:p.x, y0:p.y, x:p.x, y:p.y, w:0, h:0 };
+      cvO.setPointerCapture(e.pointerId);
+    });
+    cvO.addEventListener('pointermove', e => {
+      if (!drag) return;
+      const p = at(e);
+      drag.x = Math.min(drag.x0, p.x); drag.y = Math.min(drag.y0, p.y);
+      drag.w = Math.abs(p.x - drag.x0); drag.h = Math.abs(p.y - drag.y0);
+      drawOverlay();
+    });
+    cvO.addEventListener('pointerup', () => {
+      if (!drag) return;
+      if (drag.w > 8 && drag.h > 8){
+        rect = { x:drag.x, y:drag.y, w:drag.w, h:drag.h };
+        $('#ct-run').disabled = false; syncLabels();
+        prog.textContent = `box ${rect.w}×${rect.h} — hit Cut out.`;
+      }
+      drag = null; drawOverlay();
+    });
+
+    $('#ct-dl').addEventListener('click', () => {
+      const a = document.createElement('a');
+      a.href = cvA.toDataURL('image/png');
+      a.download = `${(srcFile?.name || 'image').replace(/\.[^.]+$/, '')}-cutout.png`;
+      a.click();
+    });
+    syncLabels();
+  }
+});
+
+/* ═══════════════════ colour propagation (Levin/Lischinski/Weiss, SIGGRAPH 2004) ═══════════════════ */
+
+const LEVIN_OX = [-1,0,1,-1,1,-1,0,1], LEVIN_OY = [-1,-1,-1,0,0,1,1,1];
+
+/* How strongly colour should flow from each 8-neighbour into a pixel: the premise
+   is that neighbours with similar intensity belong to the same object, so the
+   weight falls off with intensity difference, scaled by the local variance.
+   Rows are normalized to sum to 1, which makes the relaxation below a contraction. */
+function levinWeights(Y, w, h){
+  const n = w * h, W8 = new Float32Array(n * 8);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++){
+    const i = y*w + x, yr = Y[i];
+    let s = yr, s2 = yr*yr, c = 1;
+    for (let k = 0; k < 8; k++){
+      const xx = x + LEVIN_OX[k], yy = y + LEVIN_OY[k];
+      if (xx < 0 || xx >= w || yy < 0 || yy >= h) continue;
+      const v = Y[yy*w + xx]; s += v; s2 += v*v; c++;
+    }
+    let varr = s2/c - (s/c)*(s/c);
+    if (varr < 2e-6) varr = 2e-6;
+    const sig = 2 * 0.6 * varr;
+    let tot = 0;
+    for (let k = 0; k < 8; k++){
+      const xx = x + LEVIN_OX[k], yy = y + LEVIN_OY[k];
+      if (xx < 0 || xx >= w || yy < 0 || yy >= h){ W8[i*8 + k] = 0; continue; }
+      const dv = yr - Y[yy*w + xx];
+      const wt = Math.exp(-(dv*dv) / sig);
+      W8[i*8 + k] = wt; tot += wt;
+    }
+    if (tot > 0) for (let k = 0; k < 8; k++) W8[i*8 + k] /= tot;
+  }
+  return W8;
+}
+
+/* Successive over-relaxation on (I − W)C = 0 with the scribbled pixels pinned.
+   Gauss-Seidel in place, so a sweep carries information the full width of the
+   image; the direction alternates so it carries just as well the other way. */
+function relaxChroma(W8, w, h, fixed, C, iters, omega){
+  for (let it = 0; it < iters; it++){
+    const back = it & 1;
+    for (let yy = 0; yy < h; yy++){
+      const y = back ? h - 1 - yy : yy;
+      for (let xx = 0; xx < w; xx++){
+        const x = back ? w - 1 - xx : xx;
+        const i = y*w + x;
+        if (fixed[i]) continue;
+        let s = 0;
+        for (let k = 0; k < 8; k++){
+          const wt = W8[i*8 + k];
+          if (!wt) continue;
+          s += wt * C[(y + LEVIN_OY[k])*w + (x + LEVIN_OX[k])];
+        }
+        C[i] += omega * (s - C[i]);
+      }
+    }
+  }
+}
+
+/* Optimal SOR factor for a Laplace-like system on an N-wide grid. */
+const sorOmega = N => Math.min(1.95, 2 / (1 + Math.sin(Math.PI / Math.max(4, N))));
+
+/* Coarse-to-fine solve. Plain relaxation moves colour about one pixel per sweep,
+   so a scribble would take thousands of sweeps to cross the frame; solving on a
+   pyramid first and using that as the initial guess fixes the convergence rate. */
+async function solveColorization(Y, w, h, fixed, U, V, onLevel){
+  const levels = [{ Y, fixed, U, V, w, h }];
+  let cy = Y, cf = fixed, cu = U, cv = V, cw = w, ch = h;
+  while (Math.min(cw, ch) > 12 && levels.length < 9){
+    const nw = cw >> 1, nh = ch >> 1;
+    const ny = new Float32Array(nw*nh), nf = new Uint8Array(nw*nh),
+          nu = new Float32Array(nw*nh), nv = new Float32Array(nw*nh);
+    for (let y = 0; y < nh; y++) for (let x = 0; x < nw; x++){
+      let sy = 0, su = 0, sv = 0, fc = 0;
+      for (let dy = 0; dy < 2; dy++) for (let dx = 0; dx < 2; dx++){
+        const j = (y*2 + dy)*cw + (x*2 + dx);
+        sy += cy[j];
+        if (cf[j]){ su += cu[j]; sv += cv[j]; fc++; }
+      }
+      const i = y*nw + x;
+      ny[i] = sy / 4;
+      if (fc){ nf[i] = 1; nu[i] = su/fc; nv[i] = sv/fc; }
+    }
+    levels.push({ Y:ny, fixed:nf, U:nu, V:nv, w:nw, h:nh });
+    cy = ny; cf = nf; cu = nu; cv = nv; cw = nw; ch = nh;
+  }
+  for (let L = levels.length - 1; L >= 0; L--){
+    const lv = levels[L];
+    if (L < levels.length - 1){
+      const co = levels[L + 1];
+      for (let y = 0; y < lv.h; y++) for (let x = 0; x < lv.w; x++){
+        const i = y*lv.w + x;
+        if (lv.fixed[i]) continue;
+        const j = Math.min(co.h - 1, y >> 1)*co.w + Math.min(co.w - 1, x >> 1);
+        lv.U[i] = co.U[j]; lv.V[i] = co.V[j];
+      }
+    }
+    const W8 = levinWeights(lv.Y, lv.w, lv.h);
+    const big = Math.max(lv.w, lv.h);
+    /* Nested iteration: the coarsest grid is solved almost exactly (it is tiny,
+       so sweeps there are nearly free) and every finer grid inherits that answer
+       and only has to clean up local detail. */
+    const iters = L === levels.length - 1 ? Math.min(2400, 40 * big) : 16;
+    const omega = sorOmega(big);
+    relaxChroma(W8, lv.w, lv.h, lv.fixed, lv.U, iters, omega);
+    relaxChroma(W8, lv.w, lv.h, lv.fixed, lv.V, iters, omega);
+    if (onLevel) await onLevel(levels.length - L, levels.length, lv.w, lv.h);
+  }
+}
+
+/* ── scribble colorize ─────────────────────────────────────────────────────── */
+tool({
+  id:'colorize', name:'Scribble colorize', group:'Convert',
+  blurb:'Paint a few strokes on a black-and-white photo and the color spreads to fill each region, stopping where the brightness changes. You pick the palette, so the result is a choice rather than a guess.',
+  html: `
+    <div class="drop" id="cz-drop">Drop a black-and-white image here, click to choose, or paste</div>
+    <input type="file" id="cz-file" accept="image/*" style="display:none">
+
+    <div class="row" style="margin-top:.8rem">
+      <div class="swatches" id="cz-pal"></div>
+      <input type="color" id="cz-col" value="#c08457" style="width:2.4rem;height:1.9rem;padding:0;border:1px solid var(--border-2);border-radius:6px;background:none;cursor:pointer">
+      <label class="check">brush <input type="range" id="cz-size" min="2" max="60" value="14" style="width:100px"> <span class="v" id="cz-sizev">14</span> px</label>
+    </div>
+    <div class="row" style="margin-top:.6rem">
+      <button class="act" id="cz-run" disabled>Colorize</button>
+      <button class="ghost" id="cz-undo">Undo stroke</button>
+      <button class="ghost" id="cz-clear">Clear strokes</button>
+      <label class="check"><input type="checkbox" id="cz-showgrey"> show the grey original</label>
+    </div>
+
+    <div class="prog" id="cz-prog">Drop an image to start.</div>
+
+    <div class="imgwrap" id="cz-wrap" style="display:none">
+      <canvas id="cz-a"></canvas>
+      <canvas id="cz-o" class="lay" style="cursor:crosshair;opacity:.75"></canvas>
+    </div>
+    <div class="row" id="cz-actions" style="display:none;margin-top:.6rem">
+      <button class="act" id="cz-dl">Download PNG</button>
+    </div>
+
+    <div class="outs" id="cz-outs" style="display:none;margin-top:.8rem">
+      ${outRow('Source','cz-o-src')}
+      ${outRow('Working size','cz-o-work')}
+      ${outRow('Solve','cz-o-solve')}
+    </div>
+
+    ${shPanel('colorize', [
+      {why:"the same interaction in G'MIC (opens its own window)", cmd:`gmic photo.png x_colorize 0,1024,1 -o colorized.png`},
+      {why:'flatten to grey first, if the source still has colour', cmd:`magick photo.jpg -colorspace Gray grey.png`},
+      {why:'a global tint instead — no propagation, just one hue', cmd:`magick grey.png -fill '#c08457' -tint 60 tinted.png`},
+    ])}
+
+    <div class="note">Colour lives only in the Cb/Cr channels: the grey image supplies luminance and stays
+      untouched, so the result keeps every bit of the original detail. Strokes are constraints, not paint —
+      one dab per region is usually enough, and the solver works out the boundaries from the intensity edges.</div>`,
+  wire(){
+    const WORK_MAX = 1000;
+    const PALETTE = ['#c08457','#8a5a3b','#6f8f4f','#4a7fb5','#c9c2a6','#b5453c','#d9b06a','#6b6f76','#2f4f6f','#e8d5c0'];
+    const cvA = $('#cz-a'), cvO = $('#cz-o'), prog = $('#cz-prog');
+    let src = null, srcFile = null, strokes = null, sctx = null;
+    let colour = '#c08457', painting = false, last = null, undo = [], busy = false, solved = null;
+
+    $('#cz-pal').innerHTML = PALETTE.map((c, i) =>
+      `<button data-c="${c}" class="${i === 0 ? 'on' : ''}" style="background:${c}" title="${c}"></button>`).join('');
+
+    const at = e => {
+      const b = cvO.getBoundingClientRect();
+      return { x: (e.clientX - b.left) / b.width * src.w, y: (e.clientY - b.top) / b.height * src.h };
+    };
+    const showStrokes = () => {
+      cvO.getContext('2d').clearRect(0, 0, cvO.width, cvO.height);
+      cvO.getContext('2d').drawImage(strokes, 0, 0);
+    };
+    /* the base layer: grey original, or the colorized result once we have one */
+    const showBase = () => {
+      const useGrey = $('#cz-showgrey').checked || !solved;
+      cvA.getContext('2d').putImageData(useGrey ? src.grey : solved, 0, 0);
+    };
+
+    const pushUndo = () => {
+      undo.push(sctx.getImageData(0, 0, src.w, src.h));
+      if (undo.length > 12) undo.shift();
+    };
+    const anyStroke = () => {
+      const d = sctx.getImageData(0, 0, src.w, src.h).data;
+      for (let i = 3; i < d.length; i += 4) if (d[i] > 8) return true;
+      return false;
+    };
+    const syncRun = () => { $('#cz-run').disabled = busy || !src || !anyStroke(); };
+
+    const run = async () => {
+      if (!src || busy) return;
+      busy = true; syncRun();
+      const { w, h } = src, n = w * h;
+      const sd = sctx.getImageData(0, 0, w, h).data;
+      const fixed = new Uint8Array(n), U = new Float32Array(n), V = new Float32Array(n);
+      let marks = 0;
+      for (let i = 0, p = 0; i < n; i++, p += 4){
+        if (sd[p+3] <= 8) continue;
+        const r = sd[p], g = sd[p+1], b = sd[p+2];
+        fixed[i] = 1; marks++;
+        U[i] = (-0.168736*r - 0.331264*g + 0.5*b) / 255;
+        V[i] = ( 0.5*r - 0.418688*g - 0.081312*b) / 255;
+      }
+      if (!marks){ busy = false; syncRun(); prog.textContent = 'paint at least one stroke first.'; return; }
+      const t0 = performance.now();
+      prog.textContent = 'building the pyramid…';
+      await new Promise(r => setTimeout(r, 0));
+      await solveColorization(src.Y, w, h, fixed, U, V, async (i, total, lw, lh) => {
+        prog.textContent = `solving — level ${i}/${total} at ${lw}×${lh}`;
+        await new Promise(r => setTimeout(r, 0));
+      });
+      const out = new ImageData(w, h), od = out.data, gd = src.grey.data;
+      const cl = v => v < 0 ? 0 : v > 255 ? 255 : v;
+      for (let i = 0, p = 0; i < n; i++, p += 4){
+        const y = gd[p], cb = U[i] * 255, cr = V[i] * 255;
+        od[p]   = cl(y + 1.402*cr);
+        od[p+1] = cl(y - 0.344136*cb - 0.714136*cr);
+        od[p+2] = cl(y + 1.772*cb);
+        od[p+3] = 255;
+      }
+      solved = out;
+      $('#cz-o-solve').textContent =
+        `${marks.toLocaleString()} constrained px · ${Math.round(performance.now() - t0)} ms`;
+      prog.textContent = 'done — keep painting and run it again to correct any region.';
+      $('#cz-showgrey').checked = false;
+      showBase();
+      busy = false; syncRun();
+    };
+
+    wireImageDrop('colorize', '#cz-drop', '#cz-file', (img, f) => {
+      const fit = fitCanvas(img, WORK_MAX);
+      const { w, h } = fit, n = w * h;
+      const d = fit.data.data;
+      const grey = new ImageData(w, h), gd = grey.data, Y = new Float32Array(n);
+      for (let i = 0, p = 0; i < n; i++, p += 4){
+        const y = Math.round(0.299*d[p] + 0.587*d[p+1] + 0.114*d[p+2]);
+        gd[p] = gd[p+1] = gd[p+2] = y; gd[p+3] = 255;
+        Y[i] = y / 255;
+      }
+      src = { img, w, h, grey, Y };
+      srcFile = f; solved = null; undo = [];
+      strokes = document.createElement('canvas'); strokes.width = w; strokes.height = h;
+      sctx = strokes.getContext('2d', { willReadFrequently:true });
+      sctx.lineCap = sctx.lineJoin = 'round';
+      cvA.width = cvO.width = w; cvA.height = cvO.height = h;
+      $('#cz-drop').textContent = `${f.name} — drop, click or paste to replace`;
+      $('#cz-o-src').textContent = `${img.width} × ${img.height} · ${fmtBytes(f.size)} · ${f.type}`;
+      $('#cz-o-work').textContent = w === img.width && h === img.height
+        ? `${w} × ${h} (full size)` : `${w} × ${h} (from ${img.width} × ${img.height})`;
+      $('#cz-wrap').style.display = ''; $('#cz-actions').style.display = ''; $('#cz-outs').style.display = '';
+      $('#cz-o-solve').textContent = '—';
+      showBase(); showStrokes(); syncRun();
+      prog.textContent = 'Paint one stroke per region — skin, sky, grass — then hit Colorize.';
+    });
+
+    $('#cz-pal').addEventListener('click', e => {
+      const b = e.target.closest('button[data-c]'); if (!b) return;
+      $$('#cz-pal button').forEach(x => x.classList.toggle('on', x === b));
+      colour = b.dataset.c; $('#cz-col').value = colour;
+    });
+    $('#cz-col').addEventListener('input', () => {
+      colour = $('#cz-col').value;
+      $$('#cz-pal button').forEach(x => x.classList.remove('on'));
+    });
+    $('#cz-size').addEventListener('input', () => { $('#cz-sizev').textContent = $('#cz-size').value; });
+
+    cvO.addEventListener('pointerdown', e => {
+      if (!src || busy) return;
+      pushUndo();
+      painting = true; last = at(e);
+      sctx.strokeStyle = sctx.fillStyle = colour;
+      sctx.lineWidth = +$('#cz-size').value;
+      sctx.beginPath(); sctx.arc(last.x, last.y, sctx.lineWidth/2, 0, 7); sctx.fill();
+      showStrokes();
+      cvO.setPointerCapture(e.pointerId);
+    });
+    cvO.addEventListener('pointermove', e => {
+      if (!painting) return;
+      const p = at(e);
+      sctx.beginPath(); sctx.moveTo(last.x, last.y); sctx.lineTo(p.x, p.y); sctx.stroke();
+      last = p; showStrokes();
+    });
+    const endStroke = () => { if (!painting) return; painting = false; syncRun(); };
+    cvO.addEventListener('pointerup', endStroke);
+    cvO.addEventListener('pointercancel', endStroke);
+
+    $('#cz-undo').addEventListener('click', () => {
+      if (!src || !undo.length) return;
+      sctx.putImageData(undo.pop(), 0, 0); showStrokes(); syncRun();
+    });
+    $('#cz-clear').addEventListener('click', () => {
+      if (!src) return;
+      pushUndo();
+      sctx.clearRect(0, 0, src.w, src.h); showStrokes(); syncRun();
+    });
+    $('#cz-showgrey').addEventListener('change', showBase);
+    $('#cz-dl').addEventListener('click', () => {
+      const a = document.createElement('a');
+      a.href = cvA.toDataURL('image/png');
+      a.download = `${(srcFile?.name || 'image').replace(/\.[^.]+$/, '')}-colorized.png`;
+      a.click();
+    });
+    $('#cz-run').addEventListener('click', run);
+  }
+});
+
 /* ═══════════════════════ shell: nav, routing, search ═══════════════════════ */
 const GROUPS = ['Encode','Convert','Time','Units','Ops','Crypto','Text','Reference','Toys'];
 const nav = $('#nav'), main = $('#main');
@@ -9180,13 +10611,14 @@ const getCollapsed = () => { try { return new Set(JSON.parse(localStorage.getIte
 const setCollapsed = s => { try { localStorage.setItem(NAVKEY, JSON.stringify([...s])); } catch {} };
 const navGroup = (name, tools, collapsed) => `
   <div class="navgroup${collapsed ? ' collapsed' : ''}" data-group="${esc(name)}">
-    <button class="navhead" aria-expanded="${!collapsed}">${esc(name)}<span class="navchev">▾</span></button>
+    <button class="navhead" aria-expanded="${!collapsed}">${esc(name)}<span class="navmeta"><span class="navcount">${tools.length}</span><span class="navchev">▾</span></span></button>
     <div class="navitems">${tools.map(navBtn).join('')}</div>
   </div>`;
 function buildNav(){
   const collapsed = getCollapsed();
   const pinned = PINS.map(id => TOOLS.find(t => t.id === id)).filter(Boolean);
   nav.innerHTML =
+    `<div class="navgroup"><div class="navitems"><button data-tool="home" class="navhome">All tools</button></div></div>` +
     (pinned.length ? navGroup('★ Pinned', pinned, collapsed.has('★ Pinned')) : '') +
     GROUPS.map(g => navGroup(g, TOOLS.filter(t => t.group === g), collapsed.has(g))).join('');
   $$('#nav button[data-tool]').forEach(b => b.classList.toggle('active', b.dataset.tool === currentTool));
@@ -9202,7 +10634,23 @@ nav.addEventListener('click', e => {
 /* Build only lightweight section shells at load; each tool's body + wiring is
    hydrated on first activation (see hydrate()). This keeps cold start cheap —
    we don't parse ~120 tool bodies (thousands of DOM nodes) up front. */
-main.innerHTML = TOOLS.map(t => `
+/* The catalogue screen: every tool on one page, grouped. Built lazily like a
+   tool body, so it costs nothing until someone actually opens it. */
+const homeHtml = () => `<div class="home-grid">${GROUPS.map(g => {
+  const ts = TOOLS.filter(t => t.group === g);
+  if (!ts.length) return '';
+  return `<section class="home-group">
+    <h3>${esc(g)}<span class="navcount">${ts.length}</span></h3>
+    <div class="home-links">${ts.map(t => `<button data-tool="${t.id}">${esc(t.name)}</button>`).join('')}</div>
+  </section>`;
+}).join('')}</div>`;
+
+main.innerHTML = `
+  <section class="tool" id="tool-home" data-lazy="1" aria-label="All tools">
+    <div class="tool-head"><h2>All tools</h2><span class="chip">${TOOLS.length}</span></div>
+    <p class="blurb">Pick a tool below, or press <kbd>/</kbd> to search by name and
+      <kbd>⌘K</kbd> for the command palette.</p>
+  </section>` + TOOLS.map(t => `
   <section class="tool" id="tool-${t.id}" data-lazy="1" aria-label="${esc(t.name)}">
     <div class="tool-head">
       <h2>${esc(t.name)}</h2>
@@ -9222,6 +10670,8 @@ const syncPins = () => {
   });
 };
 main.addEventListener('click', e => {
+  const link = e.target.closest('.home-links button[data-tool]');
+  if (link){ activate(link.dataset.tool); return; }
   const b = e.target.closest('.pin'); if (!b) return;
   const id = b.dataset.pin;
   PINS = PINS.includes(id) ? PINS.filter(x => x !== id) : [...PINS, id];
@@ -9252,9 +10702,10 @@ const RULES = {
 /* Build a tool's body + wire it on first activation. Idempotent (guarded by the
    data-lazy flag), so calling it repeatedly is a no-op after the first time. */
 function hydrate(id){
-  const t = TOOLS.find(x => x.id === id); if (!t) return;
   const sec = document.getElementById('tool-' + id);
   if (!sec || !sec.hasAttribute('data-lazy')) return;
+  if (id === 'home'){ sec.removeAttribute('data-lazy'); sec.insertAdjacentHTML('beforeend', homeHtml()); return; }
+  const t = TOOLS.find(x => x.id === id); if (!t) return;
   sec.removeAttribute('data-lazy');
   const blurb = sec.querySelector('.blurb');
   let anchor = blurb;
@@ -9288,7 +10739,7 @@ document.addEventListener('fullscreenchange', () => {
 
 let currentTool = 'base64';
 function activate(id, push=true){
-  if (!TOOLS.some(t => t.id === id)) id = TOOLS[0].id;
+  if (id !== 'home' && !TOOLS.some(t => t.id === id)) id = TOOLS[0].id;
   currentTool = id;
   hydrate(id);   // build + wire this tool's body on first use
   $$('.tool').forEach(s => s.classList.remove('active'));
@@ -9301,7 +10752,23 @@ function activate(id, push=true){
 }
 nav.addEventListener('click', e => {
   const b = e.target.closest('button[data-tool]');
-  if (b) activate(b.dataset.tool);
+  if (b){ activate(b.dataset.tool); setNav(false); }
+});
+
+/* mobile slide-over nav */
+const navBtnEl = $('#navBtn'), navScrim = $('#navscrim');
+function setNav(on){
+  document.body.classList.toggle('navopen', on);
+  navBtnEl.setAttribute('aria-expanded', String(on));
+  navScrim.hidden = !on;
+  if (on) q.focus();
+}
+navBtnEl.addEventListener('click', () => setNav(!document.body.classList.contains('navopen')));
+$('#brandHome').addEventListener('click', () => activate('home'));
+$('#brandHome').addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); activate('home'); } });
+navScrim.addEventListener('click', () => setNav(false));
+addEventListener('keydown', e => {
+  if (e.key === 'Escape' && document.body.classList.contains('navopen')) setNav(false);
 });
 window.addEventListener('hashchange', () => activate(location.hash.slice(1), false));
 
@@ -9312,13 +10779,17 @@ q.addEventListener('input', () => {
   nav.classList.toggle('searching', !!needle);   // force-expand groups so matches show through collapsed ones
   $$('#nav button[data-tool]').forEach(b => {
     const t = TOOLS.find(x => x.id === b.dataset.tool);
+    if (!t){ b.classList.toggle('hidden', !!needle); return; }   // the "All tools" link
     const hit = !needle || t.name.toLowerCase().includes(needle) || t.id.includes(needle) ||
                 t.group.toLowerCase().includes(needle) || t.blurb.toLowerCase().includes(needle);
     b.classList.toggle('hidden', !hit);
   });
-  $$('#nav .navgroup').forEach(g => {   // hide groups with no matches while searching
-    const any = [...g.querySelectorAll('button[data-tool]')].some(b => !b.classList.contains('hidden'));
-    g.classList.toggle('hidden', !any);
+  $$('#nav .navgroup').forEach(g => {   // hide groups with no matches; counts show matches, not totals
+    const btns = [...g.querySelectorAll('button[data-tool]')];
+    const shown = btns.filter(b => !b.classList.contains('hidden')).length;
+    g.classList.toggle('hidden', !shown);
+    const c = g.querySelector('.navcount');
+    if (c) c.textContent = needle ? shown : btns.length;
   });
 });
 q.addEventListener('keydown', e => {
@@ -9584,7 +11055,7 @@ pipeListEl.addEventListener('click', e => { const it = e.target.closest('.pal-it
 pipeOv.addEventListener('click', e => { if (e.target === pipeOv) pipeClose(); });
 
 buildNav(); syncPins();
-activate(location.hash.slice(1) || saved.tool || 'base64', false);
+activate(location.hash.slice(1) || saved.tool || 'home', false);
 
 /* PWA: register the service worker for offline use when served over http(s).
    Skipped on file:// (service workers don't run there — the single file already
