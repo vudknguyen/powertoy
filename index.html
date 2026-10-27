@@ -193,7 +193,7 @@ button.ghost{
   font-family:var(--sans);font-size:.785rem;padding:.38rem .78rem;border-radius:6px;
 }
 button.ghost:hover{color:var(--accent-2);border-color:var(--accent)}
-.seg{display:inline-flex;background:var(--surface);border:1px solid var(--border-2);border-radius:6px;padding:2px;gap:2px}
+.seg{display:inline-flex;flex-wrap:wrap;max-width:100%;background:var(--surface);border:1px solid var(--border-2);border-radius:6px;padding:2px;gap:2px}
 .seg button{
   background:none;border:0;cursor:pointer;color:var(--muted);
   font-family:var(--sans);font-size:.76rem;padding:.28rem .72rem;border-radius:4px;
@@ -295,6 +295,19 @@ button.ghost:hover{color:var(--accent-2);border-color:var(--accent)}
   .md-prev{max-height:60vh}
 }
 
+/* Several tools widen .out with their own inline fixed columns — the bitwise view
+   asks for 23.5rem of them, the ASCII and HTML-status tables for ~18rem. Below this
+   width the fixed columns alone outrun the screen and shove the last one out of
+   sight (on a phone the bitwise binary, the whole point of the tool, vanished).
+   Switching to flex makes the inline grid-template-columns inert without !important:
+   the label takes its own line and the values wrap. */
+@media (max-width:560px){
+  .out{display:flex;flex-wrap:wrap;align-items:baseline;gap:.25rem .7rem}
+  .out .k{flex:0 0 100%}
+  .out .v{min-width:0;word-break:break-all}
+  .out .cpy{margin-left:auto}
+}
+
 /* text diff */
 .diff-view{
   border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);
@@ -312,7 +325,8 @@ button.ghost:hover{color:var(--accent-2);border-color:var(--accent)}
 /* contrast preview + image dropzone */
 .cpv{border:1px solid var(--border-2);border-radius:var(--radius);padding:1.1rem 1.2rem;margin-top:.4rem}
 .cpv .big{font-size:1.45rem;font-weight:700;margin-bottom:.2rem}
-.ratio-big{font-family:var(--mono);font-size:2rem;font-weight:700;color:var(--accent-2)}
+.ratio-big{font-family:var(--mono);font-size:2rem;font-weight:700;color:var(--accent-2);word-break:break-all}
+.row > .ratio-big{flex:0 1 auto;min-width:0}
 .passchip{display:inline-block;font-size:.72rem;font-weight:700;letter-spacing:.06em;padding:.1rem .55rem;border-radius:999px}
 .passchip.ok{background:rgba(16,150,110,.15);color:var(--good)}
 .passchip.no{background:rgba(200,66,50,.15);color:var(--bad)}
@@ -971,8 +985,8 @@ tool({
   blurb:'Interpolate N evenly-spaced steps between two colors — for charts, heatmaps, hover states and gradients. Click any step to copy its hex.',
   html: `
     <div class="row">
-      <input type="color" id="fade-a" value="#106b5b" style="width:52px;height:36px;padding:2px;background:var(--surface);border:1px solid var(--border-2);border-radius:8px">
-      <input type="color" id="fade-b" value="#ffb000" style="width:52px;height:36px;padding:2px;background:var(--surface);border:1px solid var(--border-2);border-radius:8px">
+      <input type="color" id="fade-a" aria-label="Start colour" value="#106b5b" style="width:52px;height:36px;padding:2px;background:var(--surface);border:1px solid var(--border-2);border-radius:8px">
+      <input type="color" id="fade-b" aria-label="End colour" value="#ffb000" style="width:52px;height:36px;padding:2px;background:var(--surface);border:1px solid var(--border-2);border-radius:8px">
       <label class="check">steps <input type="number" id="fade-n" value="8" min="2" max="32" style="width:4.5rem"></label>
     </div>
     <div class="fadebar" id="fade-bar"></div>
@@ -1013,7 +1027,7 @@ tool({
   html: `
     <div class="row">
       <input class="grow" type="text" id="rad-in" spellcheck="false" placeholder="255  ·  0xff  ·  0b11111111" value="0xff">
-      <select id="rad-base">
+      <select id="rad-base" aria-label="Input base">
         <option value="auto">auto / prefix</option>
         <option value="2">binary</option><option value="8">octal</option>
         <option value="10">decimal</option><option value="16">hex</option>
@@ -1151,24 +1165,25 @@ tool({
   id:'tz', name:'Timezone convert', group:'Time',
   blurb:'Schedule across timezones. Add places by city or country, then drag the slider to find a time that works everywhere — working hours are shaded green, nights dimmed.',
   html: `
+    <label class="lbl" for="tz-dt">Meeting date</label>
     <div class="row">
       <input type="datetime-local" id="tz-dt" style="width:auto">
       <button class="ghost" id="tz-now">Now</button>
     </div>
     <div class="row" style="position:relative">
-      <input type="text" id="tz-search" class="grow" style="max-width:24rem" placeholder="add a city or country — e.g. Tokyo, Vietnam, USA" spellcheck="false" autocomplete="off">
+      <input type="text" id="tz-search" aria-label="Add a place" class="grow" style="max-width:24rem" placeholder="add a city or country — e.g. Tokyo, Vietnam, USA" spellcheck="false" autocomplete="off">
       <div id="tz-sug" class="tz-sug" style="display:none"></div>
     </div>
     <div class="row" style="align-items:center;gap:.55rem;margin-top:.6rem">
       <span class="tz-sub" style="font-size:.82rem">length</span>
-      <select id="tz-dur">
+      <select id="tz-dur" aria-label="Meeting length">
         <option value="0">instant</option><option value="15">15 min</option><option value="30">30 min</option>
         <option value="45">45 min</option><option value="60" selected>1 hour</option><option value="90">1½ hours</option>
         <option value="120">2 hours</option><option value="180">3 hours</option><option value="240">4 hours</option><option value="480">8 hours</option>
       </select>
       <span class="tz-sub" id="tz-window" style="font-size:.82rem"></span>
     </div>
-    <input type="range" id="tz-slider" min="0" max="1439" step="15" value="540" style="width:100%;max-width:40rem;margin:.4rem 0 0;display:block">
+    <input type="range" id="tz-slider" aria-label="Start time" min="0" max="1439" step="15" value="540" style="width:100%;max-width:40rem;margin:.4rem 0 0;display:block">
     <div id="tz-rows" style="margin-top:.4rem"></div>
     <p class="note"><span class="tz-lg work"></span> working hours (9–18) · <span class="tz-lg sh"></span> early/late · <span class="tz-lg night"></span> night. Drag the slider (start time) and pick a length to see the meeting window's start–end everywhere; click a cell to jump.</p>
     ${shPanel('tz', [
@@ -1301,7 +1316,7 @@ tool({
   html: `
     <div class="row">
       <input class="grow" type="text" id="cron-in" spellcheck="false" value="*/15 9-17 * * 1-5" placeholder="m h dom mon dow">
-      <select id="cron-preset">
+      <select id="cron-preset" aria-label="Schedule preset">
         <option value="">presets…</option>
         <option value="*/5 * * * *">every 5 minutes</option>
         <option value="0 * * * *">hourly</option>
@@ -1559,7 +1574,7 @@ tool({
     <div id="pw-pane-phrase">
       <div class="row" style="margin-top:.9rem">
         <label class="check">words <input type="number" id="pw-n" value="5" min="3" max="10" style="width:4rem"></label>
-        <select id="pw-sep">
+        <select id="pw-sep" aria-label="Word separator">
           <option value="-">dash-separated</option>
           <option value=".">dot.separated</option>
           <option value="_">underscore_separated</option>
@@ -1761,7 +1776,7 @@ tool({
   blurb:'UUID v1, v4 and v7, plus the modern alternatives: ULID, Nano ID, CUID2 and MongoDB ObjectId. Batch generation with format details for each scheme.',
   html: `
     <div class="row">
-      <select id="uu-type">
+      <select id="uu-type" aria-label="UUID version">
         <option value="v4">UUID v4 — random</option>
         <option value="v7">UUID v7 — time-ordered</option>
         <option value="v1">UUID v1 — time + node</option>
@@ -1903,7 +1918,7 @@ tool({
     <div class="row">
       <button class="act" id="js-fmt">Format</button>
       <button class="ghost" id="js-min">Minify</button>
-      <select id="js-ind"><option value="2">2 spaces</option><option value="4">4 spaces</option><option value="t">tabs</option></select>
+      <select id="js-ind" aria-label="Indentation"><option value="2">2 spaces</option><option value="4">4 spaces</option><option value="t">tabs</option></select>
       <label class="check"><input type="checkbox" id="js-sort"> sort keys</label>
     </div>
     <label class="lbl">Input</label>
@@ -2164,7 +2179,7 @@ tool({
   html: `
     <div class="row">
       <div class="seg" id="b32-mode"><button class="on" data-m="enc">Encode</button><button data-m="dec">Decode</button></div>
-      <select id="b32-var"><option value="rfc" selected>RFC 4648</option><option value="crock">Crockford</option></select>
+      <select id="b32-var" aria-label="Base32 alphabet"><option value="rfc" selected>RFC 4648</option><option value="crock">Crockford</option></select>
     </div>
     <label class="lbl">Input</label>
     <textarea id="b32-in" spellcheck="false" placeholder="hello"></textarea>
@@ -2321,11 +2336,12 @@ tool({
   id:'dmath', name:'Date math', group:'Time',
   blurb:'Add or subtract a duration from a date, and measure the gap between two dates — with ISO week and day-of-year thrown in.',
   html: `
+    <label class="lbl" for="dm-base">Start from</label>
     <div class="row">
       <input type="datetime-local" id="dm-base" style="width:auto">
       <div class="seg" id="dm-dir"><button class="on" data-d="1">+ Add</button><button data-d="-1">− Subtract</button></div>
-      <input type="number" id="dm-amt" value="3" style="width:5rem">
-      <select id="dm-unit">
+      <input type="number" id="dm-amt" value="3" aria-label="Amount to add or subtract" style="width:5rem">
+      <select id="dm-unit" aria-label="Unit">
         <option value="minutes">minutes</option><option value="hours">hours</option>
         <option value="days" selected>days</option><option value="weeks">weeks</option>
         <option value="months">months</option><option value="years">years</option>
@@ -2341,9 +2357,9 @@ tool({
     </div>
     <label class="lbl">Difference between two dates</label>
     <div class="row">
-      <input type="datetime-local" id="dm-a" style="width:auto">
+      <input type="datetime-local" id="dm-a" aria-label="From date" style="width:auto">
       <span style="color:var(--muted)">→</span>
-      <input type="datetime-local" id="dm-b" style="width:auto">
+      <input type="datetime-local" id="dm-b" aria-label="To date" style="width:auto">
     </div>
     <div class="outs" style="margin-top:.6rem">
       ${outRow('Difference','dm-diff')}
@@ -2424,9 +2440,10 @@ tool({
   id:'dur', name:'Duration convert', group:'Time',
   blurb:'Milliseconds to weeks and everything between — plus a humanized form and HH:MM:SS, for timeouts, TTLs and cache headers.',
   html: `
+    <label class="lbl" for="dur-v">Amount</label>
     <div class="row">
       <input type="number" id="dur-v" value="90061" step="any" style="width:10rem">
-      <select id="dur-u">
+      <select id="dur-u" aria-label="Unit to convert from">
         <option value="1">milliseconds</option>
         <option value="1000" selected>seconds</option>
         <option value="60000">minutes</option>
@@ -2490,9 +2507,10 @@ function unitTool(cfg){
     id: cfg.id, name: cfg.name, group: 'Units',
     blurb: cfg.blurb,
     html: `
+      <label class="lbl" for="${cfg.id}-v">Amount</label>
       <div class="row">
         <input type="number" id="${cfg.id}-v" value="1" step="any" style="width:10rem">
-        <select id="${cfg.id}-u">${cfg.units.map(u =>
+        <select id="${cfg.id}-u" aria-label="Unit to convert from">${cfg.units.map(u =>
           `<option value="${u.k}"${u.k === cfg.def ? ' selected' : ''}>${u.label}</option>`).join('')}</select>
       </div>
       <div class="outs" style="margin-top:.9rem">
@@ -2777,9 +2795,10 @@ tool({
   id:'fuel', name:'Fuel economy', group:'Units',
   blurb:'MPG to km/L to L/100 km — including the US/imperial gallon split. L/100 km runs inverse to the others: lower is better there, higher everywhere else.',
   html: `
+    <label class="lbl" for="fuel-v">Amount</label>
     <div class="row">
       <input type="number" id="fuel-v" value="30" step="any" style="width:10rem">
-      <select id="fuel-u">
+      <select id="fuel-u" aria-label="Unit to convert from">
         <option value="mpgus" selected>MPG (US)</option>
         <option value="mpgimp">MPG (imperial)</option>
         <option value="kml">km/L</option>
@@ -2883,9 +2902,10 @@ tool({
   id:'temp', name:'Temperature', group:'Units',
   blurb:'Celsius, Fahrenheit and Kelvin. The one converter that is not a simple multiply — and the one everyone needs.',
   html: `
+    <label class="lbl" for="temp-v">Amount</label>
     <div class="row">
       <input type="number" id="temp-v" value="25" step="any" style="width:10rem">
-      <select id="temp-u">
+      <select id="temp-u" aria-label="Unit to convert from">
         <option value="c" selected>Celsius</option>
         <option value="f">Fahrenheit</option>
         <option value="k">Kelvin</option>
@@ -3024,7 +3044,7 @@ tool({
   html: `
     <div class="row">
       <div class="seg" id="gz-mode"><button class="on" data-m="enc">Compress</button><button data-m="dec">Decompress</button></div>
-      <select id="gz-fmt">
+      <select id="gz-fmt" aria-label="Compression format">
         <option value="gzip" selected>gzip</option>
         <option value="deflate">deflate (zlib)</option>
         <option value="deflate-raw">deflate-raw</option>
@@ -3485,7 +3505,7 @@ tool({
   html: `
     <div class="row">
       <div class="seg" id="b85-mode"><button class="on" data-m="enc">Encode</button><button data-m="dec">Decode</button></div>
-      <select id="b85-var"><option value="a85" selected>Ascii85</option><option value="z85">Z85</option></select>
+      <select id="b85-var" aria-label="Base85 variant"><option value="a85" selected>Ascii85</option><option value="z85">Z85</option></select>
     </div>
     <label class="lbl">Input</label>
     <textarea id="b85-in" spellcheck="false" placeholder="hello"></textarea>
@@ -3626,9 +3646,9 @@ tool({
     <label class="lbl">Secret (Base32) or otpauth:// URI</label>
     <textarea id="tp-in" data-nosave spellcheck="false" style="min-height:56px" placeholder="JBSWY3DPEHPK3PXP"></textarea>
     <div class="row" style="margin-top:.6rem">
-      <select id="tp-digits"><option value="6" selected>6 digits</option><option value="8">8 digits</option></select>
-      <select id="tp-period"><option value="30" selected>30 s period</option><option value="60">60 s</option></select>
-      <select id="tp-algo"><option value="SHA-1" selected>SHA-1</option><option value="SHA-256">SHA-256</option><option value="SHA-512">SHA-512</option></select>
+      <select id="tp-digits" aria-label="Code length"><option value="6" selected>6 digits</option><option value="8">8 digits</option></select>
+      <select id="tp-period" aria-label="Time step"><option value="30" selected>30 s period</option><option value="60">60 s</option></select>
+      <select id="tp-algo" aria-label="Hash algorithm"><option value="SHA-1" selected>SHA-1</option><option value="SHA-256">SHA-256</option><option value="SHA-512">SHA-512</option></select>
     </div>
     <div class="err" id="tp-err"></div>
     <div class="row" style="margin-top:1rem;align-items:baseline">
@@ -3787,7 +3807,7 @@ tool({
   html: `
     <div class="row">
       <div class="seg" id="cv-mode"><button class="on" data-m="c2j">CSV → JSON</button><button data-m="j2c">JSON → CSV</button></div>
-      <select id="cv-delim">
+      <select id="cv-delim" aria-label="Delimiter">
         <option value="auto" selected>auto delimiter</option>
         <option value=",">comma</option><option value=";">semicolon</option>
         <option value="&#9;">tab</option><option value="|">pipe</option>
@@ -4183,7 +4203,7 @@ tool({
     <div class="row">
       <div class="seg" id="mp-fmt"><button class="on" data-f="msgpack">MessagePack</button><button data-f="cbor">CBOR</button></div>
       <div class="seg" id="mp-mode"><button class="on" data-m="enc">JSON → binary</button><button data-m="dec">binary → JSON</button></div>
-      <select id="mp-repr"><option value="hex" selected>hex</option><option value="b64">base64</option></select>
+      <select id="mp-repr" aria-label="Byte representation"><option value="hex" selected>hex</option><option value="b64">base64</option></select>
     </div>
     <label class="lbl">Input</label>
     <textarea id="mp-in" spellcheck="false" style="min-height:110px">{"name":"powertoy","version":2,"tags":["dev","offline"]}</textarea>
@@ -4441,7 +4461,7 @@ tool({
   id:'protobuf', name:'Protobuf decode', group:'Encode',
   blurb:'Decode raw Protocol Buffers bytes (hex or base64) without a .proto — a viewer that shows each field number, its wire type and value. Length-delimited fields are shown as a nested message, UTF-8 string, or hex. Field names need the schema, so they aren’t recovered.',
   html:`
-    <div class="row"><select id="pb-repr"><option value="hex" selected>hex</option><option value="b64">base64</option></select></div>
+    <div class="row"><select id="pb-repr" aria-label="Byte representation"><option value="hex" selected>hex</option><option value="b64">base64</option></select></div>
     <label class="lbl">Input bytes</label>
     <textarea id="pb-in" spellcheck="false" style="min-height:90px">089601120774657374696e67</textarea>
     <div class="err" id="pb-err"></div>
@@ -4581,7 +4601,7 @@ tool({
   html:`
     <div class="row">
       <div class="seg" id="pd-mode"><button class="on" data-m="p2d">PEM → DER</button><button data-m="d2p">DER → PEM</button></div>
-      <input id="pd-label" value="CERTIFICATE" style="width:12rem" spellcheck="false">
+      <input id="pd-label" aria-label="PEM label" value="CERTIFICATE" style="width:12rem" spellcheck="false">
     </div>
     <label class="lbl">Input</label>
     <textarea id="pd-in" spellcheck="false" style="min-height:120px">-----BEGIN EC PARAMETERS-----
@@ -4613,7 +4633,7 @@ tool({
   html:`
     <div class="row">
       <div class="seg" id="bs-mode"><button class="on" data-m="enc">JSON → BSON</button><button data-m="dec">BSON → JSON</button></div>
-      <select id="bs-repr"><option value="hex" selected>hex</option><option value="b64">base64</option></select>
+      <select id="bs-repr" aria-label="Byte representation"><option value="hex" selected>hex</option><option value="b64">base64</option></select>
     </div>
     <label class="lbl">Input</label>
     <textarea id="bs-in" spellcheck="false" style="min-height:110px">{"name":"powertoy","ver":2,"ok":true,"tags":["dev","offline"]}</textarea>
@@ -4768,9 +4788,9 @@ tool({
       <div class="seg" id="calc-ang"><button class="on" data-ang="rad">radians</button><button data-ang="deg">degrees</button></div>
       <span class="row" id="calc-domain" style="display:none;gap:.35rem;align-items:center">
         <span class="tz-sub" style="font-size:.8rem">x from</span>
-        <input type="number" id="calc-xmin" value="-10" step="any" style="width:5rem">
+        <input type="number" id="calc-xmin" aria-label="Plot range start" value="-10" step="any" style="width:5rem">
         <span class="tz-sub" style="font-size:.8rem">to</span>
-        <input type="number" id="calc-xmax" value="10" step="any" style="width:5rem">
+        <input type="number" id="calc-xmax" aria-label="Plot range end" value="10" step="any" style="width:5rem">
       </span>
     </div>
     <div class="err" id="calc-err"></div>
@@ -4924,19 +4944,19 @@ tool({
   blurb:'Format or minify SQL, run a heuristic lint (syntax sanity-check with suggestions), or draft SQL from plain English. The lint and English→SQL are best-effort starting points — not a full parser — so review before running.',
   html: `
     <div class="row">
-      <div class="seg" id="sq-mode"><button class="on" data-m="fmt">Format</button><button data-m="min">Minify</button><button data-m="lint">Lint</button><button data-m="gen">English → SQL</button></div>
-      <label class="check" id="sq-upperwrap"><input type="checkbox" id="sq-upper" checked> uppercase keywords</label>
+      <div class="seg" id="sql-mode"><button class="on" data-m="fmt">Format</button><button data-m="min">Minify</button><button data-m="lint">Lint</button><button data-m="gen">English → SQL</button></div>
+      <label class="check" id="sql-upperwrap"><input type="checkbox" id="sql-upper" checked> uppercase keywords</label>
     </div>
-    <label class="lbl" id="sq-inlbl">SQL</label>
-    <textarea id="sq-in" spellcheck="false" style="min-height:120px">select id, name, count(*) as n from users u join orders o on o.uid=u.id where u.active=1 and o.total>100 group by id, name order by n desc limit 10</textarea>
-    <div class="err" id="sq-err"></div>
-    <div id="sq-issues" style="display:none;margin-top:.4rem"></div>
-    <label class="lbl" id="sq-outlbl">Output ${cpyBtn('#sq-out')}</label>
-    <textarea id="sq-out" readonly style="min-height:150px;font-family:var(--mono)"></textarea>
+    <label class="lbl" id="sql-inlbl">SQL</label>
+    <textarea id="sql-in" spellcheck="false" style="min-height:120px">select id, name, count(*) as n from users u join orders o on o.uid=u.id where u.active=1 and o.total>100 group by id, name order by n desc limit 10</textarea>
+    <div class="err" id="sql-err"></div>
+    <div id="sql-issues" style="display:none;margin-top:.4rem"></div>
+    <label class="lbl" id="sql-outlbl">Output ${cpyBtn('#sql-out')}</label>
+    <textarea id="sql-out" readonly style="min-height:150px;font-family:var(--mono)"></textarea>
     ${shPanel('sqlfmt',[{why:'format with sqlparse',cmd:`sqlformat -r -k upper query.sql`},{why:'lint with sqlfluff',cmd:`sqlfluff lint query.sql`}])}`,
   wire(){
     let mode='fmt';
-    const inp=$('#sq-in'), out=$('#sq-out'), err=$('#sq-err'), issues=$('#sq-issues');
+    const inp=$('#sql-in'), out=$('#sql-out'), err=$('#sql-err'), issues=$('#sql-issues');
     const KW=new Set('select from where and or not in is null as join inner left right full outer cross on group by order having limit offset union all insert into values update set delete create table alter drop distinct case when then else end asc desc like between exists count sum avg min max coalesce cast on using with'.split(' '));
     const BREAK=new Set(['select','from','where','join','group','order','having','limit','union','values','set','into']);
     const NOGLUE=new Set('select from where and or not in on having by union values set join group order when then else case between like as using all distinct exists is'.split(' '));
@@ -4951,7 +4971,7 @@ tool({
         if('(),;'.includes(c)){ t.push({k:'punc',v:c,i:at}); i++; continue; }
         let j=i; while(j<s.length&&/[^\sA-Za-z0-9_$.'"`(),;]/.test(s[j]))j++; t.push({k:'op',v:s.slice(i,Math.max(j,i+1)),i:at}); i=Math.max(j,i+1); continue;
       } return t; };
-    const kwCase=w=>{ const up=$('#sq-upper').checked; return KW.has(w.toLowerCase())?(up?w.toUpperCase():w.toLowerCase()):w; };
+    const kwCase=w=>{ const up=$('#sql-upper').checked; return KW.has(w.toLowerCase())?(up?w.toUpperCase():w.toLowerCase()):w; };
     const format=toks=>{ let out='', depth=0, line='', prev='';
       const nl=d=>{ out+=line.trimEnd()+'\n'; line='  '.repeat(Math.max(0,d)); };
       for(let idx=0;idx<toks.length;idx++){ const tk=toks[idx], low=tk.v.toLowerCase();
@@ -5041,10 +5061,10 @@ tool({
     };
     const run=()=>{
       err.textContent=''; out.value=''; issues.style.display='none'; issues.innerHTML='';
-      $('#sq-inlbl').textContent = mode==='gen'?'Describe the query in English':'SQL';
-      $('#sq-outlbl').style.display = mode==='lint'?'none':'';
+      $('#sql-inlbl').textContent = mode==='gen'?'Describe the query in English':'SQL';
+      $('#sql-outlbl').style.display = mode==='lint'?'none':'';
       out.style.display = mode==='lint'?'none':'';
-      $('#sq-upperwrap').style.display = (mode==='fmt'||mode==='min')?'':'none';
+      $('#sql-upperwrap').style.display = (mode==='fmt'||mode==='min')?'':'none';
       const v=inp.value.trim(); if(!v) return;
       try{
         if(mode==='gen'){ const {sql,notes}=nl2sql(v); out.value=sql; if(notes.length) err.textContent='Heuristic draft — '+notes.join('; '); return; }
@@ -5059,8 +5079,8 @@ tool({
       }catch(e){ err.textContent=e.message||'Failed'; }
     };
     inp.addEventListener('input',run);
-    $('#sq-upper').addEventListener('change',run);
-    $$('#sq-mode button').forEach(b=>b.addEventListener('click',()=>{ $$('#sq-mode button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); mode=b.dataset.m;
+    $('#sql-upper').addEventListener('change',run);
+    $$('#sql-mode button').forEach(b=>b.addEventListener('click',()=>{ $$('#sql-mode button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); mode=b.dataset.m;
       if(mode==='gen'&&!/[a-z]\s+(from|of|in)\b/i.test(inp.value)&&/select|from/i.test(inp.value)){ inp.value='top 10 users by score where active = 1'; }
       run(); }));
     run();
@@ -5074,7 +5094,7 @@ tool({
   html: `
     <div class="row">
       <div class="seg" id="kg-alg"><button class="on" data-a="rsa">RSA</button><button data-a="ec">EC</button></div>
-      <select id="kg-size"></select>
+      <select id="kg-size" aria-label="Key size"></select>
       <button class="act" id="kg-go">Generate</button>
     </div>
     <div class="err" id="kg-err"></div>
@@ -5236,6 +5256,7 @@ tool({
   id:'cidr', name:'CIDR subnet', group:'Ops',
   blurb:'IPv4 subnet math: network, broadcast, netmask, host range and counts from any CIDR — plus a quick “is this IP inside?” check.',
   html: `
+    <label class="lbl" for="cd-in">CIDR block</label>
     <div class="row">
       <input class="grow" type="text" id="cd-in" spellcheck="false" value="10.0.0.0/22" style="max-width:16rem">
     </div>
@@ -5329,9 +5350,10 @@ tool({
   id:'chmod', name:'Chmod calculator', group:'Ops',
   blurb:'Permission checkboxes to octal to rwx string and back — setuid, setgid and the sticky bit included.',
   html: `
+    <label class="lbl" for="ch-oct">Octal mode</label>
     <div class="row">
       <input type="text" id="ch-oct" spellcheck="false" value="755" style="width:6rem;font-size:1.1rem">
-      <select id="ch-preset">
+      <select id="ch-preset" aria-label="Permission preset">
         <option value="">presets…</option>
         <option value="755">755 — executable / directory</option>
         <option value="644">644 — regular file</option>
@@ -6114,7 +6136,7 @@ tool({
     <input type="file" id="im-file" accept="image/*" style="display:none">
     <div class="row" style="margin-top:.8rem">
       <label class="check">max edge <input type="number" id="im-max" value="1200" min="16" max="8000" style="width:5.5rem"> px</label>
-      <select id="im-fmt"><option value="image/jpeg" selected>JPEG</option><option value="image/webp">WebP</option><option value="image/png">PNG</option></select>
+      <select id="im-fmt" aria-label="Output format"><option value="image/jpeg" selected>JPEG</option><option value="image/webp">WebP</option><option value="image/png">PNG</option></select>
       <label class="check" id="im-qwrap">quality <input type="range" id="im-q" min="30" max="100" value="85" style="width:120px"> <span id="im-qv" style="font-family:var(--mono)">85</span></label>
       <button class="act" id="im-dl" disabled>Download</button>
     </div>
@@ -6231,9 +6253,9 @@ tool({
   blurb:'Keyed-hash message authentication: sign data with a secret, or verify a signature you were given. The mechanism behind webhook verification (Stripe, GitHub) and JWT HS256.',
   html: `
     <div class="row">
-      <select id="hm-algo"><option value="SHA-256" selected>SHA-256</option><option value="SHA-1">SHA-1</option><option value="SHA-384">SHA-384</option><option value="SHA-512">SHA-512</option></select>
-      <select id="hm-keyfmt"><option value="text" selected>key: text</option><option value="hex">key: hex</option><option value="b64">key: base64</option></select>
-      <select id="hm-outfmt"><option value="hex" selected>out: hex</option><option value="b64">out: base64</option></select>
+      <select id="hm-algo" aria-label="Hash algorithm"><option value="SHA-256" selected>SHA-256</option><option value="SHA-1">SHA-1</option><option value="SHA-384">SHA-384</option><option value="SHA-512">SHA-512</option></select>
+      <select id="hm-keyfmt" aria-label="Key encoding"><option value="text" selected>key: text</option><option value="hex">key: hex</option><option value="b64">key: base64</option></select>
+      <select id="hm-outfmt" aria-label="Output encoding"><option value="hex" selected>out: hex</option><option value="b64">out: base64</option></select>
     </div>
     <label class="lbl">Secret key</label>
     <input type="text" id="hm-key" spellcheck="false" placeholder="whsec_…">
@@ -6501,7 +6523,7 @@ tool({
   html: `
     <div class="row">
       <label class="check">rows <input type="number" id="mk-n" value="5" min="1" max="500" style="width:5rem"></label>
-      <select id="mk-fmt"><option value="json" selected>JSON</option><option value="csv">CSV</option><option value="sql">SQL insert</option></select>
+      <select id="mk-fmt" aria-label="Output format"><option value="json" selected>JSON</option><option value="csv">CSV</option><option value="sql">SQL insert</option></select>
       <button class="act" id="mk-go">Generate</button>
     </div>
     <div class="row" style="margin-top:.5rem">
@@ -6574,7 +6596,7 @@ tool({
   blurb:'Mint a signed JWT (HS256/384/512) for testing — edit the header and payload, set the secret, get a token you can paste into the decoder. Signing only, HMAC family.',
   html: `
     <div class="row">
-      <select id="jws-alg"><option>HS256</option><option>HS384</option><option>HS512</option></select>
+      <select id="jws-alg" aria-label="Signing algorithm"><option>HS256</option><option>HS384</option><option>HS512</option></select>
       <label class="check"><input type="checkbox" id="jws-iat" checked> auto iat</label>
       <label class="check">+ exp <input type="number" id="jws-exp" value="3600" style="width:5.5rem"> s (0 = none)</label>
     </div>
@@ -6706,6 +6728,7 @@ tool({
   id:'ieee', name:'IEEE 754 float', group:'Convert',
   blurb:'See how a number is actually stored as a floating-point value: sign, exponent and mantissa bits, the raw hex, and the nearest representable decimal — the reason 0.1 + 0.2 ≠ 0.3.',
   html: `
+    <label class="lbl" for="ie-in">Number</label>
     <div class="row">
       <input type="text" id="ie-in" spellcheck="false" value="0.1" style="max-width:16rem">
       <div class="seg" id="ie-prec"><button class="on" data-p="64">double (64-bit)</button><button data-p="32">single (32-bit)</button></div>
@@ -6762,7 +6785,7 @@ tool({
   blurb:'Design a CSS cubic-bezier() easing curve by dragging the two control points, watch the motion preview, and copy the value. Standard presets and overshoot supported.',
   html: `
     <div class="row">
-      <select id="bz-preset">
+      <select id="bz-preset" aria-label="Easing preset">
         <option value=".25,.1,.25,1">ease</option>
         <option value="0,0,1,1">linear</option>
         <option value=".42,0,1,1">ease-in</option>
@@ -6841,7 +6864,7 @@ tool({
   id:'emoji', name:'Emoji search', group:'Reference',
   blurb:'Find an emoji or symbol by name — “rocket” → 🚀 — then copy it or read its code point. A curated set, not the whole unicode haystack.',
   html: `
-    <div class="row"><input class="grow" type="text" id="em-q" spellcheck="false" placeholder="search: rocket, fire, check, heart, arrow…" style="max-width:22rem" autofocus></div>
+    <div class="row"><input class="grow" type="text" id="em-q" spellcheck="false" placeholder="filter: rocket, fire, check, heart, arrow…" style="max-width:22rem"></div>
     <div id="em-grid" style="display:flex;flex-wrap:wrap;gap:.3rem;margin-top:.8rem;max-height:340px;overflow:auto"></div>
     <div class="outs" style="margin-top:.8rem">${outRow('Last copied','em-last')}</div>
     ${shPanel('emoji', [
@@ -7341,9 +7364,9 @@ tool({
     const render = () => {
       stopsEl.innerHTML = stops.map((s,i) => `
         <div class="row" data-i="${i}">
-          <input type="color" value="${s.c}" data-k="c" style="width:48px;height:34px;padding:2px;border:1px solid var(--border-2);border-radius:6px;background:var(--surface)">
-          <input type="number" value="${s.p}" min="0" max="100" data-k="p" style="width:5.5rem"> %
-          <button class="ghost gr-del" ${stops.length<=2?'disabled':''} style="padding:.3rem .65rem">✕</button>
+          <input type="color" value="${s.c}" data-k="c" aria-label="Stop ${i+1} colour" style="width:48px;height:34px;padding:2px;border:1px solid var(--border-2);border-radius:6px;background:var(--surface)">
+          <input type="number" value="${s.p}" min="0" max="100" data-k="p" aria-label="Stop ${i+1} position (%)" style="width:5.5rem"> %
+          <button class="ghost gr-del" aria-label="Remove stop ${i+1}" ${stops.length<=2?'disabled':''} style="padding:.3rem .65rem">✕</button>
         </div>`).join('');
       update();
     };
@@ -7410,7 +7433,7 @@ tool({
   blurb:'Lock a ratio and get the missing dimension — type a width, read the height (or the reverse). Presets for the common video and photo ratios.',
   html: `
     <div class="row">
-      <select id="ar-preset">
+      <select id="ar-preset" aria-label="Aspect ratio preset">
         <option value="16:9" selected>16:9</option><option value="4:3">4:3</option>
         <option value="21:9">21:9</option><option value="3:2">3:2</option>
         <option value="1:1">1:1</option><option value="9:16">9:16 (portrait)</option>
@@ -7686,12 +7709,12 @@ tool({
     <div class="row">
       <div class="seg" id="aa-mode"><button class="on" data-m="text">Text</button><button data-m="image">Image</button></div>
       <label class="check">width <input type="number" id="aa-cols" value="80" min="10" max="220" style="width:5rem"> cols</label>
-      <select id="aa-ramp"><option value="standard">ramp: standard</option><option value="detailed">detailed</option><option value="blocks">blocks</option></select>
+      <select id="aa-ramp" aria-label="Character ramp"><option value="standard">ramp: standard</option><option value="detailed">detailed</option><option value="blocks">blocks</option></select>
       <label class="check"><input type="checkbox" id="aa-invert"> invert</label>
       <label class="check"><input type="checkbox" id="aa-color"> color</label>
     </div>
     <div class="row" id="aa-textstyle">
-      <select id="aa-font">
+      <select id="aa-font" aria-label="Font style">
         <option value="sans">Sans</option><option value="serif">Serif</option><option value="mono">Mono</option>
         <option value="condensed">Condensed</option><option value="script">Script</option><option value="slab">Slab</option>
       </select>
@@ -8072,9 +8095,14 @@ function ptWireNet(p, hooks){
       else { stat('Connecting…'); await peer.connect(code); }
     } catch(e){ stat('Bad code — '+(e.message||e)); }
   });
-  $n('copy').addEventListener('click', () => {
-    const v = $n('mine').value; if (!v) return;
-    navigator.clipboard && navigator.clipboard.writeText(v); stat('Copied — send it to your opponent');
+  $n('copy').addEventListener('click', async () => {
+    const v = $n('mine').value;
+    if (!v){ stat('Nothing to copy yet — Host or Join first'); return; }
+    // Go through copyText(): navigator.clipboard is absent on a file:// origin, and
+    // writeText() can still reject. Reporting "Copied" regardless left people sending
+    // their opponent an empty paste.
+    stat(await copyText(v) ? 'Copied — send it to your opponent'
+                           : 'Could not copy — select the code and copy it manually');
   });
   if ('BarcodeDetector' in window && navigator.mediaDevices && navigator.mediaDevices.getUserMedia){
     $n('scan').style.display = '';
@@ -8315,7 +8343,7 @@ tool({
   blurb:'Reveal every safe cell. Left-click to dig, right-click to flag. The first click is always safe.',
   html: `
     <div class="toybar">
-      <select id="mw-diff"><option value="9,10">Easy 9×9</option><option value="12,24" selected>Medium 12×12</option><option value="16,50">Hard 16×16</option></select>
+      <select id="mw-diff" aria-label="Difficulty"><option value="9,10">Easy 9×9</option><option value="12,24" selected>Medium 12×12</option><option value="16,50">Hard 16×16</option></select>
       <button class="act" id="mw-new">New game</button>
       <span class="score" id="mw-mines"></span>
       <span class="score" id="mw-status"></span>
@@ -8363,7 +8391,7 @@ tool({
   blurb:'A fresh puzzle each time, generated with a unique solution. Type digits; conflicts highlight live. Check it or reveal the answer.',
   html: `
     <div class="toybar">
-      <select id="su-diff"><option value="40">Easy</option><option value="32" selected>Medium</option><option value="26">Hard</option></select>
+      <select id="su-diff" aria-label="Difficulty"><option value="40">Easy</option><option value="32" selected>Medium</option><option value="26">Hard</option></select>
       <button class="act" id="su-new">New</button>
       <button class="ghost" id="su-check">Check</button>
       <button class="ghost" id="su-solve">Solve</button>
@@ -8384,6 +8412,7 @@ tool({
     const render = () => {
       grid.innerHTML = '';
       for (let i=0;i<81;i++){ const r=Math.floor(i/9), c=i%9, inp = document.createElement('input'); inp.maxLength = 1; inp.inputMode = 'numeric';
+        inp.setAttribute('aria-label', `Row ${r+1}, column ${c+1}`);
         if (c%3===2 && c<8) inp.style.borderRight = '2px solid var(--ink)'; if (r%3===2 && r<8) inp.style.borderBottom = '2px solid var(--ink)';
         if (puzzle[i]){ inp.value = puzzle[i]; inp.classList.add('given'); inp.readOnly = true; }
         grid.appendChild(inp); }
@@ -8405,7 +8434,7 @@ tool({
   html: `
     <label class="lbl">Dice</label>
     <div class="row">
-      <span>d</span><select id="dc-sides"><option>4</option><option>6</option><option>8</option><option>10</option><option>12</option><option>20</option><option>100</option></select>
+      <span>d</span><select id="dc-sides" aria-label="Number of sides"><option>4</option><option>6</option><option>8</option><option>10</option><option>12</option><option>20</option><option>100</option></select>
       <label class="check">× <input type="number" id="dc-n" value="2" min="1" max="30" style="width:4rem"></label>
       <button class="act" id="dc-roll">Roll</button>
       <button class="ghost" id="dc-coin">Flip coin</button>
@@ -8440,14 +8469,14 @@ tool({
     <div class="row">
       <button class="act" id="mt-toggle">Start</button>
       <label class="check">BPM <input type="number" id="mt-bpm" value="100" min="20" max="300" style="width:5rem"></label>
-      <input type="range" id="mt-bpmr" min="20" max="300" value="100" style="width:170px">
+      <input type="range" id="mt-bpmr" aria-label="Tempo" min="20" max="300" value="100" style="width:170px">
       <label class="check">beats <input type="number" id="mt-beats" value="4" min="1" max="12" style="width:4rem"></label>
     </div>
     <div id="mt-dots" style="display:flex;gap:.5rem;margin:.9rem 0;min-height:16px"></div>
     <label class="lbl">Tone generator</label>
     <div class="row">
       <button class="ghost" id="mt-tone">Play tone</button>
-      <input type="range" id="mt-freq" min="50" max="2000" value="440" style="width:220px"> <span id="mt-freqv" class="score">440 Hz</span>
+      <input type="range" id="mt-freq" aria-label="Tone frequency" min="50" max="2000" value="440" style="width:220px"> <span id="mt-freqv" class="score">440 Hz</span>
     </div>
     <p class="note">A440 is concert pitch. Leaving this tool stops the sound.</p>`,
   wire(){
@@ -8698,7 +8727,7 @@ tool({
     const dot=(col,sz=22)=>`<span style="width:${sz}px;height:${sz}px;border-radius:50%;background:${col};display:inline-block"></span>`;
     let secret, cur, done, mode='ai', phase='play';
     const pal=$('#mm-palette'), curEl=$('#mm-current'), hist=$('#mm-history'), msg=$('#mm-msg'), go=$('#mm-go');
-    pal.innerHTML=COLORS.map((c,i)=>`<button data-i="${i}" style="width:30px;height:30px;border-radius:50%;background:${c};border:1px solid var(--border-2);cursor:pointer"></button>`).join('');
+    pal.innerHTML=COLORS.map((c,i)=>`<button data-i="${i}" aria-label="Colour ${i+1}" style="width:30px;height:30px;border-radius:50%;background:${c};border:1px solid var(--border-2);cursor:pointer"></button>`).join('');
     const renderCur=()=>{ curEl.innerHTML=''; for(let i=0;i<4;i++){ const s=document.createElement('span'); s.style.cssText='width:26px;height:26px;border-radius:50%;border:1px dashed var(--border-2);display:inline-block;'+(cur[i]!=null?'background:'+COLORS[cur[i]]+';border-style:solid':''); curEl.appendChild(s); } };
     const judge=g=>{ let black=0,white=0; const s=secret.slice(),x=g.slice(); for(let i=0;i<4;i++)if(x[i]===s[i]){black++;s[i]=x[i]=-1;} for(let i=0;i<4;i++){ if(x[i]<0)continue; const j=s.indexOf(x[i]); if(j>=0){white++;s[j]=-1;} } return {black,white}; };
     const guess=()=>{ if(cur.length<4||done)return; const g=cur.slice(); const {black,white}=judge(g);
@@ -8813,8 +8842,8 @@ tool({
   blurb:'Klondike, draw one. Click the stock to deal; click a card to pick it up, then click where it goes; double-click to send a card to the foundations. Aces up, build down by alternating colour.',
   html: `
     <div class="toybar"><button class="act" id="so-new">New deal</button><span class="score" id="so-msg"></span></div>
-    <div id="so-top" style="display:flex;gap:8px;margin-bottom:14px"></div>
-    <div id="so-tab" style="display:flex;gap:8px;align-items:flex-start"></div>`,
+    <div id="so-top" style="display:flex;gap:8px;margin-bottom:14px;max-width:100%;overflow-x:auto"></div>
+    <div id="so-tab" style="display:flex;gap:8px;align-items:flex-start;max-width:100%;overflow-x:auto"></div>`,
   wire(){
     const SUIT=['♠','♥','♦','♣'], RANK=['','A','2','3','4','5','6','7','8','9','10','J','Q','K'], red=s=>s===1||s===2;
     let stock, waste, found, tab, sel;
@@ -10411,7 +10440,7 @@ tool({
 
     <div class="row" style="margin-top:.8rem">
       <div class="swatches" id="cz-pal"></div>
-      <input type="color" id="cz-col" value="#c08457" style="width:2.4rem;height:1.9rem;padding:0;border:1px solid var(--border-2);border-radius:6px;background:none;cursor:pointer">
+      <input type="color" id="cz-col" aria-label="Scribble colour" value="#c08457" style="width:2.4rem;height:1.9rem;padding:0;border:1px solid var(--border-2);border-radius:6px;background:none;cursor:pointer">
       <label class="check">brush <input type="range" id="cz-size" min="2" max="60" value="14" style="width:100px"> <span class="v" id="cz-sizev">14</span> px</label>
     </div>
     <div class="row" style="margin-top:.6rem">
@@ -10671,7 +10700,7 @@ const syncPins = () => {
 };
 main.addEventListener('click', e => {
   const link = e.target.closest('.home-links button[data-tool]');
-  if (link){ activate(link.dataset.tool); return; }
+  if (link){ activate(link.dataset.tool, true, true); return; }
   const b = e.target.closest('.pin'); if (!b) return;
   const id = b.dataset.pin;
   PINS = PINS.includes(id) ? PINS.filter(x => x !== id) : [...PINS, id];
@@ -10737,8 +10766,24 @@ document.addEventListener('fullscreenchange', () => {
   if (el){ const b = el.querySelector('.fsbtn'); if (b){ b.textContent = '⤢'; b.title = 'Exit full screen'; } }
 });
 
+/* Put the caret in the tool's first real input. Only on an explicit pick (nav click,
+   palette, search, catalogue) — never on load or hashchange, where stealing focus
+   would also yank the scroll position. Skipped under the mobile breakpoint, where it
+   would throw the virtual keyboard over the tool the moment you opened it. */
+const NO_FOCUS = new Set(['file','checkbox','radio','range','color','button','submit','reset','image']);
+function focusPrimary(id){
+  if (window.matchMedia('(max-width:840px)').matches) return;
+  const sec = document.getElementById('tool-' + id); if (!sec) return;
+  // Text fields only — focusing a <select> would make a stray arrow key silently
+  // change the setting instead of scrolling the page.
+  for (const el of sec.querySelectorAll('textarea, input')){
+    if (el.readOnly || el.disabled || NO_FOCUS.has(el.type) || !el.offsetParent) continue;
+    try { el.focus({ preventScroll:true }); } catch { el.focus(); }
+    return;
+  }
+}
 let currentTool = 'base64';
-function activate(id, push=true){
+function activate(id, push=true, focus=false){
   if (id !== 'home' && !TOOLS.some(t => t.id === id)) id = TOOLS[0].id;
   currentTool = id;
   hydrate(id);   // build + wire this tool's body on first use
@@ -10749,10 +10794,11 @@ function activate(id, push=true){
   const mainEl = document.getElementById('main');
   if (mainEl) mainEl.scrollTop = 0;   // reset the tool panel (desktop app-shell)
   window.scrollTo({ top: 0 });        // reset page scroll (mobile)
+  if (focus) focusPrimary(id);        // after the scroll reset, so it can't fight it
 }
 nav.addEventListener('click', e => {
   const b = e.target.closest('button[data-tool]');
-  if (b){ activate(b.dataset.tool); setNav(false); }
+  if (b){ activate(b.dataset.tool, true, true); setNav(false); }
 });
 
 /* mobile slide-over nav */
@@ -10795,7 +10841,7 @@ q.addEventListener('input', () => {
 q.addEventListener('keydown', e => {
   if (e.key === 'Enter'){
     const first = $('#nav button[data-tool]:not(.hidden)');
-    if (first){ activate(first.dataset.tool); q.blur(); }
+    if (first){ activate(first.dataset.tool, true, true); q.blur(); }
   }
   if (e.key === 'Escape'){ q.value = ''; q.dispatchEvent(new Event('input')); q.blur(); }
 });
@@ -10887,7 +10933,7 @@ const remember = e => {
 document.addEventListener('input', remember);
 document.addEventListener('change', remember);
 const _activate = activate;
-activate = (id, push) => { _activate(id, push); saved.tool = id; persist(); };
+activate = (id, push, focus) => { _activate(id, push, focus); saved.tool = id; persist(); };
 
 /* ── command palette (⌘K) ─────────────────────────────────── */
 document.body.insertAdjacentHTML('beforeend', `
@@ -10925,11 +10971,11 @@ palQ.addEventListener('input', () => { palSel = 0; palRender(); });
 palQ.addEventListener('keydown', e => {
   if (e.key === 'ArrowDown'){ e.preventDefault(); palSel = Math.min(palSel + 1, palHits.length - 1); palRender(); }
   else if (e.key === 'ArrowUp'){ e.preventDefault(); palSel = Math.max(palSel - 1, 0); palRender(); }
-  else if (e.key === 'Enter' && palHits[palSel]){ activate(palHits[palSel].id); palClose(); }
+  else if (e.key === 'Enter' && palHits[palSel]){ activate(palHits[palSel].id, true, true); palClose(); }
 });
 palList.addEventListener('click', e => {
   const it = e.target.closest('.pal-item');
-  if (it){ activate(it.dataset.tool); palClose(); }
+  if (it){ activate(it.dataset.tool, true, true); palClose(); }
 });
 palOv.addEventListener('click', e => { if (e.target === palOv) palClose(); });
 
@@ -10989,6 +11035,12 @@ const PIPE_OUT = {
   random:'#rnd-out', pw:'#pw-out', uuid:'#uu-out', lorem:'#lo-out', morse:'#mo-out',
   jwt:'#jwt-p', hmac:'#hm-out', jsonquery:'#jq-out', md:'#md-html', mock:'#mk-out',
   jwtsign:'#jws-out',
+  /* The format converters all emit JSON (or take it), so they chain into the JSON
+     formatter, JSON query and each other — the same way CSV already did. */
+  yaml:'#ya-out', toml:'#tm-out', xmljson:'#xj-out', ini:'#in-out', json5:'#j5-out',
+  plist:'#pl-out', ndjson:'#nd-out', phpser:'#ph-out', envprop:'#ep-out',
+  msgpack:'#mp-out', protobuf:'#pb-out', bson:'#bs-out',
+  ws:'#ws-out', slug:'#sl-out',
 };
 const PIPE_IN = {
   base64:'#b64-in', url:'#url-in', entity:'#ent-in', hex:'#hx-in', b32:'#b32-in',
@@ -10999,6 +11051,10 @@ const PIPE_IN = {
   case:'#case-in', jsonquery:'#jq-in', md:'#md-in', qr:'#qr-in', urlparse:'#up-in',
   duri:'#du-in', cron:'#cron-in', time:'#time-in', color:'#col-in', morse:'#mo-in',
   iddecode:'#idd-in', ieee:'#ie-in', x509:'#x5-in',
+  yaml:'#ya-in', toml:'#tm-in', xmljson:'#xj-in', ini:'#in-in', json5:'#j5-in',
+  plist:'#pl-in', ndjson:'#nd-in', phpser:'#ph-in', envprop:'#ep-in',
+  msgpack:'#mp-in', protobuf:'#pb-in', bson:'#bs-in',
+  ws:'#ws-in', slug:'#sl-in',
 };
 const getOutVal = el => ('value' in el && el.tagName !== 'A') ? el.value : el.textContent;
 /* Add the "Send to →" button next to a tool's output. Called from hydrate() once
