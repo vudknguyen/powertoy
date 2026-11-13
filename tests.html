@@ -136,10 +136,25 @@ t('hex decode', async () => { await go('hex'); $$('#hx-mode [data-m]')[1].click(
 t('base32 rfc', async () => { await go('b32'); $$('#b32-mode [data-m]')[0].click(); set('#b32-var','rfc'); set('#b32-in','hello'); eq(val('#b32-out'),'NBSWY3DP'); });
 t('base32 crockford roundtrip', async () => { await go('b32'); set('#b32-var','crock'); $$('#b32-mode [data-m]')[0].click(); set('#b32-in','hello'); const e=val('#b32-out'); $$('#b32-mode [data-m]')[1].click(); set('#b32-in',e); eq(val('#b32-out'),'hello'); });
 t('unicode escape', async () => { await go('uni'); $$('#uni-mode [data-m]')[0].click(); set('#uni-in','café'); eq(val('#uni-out'),'caf\\u00e9'); });
+/* Astral chars need BOTH surrogates. [...ch] iterates code points, so the old
+   escape emitted only the high one and every emoji round-tripped to U+FFFD. */
+t('unicode escape: astral char keeps both surrogates', async () => {
+  await go('uni'); $$('#uni-mode [data-m]')[0].click();
+  set('#uni-in','😀'); eq(val('#uni-out'),'\\ud83d\\ude00');
+  $$('#uni-mode [data-m]')[1].click();
+  set('#uni-in','\\ud83d\\ude00'); eq(val('#uni-out'),'😀');
+});
 t('rot13', async () => { await go('rot'); set('#rot-n','13'); set('#rot-in','Hello'); eq(val('#rot-out'),'Uryyb'); });
 t('urlparse', async () => { await go('urlparse'); set('#up-in','https://ex.com:8443/p?a=1&b=2#h'); eq(txt('#up-host'),'ex.com'); eq(txt('#up-port'),'8443'); });
 t('gzip roundtrip', async () => { await go('gz'); $$('#gz-mode [data-m]')[0].click(); set('#gz-fmt','gzip'); set('#gz-in','hello hello hello compress me'); await wait(250); const blob=val('#gz-out'); assert(blob.length>0,'no gz output'); $$('#gz-mode [data-m]')[1].click(); set('#gz-in',blob); await wait(250); eq(val('#gz-out'),'hello hello hello compress me'); });
 t('data uri decode', async () => { await go('duri'); set('#du-in','data:text/plain;base64,aGVsbG8gd29ybGQ='); eq(txt('#du-mime'),'text/plain'); inc(txt('#du-prev'),'hello world'); });
+/* A media type may carry parameters. [^;,]* stopped at the first ';', so this
+   perfectly ordinary data URI was rejected as "Not a data: URI". */
+t('data uri decode: media type with a charset parameter', async () => {
+  await go('duri');
+  set('#du-in','data:text/plain;charset=utf-8;base64,aGVsbG8=');
+  eq(txt('#du-err'),''); eq(txt('#du-mime'),'text/plain;charset=utf-8'); inc(txt('#du-prev'),'hello');
+});
 t('base58', async () => { await go('b58'); $$('#b58-mode [data-m]')[0].click(); set('#b58-in','hello'); eq(val('#b58-out'),'Cn8eVZg'); });
 t('binary text', async () => { await go('bin'); $$('#bin-mode [data-m]')[0].click(); chk('#bin-sp',true); set('#bin-in','Hi'); eq(val('#bin-out'),'01001000 01101001'); });
 t('json escape', async () => { await go('jstr'); $$('#js2-mode [data-m]')[0].click(); chk('#js2-q',true); set('#js2-in','a"b\nc'); eq(val('#js2-out'),'"a\\"b\\nc"'); });
@@ -334,6 +349,25 @@ t('timezone duration window', async () => { await go('tz'); set('#tz-dt','2026-0
 t('hash md5+sha256', async () => { await go('hash'); set('#hash-in','hello'); await wait(120); eq(txt('#hash-md5'),'5d41402abc4b2a76b9719d911017c592'); eq(txt('#hash-sha256'),'2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824'); });
 t('aes roundtrip', async () => { await go('aes'); $$('#aes-mode [data-m]')[0].click(); set('#aes-pass','pw123'); set('#aes-in','secret message ✓'); click('#aes-go'); await wait(400); const blob=val('#aes-out'); assert(blob.length>0,'no ciphertext'); $$('#aes-mode [data-m]')[1].click(); set('#aes-in',blob); click('#aes-go'); await wait(400); eq(val('#aes-out'),'secret message ✓'); });
 t('hmac sha256', async () => { await go('hmac'); set('#hm-algo','SHA-256'); set('#hm-keyfmt','text'); set('#hm-outfmt','hex'); set('#hm-key','secret'); set('#hm-msg','payload'); await wait(200); eq(val('#hm-out'),'b82fcb791acec57859b989b430a826488ce2e479fdf92326bd0a2e8375a42ba4'); });
+/* The hex-key cleaner was /[\s0x]/gi — a character class, so it deleted every '0'
+   and every 'x' in the key. Keys 00ff and ff signed identically. Vectors from
+   Python hmac.new(bytes.fromhex(k), b'abc', sha256). */
+t('hmac: hex key keeps its zero bytes', async () => {
+  await go('hmac'); set('#hm-algo','SHA-256'); set('#hm-outfmt','hex'); set('#hm-keyfmt','hex');
+  set('#hm-key','00ff'); set('#hm-msg','abc'); await wait(200);
+  eq(val('#hm-out'),'95e9ac7e35b5708a9d182dc0d1dd37e43b53361dbee57cb76389d80de4114601');
+  set('#hm-key','0x00ff'); await wait(200);
+  eq(val('#hm-out'),'95e9ac7e35b5708a9d182dc0d1dd37e43b53361dbee57cb76389d80de4114601');
+  set('#hm-key','ff'); await wait(200);
+  eq(val('#hm-out'),'19a05a8b31a3631f7dc9f0b767707784df7c4f0a17578aea5732838b8651f8b3');
+});
+/* "nullable" lives on the shape; the Go generator read it off the field wrapper,
+   so a nullable field got `int64` where TypeScript got `number | null`. */
+t('json → types: Go emits a pointer for a nullable field', async () => {
+  await go('j2t'); $$('#jt-lang button').find(b=>b.dataset.l==='go').click();
+  set('#jt-in','{"a":[{"x":1},{"x":null}]}'); await wait(30);
+  inc(val('#jt-out'),'*int64');
+});
 t('password gen', async () => { await go('pw'); $$('#pw-mode [data-m]')[0].click(); click('#pw-go'); assert(val('#pw-out').length>0,'no password'); inc(txt('#pw-ent'),'bits'); });
 t('random string len', async () => { await go('random'); set('#rnd-len','24'); chk('#rnd-lo',true); click('#rnd-go'); eq(val('#rnd-out').length,24); });
 t('uuid v4 format', async () => { await go('uuid'); set('#uu-type','v4'); click('#uu-go'); rx(val('#uu-out').split('\n')[0], /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/); });
@@ -481,6 +515,17 @@ t('hexdump', async () => { await go('hexdump'); $$('#hd-mode button').find(b=>b.
 t('calc: bitwise + bases', async () => { await go('calc'); set('#calc-in','0xff & 0b1010'); await wait(20); inc(txt('#calc-out'),'10'); assert($$('#calc-alt .v').some(v=>v.textContent==='0xa'),'no hex alt'); });
 t('calc: power + functions', async () => { await go('calc'); set('#calc-in','2**10'); await wait(20); inc(txt('#calc-out'),'1024'); assert($$('#calc-alt .v').some(v=>v.textContent==='0x400'),'no hex 0x400'); });
 t('calc: error on bad expr', async () => { await go('calc'); set('#calc-in','1/'); await wait(20); assert(txt('#calc-err').length>0,'no error shown'); });
+/* `k in obj` walks the prototype chain, so a key literally called "constructor"
+   looked like a repeat of a key that was never set. Three tools shared the bug. */
+t('inherited key names are not treated as existing keys', async () => {
+  await go('qs'); $$('#qs-mode [data-m]')[0].click();
+  set('#qs-in','constructor=x'); eq(JSON.parse(val('#qs-out')).constructor,'x');
+  await go('xmljson'); $$('#xj-mode button').find(b=>b.dataset.m==='x2j').click();
+  set('#xj-in','<r><constructor>a</constructor></r>');
+  eq(JSON.parse(val('#xj-out')).r.constructor,'a');
+  await go('calc'); set('#calc-in','constructor'); await wait(20);
+  inc(txt('#calc-err'),'Unknown name');
+});
 t('calc: exact big integer', async () => { await go('calc'); set('#calc-in','2**100 + 1'); await wait(20); eq(txt('#calc-out'),'1267650600228229401496703205377'); });
 t('calc: no float flop', async () => { await go('calc'); set('#calc-in','0.1 + 0.2'); await wait(20); eq(txt('#calc-out'),'0.3'); });
 t('calc: factorial + ncr', async () => { await go('calc'); set('#calc-in','5!'); await wait(20); inc(txt('#calc-out'),'120'); set('#calc-in','ncr(52,5)'); await wait(20); inc(txt('#calc-out'),'2598960'); });
@@ -506,6 +551,34 @@ t('game keys do not hijack typing in inputs', async () => { await go('g2048'); a
    is why single-tool tests miss it. ('sq-in' was shared by Shell quote and SQL
    toolkit: visiting Shell quote first left SQL toolkit reading the wrong box.)
    Hydrate everything, then assert ids are unique. */
+/* The restore loop used to run once at startup, before any tool body existed, so
+   getElementById() was null for every saved id, the "stale entry" branch deleted
+   them all and wrote the emptied object back. Remember-my-input was a no-op that
+   also threw the state away on every load. Restoring is now per tool, in hydrate(). */
+t('saved form state is restored into a tool and recomputed', async () => {
+  await go('base64');
+  $$('#b64-mode [data-m]')[0].click();                 // earlier tests may have left Decode on
+  set('#b64-in', ''); chk('#b64-url', false);
+  W().eval(`saved.fields['b64-in'] = 'hello'; saved.fields['b64-url'] = true;`);
+  W().eval(`restoreFields(document.getElementById('tool-base64'))`);
+  eq(val('#b64-in'), 'hello');
+  assert($('#b64-url').checked, 'checkbox not restored');
+  eq(val('#b64-out'), 'aGVsbG8');          // url-safe, unpadded: the tool re-ran
+});
+t('saved form state skips and scrubs sensitive fields', async () => {
+  await go('totp');
+  set('#tp-in', '');                                               // clear whatever earlier tests left
+  W().eval(`saved.fields['tp-in'] = 'JBSWY3DPEHPK3PXP';`);
+  W().eval(`restoreFields(document.getElementById('tool-totp'))`);
+  eq(val('#tp-in'), '');                                           // data-nosave: never restored
+  eq(W().eval(`'tp-in' in saved.fields`), false);                  // and dropped from the store
+});
+/* Blurbs were interpolated raw, so "$<name>" in the regex-replace blurb was parsed
+   as an unknown element and vanished from the page. */
+t('tool blurbs are HTML-escaped', async () => {
+  await go('rrep');
+  inc(txt('#tool-rrep .blurb'), '$<name>');
+});
 t('no duplicate element ids across all hydrated tools', async () => {
   const ids = W().eval('TOOLS.map(t=>t.id)');
   for (const id of ids){ W().location.hash = '#' + id; }

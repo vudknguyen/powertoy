@@ -174,7 +174,9 @@ textarea[readonly]{background:var(--code-bg);color:var(--accent-2)}
 select{font-family:var(--sans);width:auto}
 input[type=range]{width:200px;accent-color:var(--accent)}
 label.lbl{
-  display:flex;align-items:center;gap:.6rem;
+  /* These labels carry inline controls (Copy, Send to →, a format select). Without
+     wrapping they overflowed the panel on a 320px screen. */
+  display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;
   font-size:.635rem;letter-spacing:.11em;text-transform:uppercase;
   color:var(--faint);font-weight:600;margin:.8rem 0 .3rem;
 }
@@ -499,6 +501,14 @@ details.rules li{margin:.15rem 0}
 .tz-lg{display:inline-block;width:.8rem;height:.8rem;border-radius:2px;vertical-align:-1px;margin:0 .1rem}
 .tz-lg.work{background:rgba(92,194,167,.6)}.tz-lg.sh{background:rgba(214,167,64,.6)}.tz-lg.night{background:rgba(120,120,120,.3)}
 @media(max-width:640px){.tz-row{grid-template-columns:1fr;gap:.15rem}.tz-read{text-align:left}}
+/* 24 columns of 1fr can't shrink past the width of "00", so the hour strip pushed
+   out of its own rounded border on the narrowest phones. Let the cells shrink and
+   drop the numerals there — the colour bands and the tap targets are the point,
+   and every cell still names its hour in the title. */
+@media(max-width:380px){
+  .tz-strip{grid-template-columns:repeat(24,minmax(0,1fr))}
+  .tz-cell{font-size:0;padding:.42rem 0}
+}
 /* full-screen game mode */
 .fsbtn{background:none;border:1px solid var(--border-2);border-radius:6px;color:var(--muted);cursor:pointer;font-size:1rem;line-height:1;padding:.18rem .42rem}
 .fsbtn:hover{color:var(--accent);border-color:var(--accent)}
@@ -596,6 +606,18 @@ document.addEventListener('click', async e => {
     setTimeout(() => { btn.textContent = old; btn.classList.remove('done'); }, 900);
   }
 });
+
+/* Click-to-copy on a colour swatch has no button to flip to "Copied", so flash the
+   swatch itself — green when the copy really happened, red when it didn't
+   (navigator.clipboard is absent on a file:// origin and execCommand can fail).
+   These handlers used to discard copyText()'s result and show nothing either way. */
+async function flashCopy(el, text){
+  const ok = await copyText(text);
+  el.style.outline = `2px solid var(--${ok ? 'good' : 'bad'})`;
+  el.style.outlineOffset = '-2px';
+  setTimeout(() => { el.style.outline = ''; el.style.outlineOffset = ''; }, 600);
+  return ok;
+}
 
 const cpyBtn = (target, label='Copy') => `<button class="cpy" data-copy="${target}">${label}</button>`;
 const outRow = (key, valId) =>
@@ -946,7 +968,7 @@ tool({
   wire(){
     const A = $('#fade-a'), B = $('#fade-b'), N = $('#fade-n'), bar = $('#fade-bar');
     bar.addEventListener('click', async e => {
-      const hexv = e.target.dataset?.hex; if (hexv) await copyText(hexv);
+      const hexv = e.target.dataset?.hex; if (hexv) await flashCopy(e.target, hexv);
     });
     const run = () => {
       const ca = parseColor(A.value), cb = parseColor(B.value);
@@ -1413,7 +1435,7 @@ tool({
     <label class="lbl" for="aes-out">Output ${cpyBtn('#aes-out')}</label>
     <textarea id="aes-out" readonly></textarea>
     <div class="err" id="aes-err"></div>
-    <p class="note">The blob format here is this tool's own (16-byte salt, 12-byte IV, then ciphertext+tag) — decrypt it with this tool. The openssl commands are the equivalent workflow for files, not byte-compatible.</p>`,
+    <p class="note">The blob format here is this tool's own (16-byte salt, 12-byte IV, then ciphertext+tag) — decrypt it with this tool. It is not byte-compatible with <code>openssl enc</code>.</p>`,
   wire(){
     let mode = 'enc';
     const pass = $('#aes-pass'), inp = $('#aes-in'), out = $('#aes-out'), err = $('#aes-err');
@@ -2085,8 +2107,12 @@ tool({
         out.value = [...v].map(ch => {
           const cp = ch.codePointAt(0);
           if (!all && cp >= 0x20 && cp < 0x7f) return ch;
+          // Astral chars need BOTH surrogates. [...ch] iterates CODE POINTS, so it
+          // yields one element here and kept only the high surrogate — every emoji
+          // escaped to a lone \ud83d that unescapes back to a replacement char.
           if (cp > 0xffff)
-            return [...ch].map(h => '\\u' + h.charCodeAt(0).toString(16).padStart(4,'0')).join('');
+            return '\\u' + ch.charCodeAt(0).toString(16).padStart(4,'0')
+                 + '\\u' + ch.charCodeAt(1).toString(16).padStart(4,'0');
           return '\\u' + cp.toString(16).padStart(4,'0');
         }).join('');
       } else {
@@ -2453,7 +2479,6 @@ tool({
       return val * C[from.cat].u[from.key].f / C[to.cat].u[to.key].f;
     };
     const inp=$('#cv2-in'), errEl=$('#cv2-err'), resEl=$('#cv2-result'), moreEl=$('#cv2-more'), moreLbl=$('#cv2-morelbl');
-    const CONN = /\s+(?:to|into|as|in|=|->|→|>)\s+/i;
     const CONN_G = /\s+(to|into|as|in|=|->|→|>)\s+/gi;
     const rowsFor = (val, from) => {
       const cat = from.cat, keys = cat==='temp' ? Object.keys(TEMP) : cat==='fuel' ? Object.keys(FUEL) : Object.keys(C[cat].u);
@@ -2889,21 +2914,25 @@ tool({
     inp.addEventListener('input', () => {
       err.textContent = ''; info.style.display = 'none'; dl.style.display = 'none';
       const v = inp.value.trim(); if (!v) return;
-      const m = v.match(/^data:([^;,]*)?(;base64)?,([\s\S]*)$/);
+      // The media type may carry parameters — data:text/plain;charset=utf-8;base64,…
+      // is ordinary and used to be rejected outright, because [^;,]* stopped at the
+      // first ';'. Take everything up to the last comma, lazily, and peel ";base64".
+      const m = v.match(/^data:([^,]*?)(;base64)?,([\s\S]*)$/i);
       if (!m){ err.textContent = 'Not a data: URI'; return; }
-      const mime = m[1] || 'text/plain';
+      const mime = m[1] || 'text/plain';          // full type, parameters included
+      const type = mime.split(';')[0] || 'text/plain';
       let bytes;
       try { bytes = m[2] ? b64ToBytes(m[3]) : te.encode(decodeURIComponent(m[3])); }
       catch { err.textContent = 'Payload is not valid ' + (m[2] ? 'Base64' : 'percent-encoding'); return; }
       info.style.display = '';
       $('#du-mime').textContent = mime;
       $('#du-size').textContent = bytes.length.toLocaleString('en-US') + ' bytes';
-      $('#du-prev').textContent = mime.startsWith('text/') || mime.includes('json') || mime.includes('xml')
+      $('#du-prev').textContent = type.startsWith('text/') || type.includes('json') || type.includes('xml')
         ? shTrim(td.decode(bytes), 120)
         : '(binary — use the download button)';
       if (dlUrl) URL.revokeObjectURL(dlUrl);
       dlUrl = URL.createObjectURL(new Blob([bytes], { type: mime }));
-      dlName = 'decoded.' + (mime.split('/')[1] || 'bin').split('+')[0];
+      dlName = 'decoded.' + (type.split('/')[1] || 'bin').split('+')[0];
       dl.style.display = '';
     });
     dl.addEventListener('click', () => {
@@ -3619,7 +3648,10 @@ tool({
           const sp = new URLSearchParams(v.replace(/^[?#]/,''));
           const obj = {};
           for (const [k, val] of sp.entries()){
-            if (k in obj) obj[k] = Array.isArray(obj[k]) ? [...obj[k], val] : [obj[k], val];
+            // Object.hasOwn, not `in`: `in` walks the prototype, so a parameter
+            // literally named "constructor" looked like a repeat of a key that was
+            // never there and came out as [null, "x"].
+            if (Object.hasOwn(obj, k)) obj[k] = Array.isArray(obj[k]) ? [...obj[k], val] : [obj[k], val];
             else obj[k] = val;
           }
           out.value = JSON.stringify(obj, null, 2);
@@ -3670,7 +3702,7 @@ tool({
       const text=kids.filter(n=>n.nodeType===3).map(n=>n.nodeValue).join('').trim();
       if(!els.length){ if(!Object.keys(obj).length) return text; if(text) obj['#text']=text; return obj; }
       for(const el of els){ const v=xmlToObj(el), t=el.tagName;
-        if(t in obj){ if(!Array.isArray(obj[t])) obj[t]=[obj[t]]; obj[t].push(v); } else obj[t]=v; }
+        if(Object.hasOwn(obj,t)){ if(!Array.isArray(obj[t])) obj[t]=[obj[t]]; obj[t].push(v); } else obj[t]=v; }   // hasOwn: a <constructor> tag is not a repeat
       if(text) obj['#text']=text;
       return obj;
     };
@@ -4505,9 +4537,9 @@ tool({
         if(tk.t==='num')return {t:'num',big:tk.big,val:tk.val,isInt:tk.isInt};
         if(tk.t==='op'&&tk.v==='('){ const v=exp(0); const c=next(); if(!c||c.v!==')')throw new Error('Missing ")"'); return v; }
         if(tk.t==='name'){ const n=tk.v.toLowerCase();
-          if(peek()&&peek().v==='('){ next(); const args=[]; if(peek()&&peek().v!==')'){ args.push(exp(0)); while(peek()&&peek().v===','){ next(); args.push(exp(0)); } } const c=next(); if(!c||c.v!==')')throw new Error('Missing ")" after '+n); if(!F[n])throw new Error('Unknown function "'+tk.v+'"'); return {t:'call',name:n,args}; }
+          if(peek()&&peek().v==='('){ next(); const args=[]; if(peek()&&peek().v!==')'){ args.push(exp(0)); while(peek()&&peek().v===','){ next(); args.push(exp(0)); } } const c=next(); if(!c||c.v!==')')throw new Error('Missing ")" after '+n); if(!Object.hasOwn(F,n))throw new Error('Unknown function "'+tk.v+'"'); return {t:'call',name:n,args}; }
           if(n==='x'){ usesX=true; return {t:'var'}; }
-          if(n in CON)return {t:'const',name:n};
+          if(Object.hasOwn(CON,n))return {t:'const',name:n};   // `in` made "constructor" and "__proto__" evaluate to NaN
           throw new Error('Unknown name "'+tk.v+'"'); }
         throw new Error('Unexpected "'+tk.v+'"'); };
       const postfix=()=>{ let v=atom(); while(peek()&&peek().v==='!'){ next(); v={t:'post',op:'!',v}; } return v; };
@@ -5543,7 +5575,9 @@ tool({
           const name = ident(hint, used);
           const lines = Object.entries(s.fields).map(([k, f]) => {
             const fname = ident(k, new Set());
-            return `\t${fname} ${f.nullable ? '*' : ''}${goType(f.shape, k)} \`json:"${k}${f.optional ? ',omitempty' : ''}"\``;
+            // nullable is a property of the SHAPE; f is {shape, optional}, so f.nullable
+            // was always undefined and Go never got a pointer where TypeScript got "| null".
+            return `\t${fname} ${f.shape.nullable ? '*' : ''}${goType(f.shape, k)} \`json:"${k}${f.optional ? ',omitempty' : ''}"\``;
           });
           defs.push(`type ${name} struct {\n${lines.join('\n')}\n}`);
           t = name;
@@ -5762,6 +5796,7 @@ tool({
       const url = URL.createObjectURL(f);
       const i = new Image();
       i.onload = () => {
+        URL.revokeObjectURL(url);
         img = i;
         $('#im-orig').textContent = `${i.width} × ${i.height} · ${fmtBytes(f.size)} · ${f.type}`;
         drop.textContent = `${f.name} — drop another to replace`;
@@ -5852,7 +5887,10 @@ tool({
     const keyBytes = () => {
       const f = $('#hm-keyfmt').value, v = key.value;
       if (f === 'hex'){
-        const c = v.replace(/[\s0x]/gi,''); if (c.length % 2 || /[^0-9a-f]/i.test(c)) throw 'key is not valid hex';
+        // [\s0x] is a CHARACTER class — it was deleting every '0' and every 'x' in the
+        // key, so hex keys 00ff and ff signed identically. Strip the literal "0x"
+        // prefix sequence and whitespace instead, as the Hex encode tool does.
+        const c = v.replace(/0x/gi,'').replace(/\s+/g,''); if (!c.length || c.length % 2 || /[^0-9a-f]/i.test(c)) throw 'key is not valid hex';
         const b = new Uint8Array(c.length/2); for (let i=0;i<b.length;i++) b[i]=parseInt(c.substr(i*2,2),16); return b;
       }
       if (f === 'b64') return b64ToBytes(v.trim());
@@ -5937,13 +5975,13 @@ tool({
         const next = [];
         for (const n of nodes){
           if (n == null) continue;
-          if (tk.op === 'key'){ if (typeof n === 'object' && !Array.isArray(n) && tk.key in n) next.push(n[tk.key]); }
+          if (tk.op === 'key'){ if (typeof n === 'object' && !Array.isArray(n) && Object.hasOwn(n, tk.key)) next.push(n[tk.key]); }
           else if (tk.op === 'index'){ if (Array.isArray(n) && tk.idx < n.length) next.push(n[tk.idx]); }
           else if (tk.op === 'wild'){ if (Array.isArray(n)) next.push(...n); else if (typeof n === 'object') next.push(...Object.values(n)); }
           else if (tk.op === 'rdesc'){
             const walk = x => {
               if (x && typeof x === 'object'){
-                if (!Array.isArray(x) && tk.key in x) next.push(x[tk.key]);
+                if (!Array.isArray(x) && Object.hasOwn(x, tk.key)) next.push(x[tk.key]);
                 for (const v of Object.values(x)) walk(v);
               }
             };
@@ -6620,9 +6658,9 @@ tool({
     grid.addEventListener('click', async e => {
       const b = e.target.closest('button[data-emoji]'); if (!b) return;
       const ch = b.dataset.emoji;
-      await copyText(ch);
+      const ok = await copyText(ch);
       const cps = [...ch].map(c => 'U+' + c.codePointAt(0).toString(16).toUpperCase().padStart(4,'0')).join(' ');
-      $('#em-last').textContent = `${ch}  ·  ${cps}  ·  copied`;
+      $('#em-last').textContent = `${ch}  ·  ${cps}  ·  ${ok ? 'copied' : 'could not copy — select it and copy manually'}`;
     });
     q.addEventListener('input', () => render(q.value));
     render('');
@@ -7018,7 +7056,7 @@ tool({
       ['xls','application/vnd.ms-excel'],['xlsx','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'],
       ['ppt','application/vnd.ms-powerpoint'],['pptx','application/vnd.openxmlformats-officedocument.presentationml.presentation'],
       ['wasm','application/wasm'],['epub','application/epub+zip'],['apk','application/vnd.android.package-archive'],
-      ['exe','application/vnd.microsoft.portable-executable'],['bin','application/octet-stream'],['woff','font/woff'],
+      ['exe','application/vnd.microsoft.portable-executable'],['bin','application/octet-stream'],
     ];
     const list = $('#mi-list'), q = $('#mi-q');
     const render = needle => {
@@ -7182,7 +7220,11 @@ tool({
         ].join('\n');
         drop.textContent = `${f.name} — drop another to replace`;
       };
-      i.src = URL.createObjectURL(f);
+      const u = URL.createObjectURL(f);
+      const done = i.onload;
+      i.onload = () => { URL.revokeObjectURL(u); done(); };
+      i.onerror = () => URL.revokeObjectURL(u);
+      i.src = u;
     };
     drop.addEventListener('click', () => file.click());
     file.addEventListener('change', () => handle(file.files[0]));
@@ -7304,7 +7346,10 @@ tool({
     const drop = $('#aa-drop'), file = $('#aa-file');
     const handle = f => {
       if (!f || !f.type.startsWith('image/')) return;
-      const i = new Image(); i.onload = () => { img = i; drop.textContent = `${f.name} — drop another to replace`; run(); }; i.src = URL.createObjectURL(f);
+      const i = new Image(); const u = URL.createObjectURL(f);
+      i.onload = () => { URL.revokeObjectURL(u); img = i; drop.textContent = `${f.name} — drop another to replace`; run(); };
+      i.onerror = () => URL.revokeObjectURL(u);
+      i.src = u;
     };
     drop.addEventListener('click', () => file.click());
     file.addEventListener('change', () => handle(file.files[0]));
@@ -7340,7 +7385,7 @@ tool({
       ${outRow('Round-trip (est.)','cn-rtt')}
       ${outRow('Save-Data','cn-save')}
     </div>
-    <p class="note">Browsers can't read true WiFi signal — the values above are a coarse estimate from recent traffic, exposed only by Chromium. For real RSSI/SSID/channel, run a command below or use the native macOS app (which fills the WiFi section above).</p>`,
+    <p class="note">Browsers can't read true WiFi signal — the values above are a coarse estimate from recent traffic, exposed only by Chromium. For real RSSI/SSID/channel, use the native macOS app (which fills the WiFi section above).</p>`,
   wire(){
     const set = (id, v) => $('#'+id).textContent = (v == null || v === '') ? '—' : v;
     const qual = r => r >= -50 ? 'Excellent' : r >= -60 ? 'Good' : r >= -67 ? 'Fair' : r >= -75 ? 'Weak' : 'Very weak';
@@ -7382,7 +7427,7 @@ tool({
 /* ── device info ───────────────────────────────────────────── */
 tool({
   id:'device', name:'Device info', group:'Ops',
-  blurb:'Everything the browser will tell you about this device — user agent, platform, screen, CPU, GPU, locale, storage — plus your local IP when run as the native macOS app, and the commands for the rest.',
+  blurb:'Everything the browser will tell you about this device — user agent, platform, screen, CPU, GPU, locale, storage — plus your local IP when run as the native macOS app.',
   html: `
     <div class="outs">
       ${outRow('User agent','dv-ua')}
@@ -7422,13 +7467,13 @@ tool({
       set('dv-touch', navigator.maxTouchPoints || 0);
       set('dv-gpu', gpu() || 'not exposed');
       set('dv-cookie', navigator.cookieEnabled ? 'enabled' : 'disabled');
-      set('dv-pubip', 'needs a network request — see command below');
+      set('dv-pubip', 'not available offline — needs a network request');
       if (navigator.storage && navigator.storage.estimate)
         navigator.storage.estimate().then(e => { const gb = x => x ? (x/1073741824).toFixed(2) + ' GB' : '—'; set('dv-store', `${gb(e.usage)} used of ${gb(e.quota)} quota`); });
       else set('dv-store', 'not exposed');
       const h = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.device;
       if (h) h.postMessage('get').then(d => set('dv-localip', (d && d.localIPs && d.localIPs.join('   ')) || '—')).catch(() => set('dv-localip', '—'));
-      else set('dv-localip', 'not exposed by browsers (privacy) — see command');
+      else set('dv-localip', 'not exposed by browsers (privacy) — shown in the native macOS app');
     };
     addEventListener('resize', () => set('dv-vp', `${innerWidth}×${innerHeight}`));
     render();
@@ -8278,7 +8323,6 @@ tool({
     <div id="c4-board" style="display:inline-grid;grid-template-columns:repeat(7,clamp(34px,11.5vw,60px));gap:4px;background:var(--border-2);padding:6px;border-radius:10px"></div>`,
   wire(){
     const R=6,C=7; let g, over, busy, lastDrop=-1, mode='ai', cur=1, net=null, myP=0; const board=$('#c4-board'), msg=$('#c4-msg');
-    const at=(b,r,c)=>b[r*C+c];
     const drop=(b,c,p)=>{ for(let r=R-1;r>=0;r--)if(!b[r*C+c]){ b[r*C+c]=p; return r; } return -1; };
     const wins=(b,p)=>{ for(let r=0;r<R;r++)for(let c=0;c<C;c++){ if(b[r*C+c]!==p)continue;
       for(const[dr,dc]of[[0,1],[1,0],[1,1],[1,-1]]){ let n=1,rr=r+dr,cc=c+dc; while(rr>=0&&rr<R&&cc>=0&&cc<C&&b[rr*C+cc]===p){n++;rr+=dr;cc+=dc;} if(n>=4)return true; } } return false; };
@@ -8612,7 +8656,7 @@ tool({
     };
     document.addEventListener('click', async e => {
       if (e.target.closest('#tool-palette .fadebar') && e.target.dataset?.hex)
-        await copyText(e.target.dataset.hex);
+        await flashCopy(e.target, e.target.dataset.hex);
     });
     const run = () => {
       const c = parseColor(inp.value);
@@ -8720,7 +8764,7 @@ tool({
       if (item) handle(item.getAsFile());
     });
     bar.addEventListener('click', async e => {
-      if (e.target.dataset?.hex) await copyText(e.target.dataset.hex);
+      if (e.target.dataset?.hex) await flashCopy(e.target, e.target.dataset.hex);
     });
   }
 });
@@ -8734,8 +8778,12 @@ function wireImageDrop(toolId, dropSel, fileSel, cb){
   const handle = f => {
     if (!f || !f.type.startsWith('image/')) return;
     const img = new Image();
-    img.onload = () => cb(img, f);
-    img.src = URL.createObjectURL(f);
+    const url = URL.createObjectURL(f);
+    // Revoke once the bitmap has decoded — otherwise every dropped image pins its
+    // blob for the life of the page.
+    img.onload = () => { URL.revokeObjectURL(url); cb(img, f); };
+    img.onerror = () => URL.revokeObjectURL(url);
+    img.src = url;
   };
   drop.addEventListener('click', () => file.click());
   file.addEventListener('change', () => handle(file.files[0]));
@@ -10137,7 +10185,7 @@ main.innerHTML = `
         <span class="chip">${t.group}</span>
       </span>
     </div>
-    <p class="blurb">${t.blurb}</p>
+    <p class="blurb">${esc(t.blurb)}</p>
   </section>`).join('');
 
 const syncPins = () => {
@@ -10207,7 +10255,27 @@ function hydrate(id){
   anchor.insertAdjacentHTML('afterend', t.html);
   try { t.wire(); } catch (e){ console.error('wire failed:', id, e); }
   addSendToButton(id);   // tool chaining: "Send to →" next to the output (needs the body built)
+  restoreFields(sec);    // after wire(), so the tool recomputes from the restored values
   syncPins();
+}
+
+/* Put the saved values back into one tool's fields. This has to run per tool,
+   from hydrate(): tool bodies are built lazily, so at page load no field exists
+   yet. The previous version looped over saved.fields once at startup, found
+   getElementById() null for every id, took that as "stale entry", deleted them
+   all and wrote the emptied object back — the whole remember-my-input feature
+   was a no-op that also destroyed the state on every load. */
+function restoreFields(root){
+  for (const [id, val] of Object.entries(saved.fields)){
+    const el = document.getElementById(id);
+    if (!el || !root.contains(el)) continue;            // belongs to another tool, or not built yet
+    if (el.readOnly || el.type === 'password' || el.type === 'file' || el.dataset.nosave !== undefined){
+      delete saved.fields[id]; continue;                // sensitive or no longer saveable
+    }
+    if (el.type === 'checkbox') el.checked = !!val; else el.value = val;
+    el.dispatchEvent(new Event('input', { bubbles:true }));
+    el.dispatchEvent(new Event('change', { bubbles:true }));
+  }
 }
 document.addEventListener('fullscreenchange', () => {
   document.querySelectorAll('.fsbtn').forEach(b => { b.textContent = '⛶'; b.title = 'Full screen'; });
@@ -10352,21 +10420,6 @@ const SKEY = 'pt-state';
 let saved = {};
 try { saved = JSON.parse(localStorage.getItem(SKEY) || '{}'); } catch {}
 saved.fields = saved.fields || {};
-for (const [id, val] of Object.entries(saved.fields)){
-  const el = document.getElementById(id);
-  if (!el || el.readOnly || el.type === 'password' || el.type === 'file' || el.dataset.nosave !== undefined){
-    delete saved.fields[id];           // scrub stale or sensitive entries
-    continue;
-  }
-  if (el.type === 'checkbox') el.checked = !!val; else el.value = val;
-}
-try { localStorage.setItem(SKEY, JSON.stringify(saved)); } catch {}
-for (const id of Object.keys(saved.fields)){
-  const el = document.getElementById(id);
-  if (!el || el.readOnly || el.type === 'password' || el.type === 'file' || el.dataset.nosave !== undefined) continue;
-  el.dispatchEvent(new Event('input', { bubbles:true }));
-  el.dispatchEvent(new Event('change', { bubbles:true }));
-}
 let saveT;
 const persist = () => {
   clearTimeout(saveT);
