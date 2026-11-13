@@ -73,7 +73,7 @@ function lumaStdev(px){
 const meanAlpha = sel => { const px = grab(sel); let a = 0;
   for (let i = 0; i < px.width*px.height; i++) a += px.data[i*4+3];
   return a / (px.width*px.height*255); };
-/* a red disc on flat blue — the same scene verify-commands.sh builds with magick */
+/* a red disc on flat blue — a known palette with two dominant colours */
 const discScene = (w, h) => cx => {
   cx.fillStyle = '#2050c8'; cx.fillRect(0, 0, w, h);
   cx.fillStyle = '#d03028'; cx.beginPath(); cx.arc(w/2, h/2, Math.min(w,h)*0.28, 0, 7); cx.fill();

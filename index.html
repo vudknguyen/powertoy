@@ -231,18 +231,6 @@ button.ghost:hover{color:var(--accent-2);border-color:var(--accent)}
 .cpy.pipe:hover{color:var(--on-accent);background:var(--accent)}
 .cpy.done{color:var(--on-accent);background:var(--accent);border-color:var(--accent)}
 
-/* shell panel */
-.shpanel{margin-top:1.3rem;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);overflow:hidden}
-.shpanel .shead{
-  padding:.42rem .8rem;border-bottom:1px solid var(--border);
-  font-size:.625rem;letter-spacing:.11em;text-transform:uppercase;color:var(--faint);font-weight:600;
-}
-.cmd{display:flex;align-items:flex-start;gap:.6rem;padding:.5rem .8rem;border-bottom:1px solid var(--border)}
-.cmd:last-child{border-bottom:0}
-.cmd .pr{color:var(--accent);font-family:var(--mono);user-select:none}
-.cmd code{flex:1;font-family:var(--mono);color:var(--ink);word-break:break-all;white-space:pre-wrap;font-size:.8rem;line-height:1.6}
-.cmd .why{display:block;color:var(--faint);font-size:.74rem;font-family:var(--sans);margin-bottom:.1rem}
-
 /* color & misc */
 .swatch{width:100%;height:72px;border:1px solid var(--border-2);border-radius:var(--radius);margin-top:.4rem;overflow:hidden;
   background-image:conic-gradient(var(--check1) 25%,var(--check2) 0 50%,var(--check1) 0 75%,var(--check2) 0);background-size:18px 18px}
@@ -537,7 +525,7 @@ details.rules li{margin:.15rem 0}
 <header class="top">
   <button id="navBtn" class="navtoggle" aria-label="Browse tools" aria-expanded="false">☰</button>
   <div class="brand" id="brandHome" role="button" tabindex="0" title="All tools">powertoy<i>.</i></div>
-  <div class="tagline">Everyday developer utilities — each with its shell equivalent.</div>
+  <div class="tagline">Everyday developer utilities — offline, in one file.</div>
   <a id="dlBtn" class="hdrlink" target="_blank" rel="noopener" hidden>⤓ macOS app</a>
   <a id="verBadge" class="hdrlink" target="_blank" rel="noopener">v0.0.0</a>
   <button id="themeBtn" class="ghost" title="Toggle dark mode" style="padding:.35rem .65rem;font-size:1rem;line-height:1">◐</button>
@@ -612,17 +600,6 @@ document.addEventListener('click', async e => {
 const cpyBtn = (target, label='Copy') => `<button class="cpy" data-copy="${target}">${label}</button>`;
 const outRow = (key, valId) =>
   `<div class="out"><span class="k">${key}</span><span class="v" id="${valId}">—</span>${cpyBtn('#'+valId)}</div>`;
-const shPanel = (id, rows) => `
-  <div class="shpanel">
-    <div class="shead">Shell equivalent</div>
-    ${rows.map((r,i)=>`
-      <div class="cmd">
-        <span class="pr">$</span>
-        <code>${r.why ? `<span class="why">${esc(r.why)}</span>` : ''}<span id="${id}-sh${i}">${esc(r.cmd||'')}</span></code>
-        ${cpyBtn(`#${id}-sh${i}`)}
-      </div>`).join('')}
-  </div>`;
-const setSh = (id, i, cmd) => { const el = $(`#${id}-sh${i}`); if (el) el.textContent = cmd; };
 
 /* compact MD5 (WebCrypto has none) */
 function md5(bytes){
@@ -723,18 +700,13 @@ tool({
     <textarea id="b64-in" spellcheck="false" placeholder="The quick brown fox…"></textarea>
     <label class="lbl" for="b64-out">Output ${cpyBtn('#b64-out')}</label>
     <textarea id="b64-out" readonly></textarea>
-    <div class="err" id="b64-err"></div>
-    ${shPanel('base64', [
-      {why:'encode (printf avoids the trailing newline echo adds)', cmd:`printf %s 'hello' | base64`},
-      {why:'decode (GNU coreutils; on macOS use base64 -D or -d)', cmd:`printf %s 'aGVsbG8=' | base64 -d`},
-      {why:'encode a whole file', cmd:`base64 -i photo.png > photo.b64`},
-    ])}`,
+    <div class="err" id="b64-err"></div>`,
   wire(){
     let mode = 'enc';
     const inp = $('#b64-in'), out = $('#b64-out'), err = $('#b64-err'), url = $('#b64-url');
     const run = () => {
       err.textContent = ''; out.value = '';
-      const v = inp.value; if (!v) { sh(); return; }
+      const v = inp.value; if (!v) return;
       try {
         if (mode === 'enc'){
           let s = bytesToB64(te.encode(v));
@@ -744,12 +716,6 @@ tool({
           out.value = td.decode(b64ToBytes(url.checked ? b64uToB64(v.trim()) : v.trim()));
         }
       } catch { err.textContent = 'Not valid Base64 input'; }
-      sh();
-    };
-    const sh = () => {
-      const v = shTrim(inp.value || 'hello', 60);
-      setSh('base64', 0, `printf %s ${shq(mode==='enc' ? v : 'hello')} | base64`);
-      setSh('base64', 1, `printf %s ${shq(mode==='dec' ? v : 'aGVsbG8=')} | base64 -d`);
     };
     inp.addEventListener('input', run);
     url.addEventListener('change', run);
@@ -773,11 +739,7 @@ tool({
     <textarea id="url-in" spellcheck="false" placeholder="key=hello world&lang=tiếng việt"></textarea>
     <label class="lbl" for="url-out">Output ${cpyBtn('#url-out')}</label>
     <textarea id="url-out" readonly></textarea>
-    <div class="err" id="url-err"></div>
-    ${shPanel('url', [
-      {why:'encode with jq', cmd:`jq -rn --arg s 'hello world' '$s|@uri'`},
-      {why:'decode with python3', cmd:`python3 -c 'import sys,urllib.parse as u; print(u.unquote(sys.argv[1]))' 'hello%20world'`},
-    ])}`,
+    <div class="err" id="url-err"></div>`,
   wire(){
     let mode = 'enc', scope = 'comp';
     const inp = $('#url-in'), out = $('#url-out'), err = $('#url-err');
@@ -788,9 +750,6 @@ tool({
         else if (mode === 'enc') out.value = scope === 'comp' ? encodeURIComponent(inp.value) : encodeURI(inp.value);
         else out.value = scope === 'comp' ? decodeURIComponent(inp.value) : decodeURI(inp.value);
       } catch { err.textContent = 'Malformed percent-encoding'; }
-      const v = shTrim(inp.value || 'hello world', 60);
-      setSh('url', 0, `jq -rn --arg s ${shq(mode==='enc' ? v : 'hello world')} '$s|@uri'`);
-      setSh('url', 1, `python3 -c 'import sys,urllib.parse as u; print(u.unquote(sys.argv[1]))' ${shq(mode==='dec' ? v : 'hello%20world')}`);
     };
     inp.addEventListener('input', run);
     $$('#url-mode button').forEach(b => b.addEventListener('click', () => {
@@ -811,11 +770,7 @@ tool({
     <label class="lbl">Input</label>
     <textarea id="ent-in" spellcheck="false" placeholder='<a href="?q=1&x=2">café</a>'></textarea>
     <label class="lbl" for="ent-out">Output ${cpyBtn('#ent-out')}</label>
-    <textarea id="ent-out" readonly></textarea>
-    ${shPanel('entity', [
-      {why:'escape', cmd:`python3 -c 'import sys,html; print(html.escape(sys.argv[1]))' '<b>&</b>'`},
-      {why:'unescape', cmd:`python3 -c 'import sys,html; print(html.unescape(sys.argv[1]))' '&lt;b&gt;'`},
-    ])}`,
+    <textarea id="ent-out" readonly></textarea>`,
   wire(){
     let mode = 'enc';
     const inp = $('#ent-in'), out = $('#ent-out');
@@ -827,9 +782,6 @@ tool({
         decEl.innerHTML = inp.value.replace(/</g,'&lt;');
         out.value = decEl.value;
       }
-      const v = shTrim(inp.value || '<b>&</b>', 50);
-      setSh('entity', 0, `python3 -c 'import sys,html; print(html.escape(sys.argv[1]))' ${shq(mode==='enc'?v:'<b>&</b>')}`);
-      setSh('entity', 1, `python3 -c 'import sys,html; print(html.unescape(sys.argv[1]))' ${shq(mode==='dec'?v:'&lt;b&gt;')}`);
     };
     inp.addEventListener('input', run);
     $$('#ent-mode button').forEach(b => b.addEventListener('click', () => {
@@ -853,10 +805,7 @@ tool({
     <div class="outs">
       ${outRow('Expires (exp)','jwt-exp')}
       ${outRow('Issued (iat)','jwt-iat')}
-    </div>
-    ${shPanel('jwt', [
-      {why:'decode the payload (2nd segment) in one line', cmd:`cut -d. -f2 <<< "$TOKEN" | tr '_-' '/+' | base64 -d 2>/dev/null | jq .`},
-    ])}`,
+    </div>`,
   wire(){
     const inp = $('#jwt-in'), err = $('#jwt-err');
     const fmtClaim = ts => {
@@ -911,11 +860,7 @@ tool({
       ${outRow('HSV','col-hsv')}
       ${outRow('OKLCH','col-oklch')}
       ${outRow('Nearest name','col-name')}
-    </div>
-    ${shPanel('color', [
-      {why:'hex → decimal channels, pure printf', cmd:`printf 'rgb(%d, %d, %d)\\n' 0x10 0x6b 0x5b`},
-      {why:'preview a color block right in the terminal (truecolor)', cmd:`printf '\\e[48;2;16;107;91m          \\e[0m\\n'`},
-    ])}`,
+    </div>`,
   wire(){
     const inp = $('#col-in'), err = $('#col-err'), slider = $('#col-a'), aval = $('#col-aval');
     const NAMED = ('aliceblue f0f8ff antiquewhite faebd7 aqua 00ffff aquamarine 7fffd4 azure f0ffff beige f5f5dc bisque ffe4c4 black 000000 blanchedalmond ffebcd blue 0000ff blueviolet 8a2be2 brown a52a2a burlywood deb887 cadetblue 5f9ea0 chartreuse 7fff00 chocolate d2691e coral ff7f50 cornflowerblue 6495ed cornsilk fff8dc crimson dc143c darkblue 00008b darkcyan 008b8b darkgoldenrod b8860b darkgray a9a9a9 darkgreen 006400 darkkhaki bdb76b darkmagenta 8b008b darkolivegreen 556b2f darkorange ff8c00 darkorchid 9932cc darkred 8b0000 darksalmon e9967a darkseagreen 8fbc8f darkslateblue 483d8b darkslategray 2f4f4f darkturquoise 00ced1 darkviolet 9400d3 deeppink ff1493 deepskyblue 00bfff dimgray 696969 dodgerblue 1e90ff firebrick b22222 floralwhite fffaf0 forestgreen 228b22 fuchsia ff00ff gainsboro dcdcdc ghostwhite f8f8ff gold ffd700 goldenrod daa520 gray 808080 green 008000 greenyellow adff2f honeydew f0fff0 hotpink ff69b4 indianred cd5c5c indigo 4b0082 ivory fffff0 khaki f0e68c lavender e6e6fa lavenderblush fff0f5 lawngreen 7cfc00 lemonchiffon fffacd lightblue add8e6 lightcoral f08080 lightcyan e0ffff lightgoldenrodyellow fafad2 lightgray d3d3d3 lightgreen 90ee90 lightpink ffb6c1 lightsalmon ffa07a lightseagreen 20b2aa lightskyblue 87cefa lightslategray 778899 lightsteelblue b0c4de lightyellow ffffe0 lime 00ff00 limegreen 32cd32 linen faf0e6 magenta ff00ff maroon 800000 mediumaquamarine 66cdaa mediumblue 0000cd mediumorchid ba55d3 mediumpurple 9370db mediumseagreen 3cb371 mediumslateblue 7b68ee mediumspringgreen 00fa9a mediumturquoise 48d1cc mediumvioletred c71585 midnightblue 191970 mintcream f5fffa mistyrose ffe4e1 moccasin ffe4b5 navajowhite ffdead navy 000080 oldlace fdf5e6 olive 808000 olivedrab 6b8e23 orange ffa500 orangered ff4500 orchid da70d6 palegoldenrod eee8aa palegreen 98fb98 paleturquoise afeeee palevioletred db7093 papayawhip ffefd5 peachpuff ffdab9 peru cd853f pink ffc0cb plum dda0dd powderblue b0e0e6 purple 800080 rebeccapurple 663399 red ff0000 rosybrown bc8f8f royalblue 4169e1 saddlebrown 8b4513 salmon fa8072 sandybrown f4a460 seagreen 2e8b57 seashell fff5ee sienna a0522d silver c0c0c0 skyblue 87ceeb slateblue 6a5acd slategray 708090 snow fffafa springgreen 00ff7f steelblue 4682b4 tan d2b48c teal 008080 thistle d8bfd8 tomato ff6347 turquoise 40e0d0 violet ee82ee wheat f5deb3 white ffffff whitesmoke f5f5f5 yellow ffff00 yellowgreen 9acd32').split(' ');
@@ -968,8 +913,6 @@ tool({
       $('#col-oklch').textContent = rgbToOklch(r,g,b);
       const nn = nearestName(r,g,b);
       $('#col-name').textContent = nn.name + (nn.exact ? ' (exact)' : ' (closest)');
-      setSh('color', 0, `printf 'rgb(%d, %d, %d)\\n' 0x${hex2(r)} 0x${hex2(g)} 0x${hex2(b)}`);
-      setSh('color', 1, `printf '\\e[48;2;${r};${g};${b}m          \\e[0m\\n'`);
     };
     inp.addEventListener('input', () => {
       const c = parseColor(inp.value);
@@ -999,9 +942,6 @@ tool({
     <textarea id="fade-list" readonly style="min-height:64px"></textarea>
     <label class="lbl" for="fade-css">CSS gradient ${cpyBtn('#fade-css')}</label>
     <textarea id="fade-css" readonly style="min-height:48px"></textarea>
-    ${shPanel('fade', [
-      {why:'same interpolation in python3', cmd:''},
-    ])}
     <p class="note">Interpolation is linear in sRGB. For perceptually even ramps, run the endpoints through OKLCH in your CSS: <code>color-mix(in oklch, …)</code>.</p>`,
   wire(){
     const A = $('#fade-a'), B = $('#fade-b'), N = $('#fade-n'), bar = $('#fade-bar');
@@ -1019,7 +959,6 @@ tool({
       bar.innerHTML = steps.map(hx => `<div style="background:${hx}" data-hex="${hx}" title="${hx} — click to copy"></div>`).join('');
       $('#fade-list').value = steps.join('\n');
       $('#fade-css').value = `background: linear-gradient(90deg, ${steps[0]}, ${steps[steps.length-1]});`;
-      setSh('fade', 0, `python3 -c "a,b,n=0x${A.value.slice(1)},0x${B.value.slice(1)},${n}\nf=lambda x,i:(x>>i)&255\nprint(*['#%02x%02x%02x'%tuple(round(f(a,s)+(f(b,s)-f(a,s))*k/(n-1)) for s in(16,8,0)) for k in range(n)],sep='\\n')"`);
     };
     [A,B,N].forEach(el => el.addEventListener('input', run)); run();
   }
@@ -1045,12 +984,7 @@ tool({
       ${outRow('Octal','rad-8')}
       ${outRow('Binary','rad-2')}
       ${outRow('Size','rad-bytes')}
-    </div>
-    ${shPanel('radix', [
-      {why:'any base → decimal, in pure bash', cmd:`echo $((16#ff))`},
-      {why:'decimal → hex / octal with printf', cmd:`printf '%x  %o\\n' 255 255`},
-      {why:'decimal → binary with bc', cmd:`bc <<< 'obase=2; 255'`},
-    ])}`,
+    </div>`,
   wire(){
     const inp = $('#rad-in'), base = $('#rad-base'), err = $('#rad-err');
     const parse = (v, b) => {
@@ -1087,10 +1021,6 @@ tool({
       $('#rad-2').textContent  = sign + '0b' + abs.toString(2);
       const bytes = Math.max(1, Math.ceil(abs.toString(2).length / 8));
       $('#rad-bytes').textContent = `${bytes} byte${bytes>1?'s':''} (${abs.toString(2).length} bits)`;
-      const dec = n.toString(10);
-      setSh('radix', 0, `echo $((16#${abs.toString(16)}))`);
-      setSh('radix', 1, `printf '%x  %o\\n' ${dec} ${dec}`);
-      setSh('radix', 2, `bc <<< 'obase=2; ${dec}'`);
     };
     inp.addEventListener('input', run); base.addEventListener('change', run); run();
   }
@@ -1113,13 +1043,7 @@ tool({
       ${outRow('Local','time-loc')}
       ${outRow('Relative','time-rel')}
       ${outRow('Weekday','time-wd')}
-    </div>
-    ${shPanel('time', [
-      {why:'current epoch seconds', cmd:`date +%s`},
-      {why:'epoch → human (GNU/Linux)', cmd:`date -d @1718000000`},
-      {why:'epoch → human (macOS/BSD)', cmd:`date -r 1718000000`},
-      {why:'human → epoch (GNU/Linux)', cmd:`date -d '2026-06-10 12:00' +%s`},
-    ])}`,
+    </div>`,
   wire(){
     const inp = $('#time-in'), err = $('#time-err');
     const rtf = new Intl.RelativeTimeFormat('en', { numeric:'auto' });
@@ -1139,8 +1063,6 @@ tool({
       $('#time-loc').textContent = d.toLocaleString(undefined, { timeZoneName:'short' });
       $('#time-rel').textContent = rel(ms);
       $('#time-wd').textContent  = d.toLocaleDateString('en-US', { weekday:'long' });
-      setSh('time', 1, `date -d @${Math.floor(ms/1000)}`);
-      setSh('time', 2, `date -r ${Math.floor(ms/1000)}`);
     };
     const run = () => {
       err.textContent = '';
@@ -1190,12 +1112,7 @@ tool({
     </div>
     <input type="range" id="tz-slider" aria-label="Start time" min="0" max="1439" step="15" value="540" style="width:100%;max-width:40rem;margin:.4rem 0 0;display:block">
     <div id="tz-rows" style="margin-top:.4rem"></div>
-    <p class="note"><span class="tz-lg work"></span> working hours (9–18) · <span class="tz-lg sh"></span> early/late · <span class="tz-lg night"></span> night. Drag the slider (start time) and pick a length to see the meeting window's start–end everywhere; click a cell to jump.</p>
-    ${shPanel('tz', [
-      {why:'what time is it in Tokyo', cmd:`TZ='Asia/Tokyo' date`},
-      {why:'convert a specific moment (GNU date)', cmd:`TZ='Asia/Tokyo' date -d '2026-06-10 09:00 America/New_York'`},
-      {why:'list / search available zones (Linux)', cmd:`timedatectl list-timezones | grep -i saigon`},
-    ])}`,
+    <p class="note"><span class="tz-lg work"></span> working hours (9–18) · <span class="tz-lg sh"></span> early/late · <span class="tz-lg night"></span> night. Drag the slider (start time) and pick a length to see the meeting window's start–end everywhere; click a cell to jump.</p>`,
   wire(){
     const dt=$('#tz-dt'), rows=$('#tz-rows'), search=$('#tz-search'), sug=$('#tz-sug'), slider=$('#tz-slider');
     const localZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
@@ -1279,8 +1196,6 @@ tool({
       }).join('');
       const bs = fmtIn(startInst,base);
       $('#tz-window').textContent = dur>0 ? `${bs.hm}–${fmtIn(endInst,base).hm} in ${cityOf(base)}` : `${bs.hm} in ${cityOf(base)}`;
-      setSh('tz',0,`TZ=${shq(targets[1]||base)} date`);
-      setSh('tz',1,`TZ=${shq(targets[1]||'Asia/Tokyo')} date -d ${shq(`${bs.full.replace(/.*· /,'')} ${new Intl.DateTimeFormat('en-CA',{timeZone:base}).format(startInst)} ${base}`)}`);
     };
     const searchZones = q => {
       q = q.trim().toLowerCase(); if (!q) return [];
@@ -1338,12 +1253,6 @@ tool({
     </div>
     <label class="lbl">Next 5 runs (local time)</label>
     <div class="outs" id="cron-next"></div>
-    ${shPanel('cron', [
-      {why:'edit your crontab', cmd:`crontab -e`},
-      {why:'list installed jobs', cmd:`crontab -l`},
-      {why:'the line you would add', cmd:`*/15 9-17 * * 1-5  /path/to/script.sh`},
-      {why:'watch cron activity (Linux)', cmd:`grep CRON /var/log/syslog | tail`},
-    ])}
     <p class="note">Fields: minute (0–59) · hour (0–23) · day of month (1–31) · month (1–12 or jan–dec) · day of week (0–7 or sun–sat, 0 and 7 both Sunday). When both day fields are restricted, standard cron fires on <em>either</em>.</p>`,
   wire(){
     const inp = $('#cron-in'), err = $('#cron-err'), preset = $('#cron-preset');
@@ -1445,7 +1354,6 @@ tool({
             <span class="v" style="color:var(--faint)">${d.toISOString().slice(0,16).replace('T',' ')} UTC</span>
           </div>`).join('')
         : '<div class="out"><span class="v">no runs in the next year</span></div>';
-      setSh('cron', 2, `${inp.value.trim()}  /path/to/script.sh`);
     };
     preset.addEventListener('change', () => { if (preset.value){ inp.value = preset.value; preset.value = ''; run(); } });
     inp.addEventListener('input', run); run();
@@ -1465,13 +1373,7 @@ tool({
       ${outRow('SHA-256','hash-sha256')}
       ${outRow('SHA-384','hash-sha384')}
       ${outRow('SHA-512','hash-sha512')}
-    </div>
-    ${shPanel('hash', [
-      {why:'sha-256 of a string', cmd:`printf %s 'hello' | shasum -a 256`},
-      {why:'sha-256 of a file', cmd:`shasum -a 256 release.tar.gz`},
-      {why:'md5 (macOS: md5 · Linux: md5sum)', cmd:`printf %s 'hello' | md5sum`},
-      {why:'verify a downloaded checksum file', cmd:`shasum -a 256 -c SHA256SUMS`},
-    ])}`,
+    </div>`,
   wire(){
     const inp = $('#hash-in');
     let seq = 0;
@@ -1492,9 +1394,6 @@ tool({
           $('#'+id).textContent = [...new Uint8Array(buf)].map(hex2).join('');
         }
       }
-      const s = shTrim(v, 50);
-      setSh('hash', 0, `printf %s ${shq(s)} | shasum -a 256`);
-      setSh('hash', 2, `printf %s ${shq(s)} | md5sum`);
     };
     inp.addEventListener('input', run);
   }
@@ -1514,11 +1413,6 @@ tool({
     <label class="lbl" for="aes-out">Output ${cpyBtn('#aes-out')}</label>
     <textarea id="aes-out" readonly></textarea>
     <div class="err" id="aes-err"></div>
-    ${shPanel('aes', [
-      {why:'encrypt a file, password-based (CBC — the openssl CLI has no sane GCM mode)', cmd:`openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt -in secret.txt -out secret.enc`},
-      {why:'decrypt it', cmd:`openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -in secret.enc -out secret.txt`},
-      {why:'modern alternative with authenticated encryption', cmd:`age -p -o secret.age secret.txt`},
-    ])}
     <p class="note">The blob format here is this tool's own (16-byte salt, 12-byte IV, then ciphertext+tag) — decrypt it with this tool. The openssl commands are the equivalent workflow for files, not byte-compatible.</p>`,
   wire(){
     let mode = 'enc';
@@ -1622,12 +1516,6 @@ tool({
       ${outRow('Offline, slow hash','pw-t2')}
       ${outRow('Offline, GPU rig','pw-t3')}
     </div>
-    ${shPanel('pw', [
-      {why:'passphrase from the system dictionary (Linux: shuf; macOS: gshuf via coreutils)', cmd:`shuf -n 5 /usr/share/dict/words | paste -sd '-' -`},
-      {why:'random characters with exact charset control', cmd:`LC_ALL=C tr -dc 'A-Za-z0-9!@#$%' < /dev/urandom | head -c 16; echo`},
-      {why:'dense base64 secret', cmd:`openssl rand -base64 16`},
-      {why:'numeric PIN', cmd:`LC_ALL=C tr -dc '0-9' < /dev/urandom | head -c 6; echo`},
-    ])}
     <p class="note">Crack times assume the average case (half the keyspace) against a single password.
     Online attack: 100 guesses/s against a rate-limited login. Slow hash: 10,000 guesses/s offline against
     bcrypt/argon2. GPU rig: 100 billion guesses/s offline against a fast hash like MD5 or SHA-1 — the
@@ -1672,7 +1560,6 @@ tool({
         if (num){ s += String(rand(100)); bits += Math.log2(100); }
         if (sym){ s += pick('!@#$%&*?'); bits += 3; }
         detail = `${WORDS.length}-word list × ${n} words${num ? ' + number' : ''}${sym ? ' + symbol' : ''}`;
-        setSh('pw', 0, `shuf -n ${n} /usr/share/dict/words | paste -sd ${shq($('#pw-sep').value)} -`);
       }
       else if (mode === 'random'){
         let pool = '';
@@ -1690,7 +1577,6 @@ tool({
         s = Array.from({ length:len }, () => pick(pool)).join('');
         bits = len * Math.log2(pool.length);
         detail = `${pool.length}-char pool × ${len} chars`;
-        setSh('pw', 1, `LC_ALL=C tr -dc ${shq(($('#pw-lo').checked?'a-z':'')+($('#pw-up').checked?'A-Z':'')+($('#pw-di').checked?'0-9':'')+($('#pw-sp').checked ? $('#pw-spec').value.replace(/\s/g,'') : ''))} < /dev/urandom | head -c ${len}; echo`);
       }
       else if (mode === 'pron'){
         const len = Math.min(40, Math.max(6, +$('#pw-plen').value || 12));
@@ -1707,7 +1593,6 @@ tool({
         s = Array.from({ length:len }, () => pick('0123456789')).join('');
         bits = len * Math.log2(10);
         detail = `${len} digits`;
-        setSh('pw', 3, `LC_ALL=C tr -dc '0-9' < /dev/urandom | head -c ${len}; echo`);
       }
       $('#pw-out').value = s;
       $('#pw-ent').textContent = `≈ ${Math.floor(bits)} bits (${detail})`;
@@ -1746,12 +1631,7 @@ tool({
     </div>
     <label class="lbl" for="rnd-out">Output ${cpyBtn('#rnd-out')}</label>
     <textarea id="rnd-out" readonly style="min-height:56px;font-size:1rem"></textarea>
-    <div class="outs">${outRow('Entropy','rnd-ent')}</div>
-    ${shPanel('random', [
-      {why:'24 chars of base64 randomness', cmd:`openssl rand -base64 24`},
-      {why:'alphanumeric, exact charset control', cmd:`LC_ALL=C tr -dc 'A-Za-z0-9' < /dev/urandom | head -c 24; echo`},
-      {why:'hex tokens (great for secrets in .env)', cmd:`openssl rand -hex 32`},
-    ])}`,
+    <div class="outs">${outRow('Entropy','rnd-ent')}</div>`,
   wire(){
     const SETS = { 'rnd-lo':'abcdefghijklmnopqrstuvwxyz', 'rnd-up':'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'rnd-di':'0123456789', 'rnd-sy':'!@#$%^&*()-_=+[]{};:,.<>?' };
     const gen = () => {
@@ -1768,7 +1648,6 @@ tool({
       }
       $('#rnd-out').value = s;
       $('#rnd-ent').textContent = `${Math.floor(len * Math.log2(pool.length))} bits (${pool.length}-char pool × ${len})`;
-      setSh('random', 1, `LC_ALL=C tr -dc ${shq(($('#rnd-lo').checked?'a-z':'')+($('#rnd-up').checked?'A-Z':'')+($('#rnd-di').checked?'0-9':'')+($('#rnd-sy').checked?'!@#$%^&*_-':'') || 'A-Za-z0-9')} < /dev/urandom | head -c ${len}; echo`);
     };
     $('#rnd-go').addEventListener('click', gen);
     gen();
@@ -1807,12 +1686,7 @@ tool({
       ${outRow('Sortable','uu-sort')}
     </div>
     <label class="lbl" for="uu-out">Output ${cpyBtn('#uu-out')}</label>
-    <textarea id="uu-out" readonly style="min-height:130px"></textarea>
-    ${shPanel('uuid', [
-      {why:'this scheme in the shell', cmd:`uuidgen | tr '[:upper:]' '[:lower:]'`},
-      {why:'a batch of them', cmd:`for i in {1..5}; do uuidgen | tr '[:upper:]' '[:lower:]'; done`},
-      {why:'v4 from the kernel directly (Linux)', cmd:`cat /proc/sys/kernel/random/uuid`},
-    ])}`,
+    <textarea id="uu-out" readonly style="min-height:130px"></textarea>`,
   wire(){
     const rand = max => {
       const limit = Math.floor(0x100000000 / max) * max;
@@ -1870,20 +1744,13 @@ tool({
       objectid: () => ('00000000' + Math.floor(Date.now()/1000).toString(16)).slice(-8) + hex(randBytes(8)),
     };
     const INFO = {
-      v4:  { s:'128 bits: 122 random + 6 version/variant', sort:'no — fully random', dashes:true,
-             sh:`uuidgen | tr '[:upper:]' '[:lower:]'` },
-      v7:  { s:'48-bit Unix-ms timestamp + 74 random bits', sort:'yes — by creation time (great for DB keys)', dashes:true,
-             sh:`python3 -c 'import uuid; print(uuid.uuid7())'  # Python 3.14+` },
-      v1:  { s:'60-bit Gregorian timestamp + clock seq + node', sort:'roughly — but byte order scrambles it; leaks creation time', dashes:true,
-             sh:`uuidgen --time  # util-linux; or: python3 -c 'import uuid; print(uuid.uuid1())'` },
-      ulid:{ s:'48-bit ms timestamp + 80 random bits, Crockford base32, 26 chars', sort:'yes — lexicographically', dashes:false,
-             sh:`python3 -c 'import os,time;A="0123456789ABCDEFGHJKMNPQRSTVWXYZ";t=int(time.time()*1000);print("".join(A[(t>>5*(9-i))&31] for i in range(10))+"".join(A[b&31] for b in os.urandom(16)))'` },
-      nano:{ s:'21 chars × 64-char URL-safe alphabet ≈ 126 random bits', sort:'no — fully random', dashes:false,
-             sh:`node -e 'const A="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-";console.log([...require("crypto").randomBytes(21)].map(b=>A[b&63]).join(""))'` },
-      cuid2:{ s:'24 chars base36, starts with a letter ≈ 118 random bits', sort:'no — designed to be unguessable', dashes:false,
-             sh:`npx @paralleldrive/cuid2  # or the library in your runtime` },
-      objectid:{ s:'4-byte seconds timestamp + 8 random bytes, 24 hex chars', sort:'yes — to the second', dashes:false,
-             sh:`python3 -c 'import os,time;print("%08x"%int(time.time())+os.urandom(8).hex())'` },
+      v4:  { s:'128 bits: 122 random + 6 version/variant', sort:'no — fully random', dashes:true },
+      v7:  { s:'48-bit Unix-ms timestamp + 74 random bits', sort:'yes — by creation time (great for DB keys)', dashes:true },
+      v1:  { s:'60-bit Gregorian timestamp + clock seq + node', sort:'roughly — but byte order scrambles it; leaks creation time', dashes:true },
+      ulid:{ s:'48-bit ms timestamp + 80 random bits, Crockford base32, 26 chars', sort:'yes — lexicographically', dashes:false },
+      nano:{ s:'21 chars × 64-char URL-safe alphabet ≈ 126 random bits', sort:'no — fully random', dashes:false },
+      cuid2:{ s:'24 chars base36, starts with a letter ≈ 118 random bits', sort:'no — designed to be unguessable', dashes:false },
+      objectid:{ s:'4-byte seconds timestamp + 8 random bytes, 24 hex chars', sort:'yes — to the second', dashes:false },
     };
     const gen = () => {
       const type = $('#uu-type').value, info = INFO[type];
@@ -1904,10 +1771,6 @@ tool({
         $('#uu-struct').textContent = info.s;
       }
       $('#uu-sort').textContent = info.sort;
-      setSh('uuid', 0, info.sh);
-      setSh('uuid', 1, type === 'v4'
-        ? `for i in {1..${n}}; do uuidgen | tr '[:upper:]' '[:lower:]'; done`
-        : `for i in {1..${n}}; do ${info.sh.split('  #')[0]}; done`);
     };
     $('#uu-go').addEventListener('click', gen);
     ['uu-type','uu-up','uu-nd','uu-nanolen','uu-alpha'].forEach(id => $('#'+id).addEventListener('change', gen));
@@ -1930,13 +1793,7 @@ tool({
     <textarea id="js-in" spellcheck="false" style="min-height:140px" placeholder='{"b":1,"a":[2,3]}'></textarea>
     <div class="err" id="js-err"></div>
     <label class="lbl" for="js-out">Output ${cpyBtn('#js-out')}</label>
-    <textarea id="js-out" readonly style="min-height:140px"></textarea>
-    ${shPanel('json', [
-      {why:'pretty-print (the canonical tool)', cmd:`jq . data.json`},
-      {why:'minify', cmd:`jq -c . data.json`},
-      {why:'sort keys for stable diffs', cmd:`jq -S . data.json`},
-      {why:'no jq? python ships one', cmd:`python3 -m json.tool data.json`},
-    ])}`,
+    <textarea id="js-out" readonly style="min-height:140px"></textarea>`,
   wire(){
     const inp = $('#js-in'), out = $('#js-out'), err = $('#js-err');
     const sortDeep = v => {
@@ -1988,13 +1845,7 @@ tool({
     <label class="lbl">Matches <span id="rgx-count" style="font-family:var(--mono);text-transform:none;color:var(--accent-2)"></span></label>
     <div class="rgx-view" id="rgx-view"></div>
     <label class="lbl">Groups</label>
-    <div class="outs" id="rgx-groups"></div>
-    ${shPanel('rgx', [
-      {why:'show only the matching parts', cmd:`grep -oE '(\\w+)@([\\w.]+)' file.txt`},
-      {why:'test against a string', cmd:`printf %s 'ada@example.com' | grep -oE '\\w+@[\\w.]+'`},
-      {why:'full PCRE (lookarounds etc.) where available', cmd:`grep -oP '(?<=@)[\\w.]+' file.txt`},
-      {why:'replace with sed', cmd:`sed -E 's/(\\w+)@[\\w.]+/\\1@redacted/g' file.txt`},
-    ])}`,
+    <div class="outs" id="rgx-groups"></div>`,
   wire(){
     const pat = $('#rgx-pat'), inp = $('#rgx-in'), err = $('#rgx-err');
     const view = $('#rgx-view'), groups = $('#rgx-groups'), count = $('#rgx-count');
@@ -2034,8 +1885,6 @@ tool({
         ];
         return `<div class="out" style="grid-template-columns:1fr"><span style="font-size:.84rem">${parts.join(' &nbsp;·&nbsp; ')}</span></div>`;
       }).join('') || '<div class="out"><span class="v" style="color:var(--faint)">—</span></div>';
-      setSh('rgx', 0, `grep -oE ${shq(pat.value)} file.txt`);
-      setSh('rgx', 1, `printf %s ${shq(shTrim(src.split('\n')[0] || 'text', 40))} | grep -oE ${shq(pat.value)}`);
     };
     [pat, inp].forEach(el => el.addEventListener('input', run));
     ['g','i','m','s'].forEach(f => $('#rgx-'+f).addEventListener('change', run));
@@ -2058,12 +1907,7 @@ tool({
       ${outRow('CONSTANT_CASE','case-const')}
       ${outRow('dot.case','case-dot')}
       ${outRow('Title Case','case-title')}
-    </div>
-    ${shPanel('case', [
-      {why:'upper ↔ lower', cmd:`printf %s 'Hello' | tr '[:upper:]' '[:lower:]'`},
-      {why:'snake_case → camelCase (GNU sed)', cmd:`printf %s 'user_id_field' | sed -E 's/_(.)/\\U\\1/g'`},
-      {why:'camelCase → snake_case', cmd:`printf %s 'userIdField' | sed -E 's/([A-Z])/_\\L\\1/g'`},
-    ])}`,
+    </div>`,
   wire(){
     const inp = $('#case-in');
     const run = () => {
@@ -2080,8 +1924,6 @@ tool({
       set('case-const',  words.join('_').toUpperCase());
       set('case-dot',    words.join('.'));
       set('case-title',  words.map(cap).join(' '));
-      setSh('case', 1, `printf %s ${shq(words.join('_') || 'user_id_field')} | sed -E 's/_(.)/\\U\\1/g'`);
-      setSh('case', 2, `printf %s ${shq(words.map((w,i)=>i?cap(w):w).join('') || 'userIdField')} | sed -E 's/([A-Z])/_\\L\\1/g'`);
     };
     inp.addEventListener('input', run); run();
   }
@@ -2101,12 +1943,7 @@ tool({
       ${outRow('Lines','st-l')}
       ${outRow('UTF-8 bytes','st-b')}
       ${outRow('Longest line','st-ll')}
-    </div>
-    ${shPanel('stats', [
-      {why:'lines · words · bytes', cmd:`wc -l -w -c file.txt`},
-      {why:'characters (multibyte-aware)', cmd:`wc -m file.txt`},
-      {why:'length of the longest line (GNU)', cmd:`wc -L file.txt`},
-    ])}`,
+    </div>`,
   wire(){
     const inp = $('#st-in');
     inp.addEventListener('input', () => {
@@ -2137,37 +1974,25 @@ tool({
     <textarea id="hx-in" spellcheck="false" placeholder="hello  ·  68 65 6c 6c 6f"></textarea>
     <label class="lbl" for="hx-out">Output ${cpyBtn('#hx-out')}</label>
     <textarea id="hx-out" readonly></textarea>
-    <div class="err" id="hx-err"></div>
-    ${shPanel('hex', [
-      {why:'text → hex', cmd:`printf %s 'hello' | xxd -p`},
-      {why:'hex → text', cmd:`printf %s '68656c6c6f' | xxd -r -p`},
-      {why:'inspect any file as a hex dump', cmd:`xxd file.bin | head`},
-      {why:'no xxd? od is POSIX', cmd:`printf %s 'hello' | od -A n -t x1`},
-    ])}`,
+    <div class="err" id="hx-err"></div>`,
   wire(){
     let mode = 'enc';
     const inp = $('#hx-in'), out = $('#hx-out'), err = $('#hx-err');
     const run = () => {
       err.textContent = ''; out.value = '';
-      const v = inp.value; if (!v) return sh();
+      const v = inp.value; if (!v) return;
       if (mode === 'enc'){
         let h = [...te.encode(v)].map(hex2);
         if ($('#hx-up').checked) h = h.map(x => x.toUpperCase());
         out.value = h.join($('#hx-sp').checked ? ' ' : '');
       } else {
         const clean = v.replace(/0x/gi,'').replace(/[\s,]/g,'');
-        if (!/^[0-9a-fA-F]*$/.test(clean)){ err.textContent = 'Non-hex characters in input'; return sh(); }
-        if (clean.length % 2){ err.textContent = 'Odd number of hex digits'; return sh(); }
+        if (!/^[0-9a-fA-F]*$/.test(clean)){ err.textContent = 'Non-hex characters in input'; return; }
+        if (clean.length % 2){ err.textContent = 'Odd number of hex digits'; return; }
         const b = new Uint8Array(clean.length / 2);
         for (let i = 0; i < b.length; i++) b[i] = parseInt(clean.substr(i*2, 2), 16);
         try { out.value = td.decode(b); } catch { err.textContent = 'Bytes are not valid UTF-8'; }
       }
-      sh();
-    };
-    const sh = () => {
-      const v = shTrim(inp.value || 'hello', 40);
-      setSh('hex', 0, `printf %s ${shq(mode === 'enc' ? v : 'hello')} | xxd -p`);
-      setSh('hex', 1, `printf %s ${shq(mode === 'dec' ? v.replace(/\s/g,'') : '68656c6c6f')} | xxd -r -p`);
     };
     inp.addEventListener('input', run);
     ['hx-sp','hx-up'].forEach(id => $('#'+id).addEventListener('change', run));
@@ -2190,11 +2015,7 @@ tool({
     <textarea id="b32-in" spellcheck="false" placeholder="hello"></textarea>
     <label class="lbl" for="b32-out">Output ${cpyBtn('#b32-out')}</label>
     <textarea id="b32-out" readonly></textarea>
-    <div class="err" id="b32-err"></div>
-    ${shPanel('b32', [
-      {why:'encode (GNU coreutils)', cmd:`printf %s 'hello' | base32`},
-      {why:'decode', cmd:`printf %s 'NBSWY3DP' | base32 -d`},
-    ])}`,
+    <div class="err" id="b32-err"></div>`,
   wire(){
     const ALPHA = { rfc: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567', crock: '0123456789ABCDEFGHJKMNPQRSTVWXYZ' };
     const variant = () => $('#b32-var').value;
@@ -2228,9 +2049,6 @@ tool({
       const v = inp.value; if (!v) return;
       try { out.value = mode === 'enc' ? enc(te.encode(v)) : td.decode(dec(v)); }
       catch { err.textContent = 'Not valid Base32 input'; }
-      const s = shTrim(v, 40);
-      setSh('b32', 0, `printf %s ${shq(mode === 'enc' ? s : 'hello')} | base32`);
-      setSh('b32', 1, `printf %s ${shq(mode === 'dec' ? s : 'NBSWY3DP')} | base32 -d`);
     };
     inp.addEventListener('input', run);
     $('#b32-var').addEventListener('change', run);
@@ -2255,12 +2073,7 @@ tool({
     <textarea id="uni-out" readonly></textarea>
     <div class="err" id="uni-err"></div>
     <label class="lbl">Code points (first 24)</label>
-    <div class="outs" id="uni-cp"></div>
-    ${shPanel('uni', [
-      {why:'escape', cmd:`python3 -c 'print("café ✓".encode("unicode_escape").decode())'`},
-      {why:'unescape', cmd:`python3 -c 'print(b"caf\\\\xe9".decode("unicode_escape"))'`},
-      {why:'see the raw UTF-8 bytes of any string', cmd:`printf %s 'café' | xxd`},
-    ])}`,
+    <div class="outs" id="uni-cp"></div>`,
   wire(){
     let mode = 'enc';
     const inp = $('#uni-in'), out = $('#uni-out'), err = $('#uni-err');
@@ -2291,7 +2104,6 @@ tool({
           <span class="v" style="color:var(--faint)">utf-8: ${[...te.encode(ch)].map(hex2).join(' ')}</span>
         </div>`;
       }).join('') || '<div class="out"><span class="v" style="color:var(--faint)">—</span></div>';
-      setSh('uni', 0, `python3 -c 'print(${JSON.stringify(shTrim(v || 'café ✓', 30))}.encode("unicode_escape").decode())'`);
     };
     inp.addEventListener('input', run);
     $('#uni-all').addEventListener('change', run);
@@ -2316,10 +2128,7 @@ tool({
     <label class="lbl">Input</label>
     <textarea id="rot-in" spellcheck="false" placeholder="The treasure is buried under the old oak."></textarea>
     <label class="lbl" for="rot-out">Output ${cpyBtn('#rot-out')}</label>
-    <textarea id="rot-out" readonly></textarea>
-    ${shPanel('rot', [
-      {why:'rot13', cmd:`printf %s 'hello' | tr 'A-Za-z' 'N-ZA-Mn-za-m'`},
-    ])}`,
+    <textarea id="rot-out" readonly></textarea>`,
   wire(){
     const inp = $('#rot-in'), out = $('#rot-out'), n = $('#rot-n');
     const run = () => {
@@ -2329,8 +2138,6 @@ tool({
         const base = c <= 'Z' ? 65 : 97;
         return String.fromCharCode(base + (c.charCodeAt(0) - base + s) % 26);
       });
-      const seq = from => { let r = ''; for (let i = 0; i < 26; i++) r += String.fromCharCode(from + (i + s) % 26); return r; };
-      setSh('rot', 0, `printf %s ${shq(shTrim(inp.value || 'hello', 40))} | tr 'A-Za-z' ${shq(seq(65) + seq(97))}`);
     };
     inp.addEventListener('input', run); n.addEventListener('input', run); run();
   }
@@ -2371,12 +2178,7 @@ tool({
       ${outRow('Total days','dm-tdays')}
       ${outRow('Total hours','dm-thrs')}
       ${outRow('Total seconds','dm-tsec')}
-    </div>
-    ${shPanel('dmath', [
-      {why:'add to a date (GNU/Linux)', cmd:`date -d '2026-06-10 +3 days'`},
-      {why:'add to a date (macOS/BSD)', cmd:`date -v +3d`},
-      {why:'days between two dates', cmd:`echo $(( ($(date -d '2026-12-25' +%s) - $(date -d '2026-06-10' +%s)) / 86400 ))`},
-    ])}`,
+    </div>`,
   wire(){
     const base = $('#dm-base'), amt = $('#dm-amt'), unit = $('#dm-unit');
     const a = $('#dm-a'), b = $('#dm-b');
@@ -2408,9 +2210,6 @@ tool({
       // time between 00:00 and 01:00 back a day.
       $('#dm-doy').textContent = String(Math.round(
         (new Date(r.getFullYear(), r.getMonth(), r.getDate()) - new Date(r.getFullYear(), 0, 1)) / 86400000) + 1);
-      const u = { minutes:'M', hours:'H', days:'d', weeks:'w', months:'m', years:'y' }[unit.value];
-      setSh('dmath', 0, `date -d ${shq(base.value.replace('T',' ') + ' ' + (dir > 0 ? '+' : '-') + Math.abs(+amt.value || 0) + ' ' + unit.value)}`);
-      setSh('dmath', 1, `date -v ${dir > 0 ? '+' : '-'}${Math.abs(+amt.value || 0)}${u}`);
     };
     const diff = () => {
       const da = new Date(a.value), db = new Date(b.value);
@@ -2423,7 +2222,6 @@ tool({
       $('#dm-tdays').textContent = sign + (ms / 86400000).toFixed(2);
       $('#dm-thrs').textContent = sign + (ms / 3600000).toFixed(1);
       $('#dm-tsec').textContent = sign + Math.floor(ms / 1000).toLocaleString('en-US');
-      setSh('dmath', 2, `echo $(( ($(date -d ${shq(b.value.replace('T',' '))} +%s) - $(date -d ${shq(a.value.replace('T',' '))} +%s)) / 86400 ))`);
     };
     $$('#dm-dir button').forEach(bt => bt.addEventListener('click', () => {
       $$('#dm-dir button').forEach(x => x.classList.remove('on')); bt.classList.add('on');
@@ -2466,11 +2264,7 @@ tool({
       ${outRow('Hours','dur-h')}
       ${outRow('Days','dur-d')}
       ${outRow('Weeks','dur-w')}
-    </div>
-    ${shPanel('dur', [
-      {why:'humanize seconds with python', cmd:`python3 -c 'import datetime; print(datetime.timedelta(seconds=90061))'`},
-      {why:'quick math in the shell', cmd:`echo $(( 90061 / 3600 )) hours`},
-    ])}`,
+    </div>`,
   wire(){
     const v = $('#dur-v'), u = $('#dur-u');
     const fmtN = x => String(parseFloat(x.toPrecision(10)));
@@ -2493,8 +2287,6 @@ tool({
       $('#dur-h').textContent   = fmtN(ms / 3600000);
       $('#dur-d').textContent   = fmtN(ms / 86400000);
       $('#dur-w').textContent   = fmtN(ms / 604800000);
-      setSh('dur', 0, `python3 -c 'import datetime; print(datetime.timedelta(seconds=${Math.floor(abs/1000)}))'`);
-      setSh('dur', 1, `echo $(( ${Math.floor(abs/1000)} / 3600 )) hours`);
     };
     v.addEventListener('input', run); u.addEventListener('change', run); run();
   }
@@ -2520,11 +2312,7 @@ function unitTool(cfg){
       </div>
       <div class="outs" style="margin-top:.9rem">
         ${cfg.units.map(u => outRow(u.label, `${cfg.id}-${u.k}`)).join('')}
-      </div>
-      ${shPanel(cfg.id, [
-        {why:'GNU units does all of this (apt/brew install units)', cmd:''},
-        {why:'or plain math with bc', cmd:''},
-      ])}`,
+      </div>`,
     wire(){
       const v = $(`#${cfg.id}-v`), u = $(`#${cfg.id}-u`);
       const run = () => {
@@ -2532,9 +2320,6 @@ function unitTool(cfg){
         const from = cfg.units.find(z => z.k === u.value);
         for (const z of cfg.units)
           $(`#${cfg.id}-${z.k}`).textContent = isFinite(x) ? fmtNum(x * from.f / z.f) : '—';
-        const xv = isFinite(x) ? x : 1;
-        setSh(cfg.id, 0, `units ${shq(xv + ' ' + from.sym)} ${shq(cfg.target)}`);
-        setSh(cfg.id, 1, `echo '${xv} * ${fmtNum(from.f / cfg.units.find(z => z.k === cfg.target2).f)}' | bc -l   # ${from.sym} → ${cfg.target2}`);
       };
       v.addEventListener('input', run); u.addEventListener('change', run); run();
     }
@@ -2551,11 +2336,7 @@ tool({
     <div class="err" id="cv2-err"></div>
     <div id="cv2-result" style="margin:.7rem 0;font-family:var(--sans);font-size:1.5rem;min-height:1.6rem"></div>
     <label class="lbl" id="cv2-morelbl" style="display:none">Also</label>
-    <div class="outs" id="cv2-more"></div>
-    ${shPanel('cv2', [
-      {why:'GNU units does this (apt/brew install units)', cmd:`units '5 gal' 'liters'`},
-      {why:'or qalculate', cmd:`qalc '50 miles to km'`},
-    ])}`,
+    <div class="outs" id="cv2-more"></div>`,
   wire(){
     // factors are to each category's base unit; temperature uses functions.
     const C = {
@@ -2681,11 +2462,6 @@ tool({
         return `<div class="out"><span class="k" style="text-transform:none;letter-spacing:0">${esc(uinfo(to).n)}</span><span class="v">${s}</span><button class="cpy" data-copy-text="${esc(s)}">Copy</button></div>`;
       }).join('');
     };
-    const setShell = (val, from, to) => {
-      if (from.cat==='temp'){ const map={c:'tempC',f:'tempF',k:'tempK'}; setSh('cv2',0,`units ${shq(map[from.key]+'('+val+')')} ${shq(map[to?to.key:from.key])}`); }
-      else { setSh('cv2',0,`units ${shq(val+' '+uinfo(from).g)} ${shq(uinfo(to||from).g)}`); }
-      setSh('cv2',1,`qalc ${shq(inp.value.trim())}`);
-    };
     const run = () => {
       errEl.textContent=''; resEl.innerHTML=''; moreEl.innerHTML=''; moreLbl.style.display='none';
       const q = inp.value.trim(); if (!q) return;
@@ -2715,7 +2491,6 @@ tool({
         resEl.innerHTML = `${fmtNum(val)} ${esc(uinfo(from).n)} &nbsp;=`;
       }
       moreEl.innerHTML = rowsFor(val, from); moreLbl.style.display='';
-      setShell(val, from, to);
     };
     inp.addEventListener('input', run); run();
   }
@@ -2816,11 +2591,7 @@ tool({
       ${outRow('km/L','fuel-kml')}
       ${outRow('L/100 km','fuel-l100')}
       ${outRow('Miles/L','fuel-mil')}
-    </div>
-    ${shPanel('fuel', [
-      {why:'GNU units handles the reciprocal conversion for you', cmd:`units '30 mpg' 'liters/100km'`},
-      {why:'mpg (US) → km/L by hand', cmd:`echo '30 * 1.609344 / 3.785411784' | bc -l`},
-    ])}`,
+    </div>`,
   wire(){
     const MILE = 1.609344, GAL_US = 3.785411784, GAL_IMP = 4.54609;
     const v = $('#fuel-v'), u = $('#fuel-u');
@@ -2837,9 +2608,6 @@ tool({
       $('#fuel-kml').textContent    = fmtNum(kml);
       $('#fuel-l100').textContent   = fmtNum(100 / kml);
       $('#fuel-mil').textContent    = fmtNum(kml / MILE);
-      const sym = { mpgus:'mpg', mpgimp:'impmpg', kml:'km/l', l100:'liters/100km' }[u.value];
-      setSh('fuel', 0, `units ${shq(x + ' ' + sym)} ${shq(u.value === 'l100' ? 'mpg' : 'liters/100km')}`);
-      setSh('fuel', 1, `echo ${shq(x + ' * 1.609344 / 3.785411784')} | bc -l`);
     };
     v.addEventListener('input', run); u.addEventListener('change', run); run();
   }
@@ -2862,11 +2630,7 @@ tool({
       ${outRow('Origin','up-origin')}
     </div>
     <label class="lbl">Query parameters (decoded)</label>
-    <div class="outs" id="up-params"></div>
-    ${shPanel('urlparse', [
-      {why:'split a URL with python', cmd:`python3 -c 'import sys,urllib.parse as u; r=u.urlsplit(sys.argv[1]); print(r)' 'https://example.com/a?b=1'`},
-      {why:'decode the query string', cmd:`python3 -c 'import sys,urllib.parse as u; print(u.parse_qs(u.urlsplit(sys.argv[1]).query))' 'https://example.com/a?b=1&c=2'`},
-    ])}`,
+    <div class="outs" id="up-params"></div>`,
   wire(){
     const inp = $('#up-in'), err = $('#up-err');
     const run = () => {
@@ -2895,8 +2659,6 @@ tool({
             <span class="v">${esc(val) || '<i style="color:var(--faint)">empty</i>'}</span>
           </div>`).join('')
         : '<div class="out"><span class="v" style="color:var(--faint)">no query parameters</span></div>';
-      setSh('urlparse', 0, `python3 -c 'import sys,urllib.parse as u; r=u.urlsplit(sys.argv[1]); print(r)' ${shq(shTrim(v, 70))}`);
-      setSh('urlparse', 1, `python3 -c 'import sys,urllib.parse as u; print(u.parse_qs(u.urlsplit(sys.argv[1]).query))' ${shq(shTrim(v, 70))}`);
     };
     inp.addEventListener('input', run); run();
   }
@@ -2921,11 +2683,7 @@ tool({
       ${outRow('Celsius','temp-c')}
       ${outRow('Fahrenheit','temp-f')}
       ${outRow('Kelvin','temp-k')}
-    </div>
-    ${shPanel('temp', [
-      {why:'GNU units uses function syntax for temperatures', cmd:`units 'tempC(25)' 'tempF'`},
-      {why:'or the formula with bc', cmd:`echo '25 * 9 / 5 + 32' | bc -l`},
-    ])}`,
+    </div>`,
   wire(){
     const v = $('#temp-v'), u = $('#temp-u'), err = $('#temp-err');
     const run = () => {
@@ -2937,11 +2695,6 @@ tool({
       $('#temp-c').textContent = fmtNum(c) + ' °C';
       $('#temp-f').textContent = fmtNum(c * 9/5 + 32) + ' °F';
       $('#temp-k').textContent = fmtNum(c + 273.15) + ' K';
-      const fn = { c:'tempC', f:'tempF', k:'tempK' }[u.value];
-      setSh('temp', 0, `units '${fn}(${x})' ${shq(u.value === 'f' ? 'tempC' : 'tempF')}`);
-      setSh('temp', 1, u.value === 'f'
-        ? `echo '(${x} - 32) * 5 / 9' | bc -l`
-        : `echo '${x} * 9 / 5 + 32' | bc -l`);
     };
     v.addEventListener('input', run); u.addEventListener('change', run); run();
   }
@@ -2985,12 +2738,7 @@ and runs away</textarea></div>
       <span id="df-stats" style="font-size:.85rem;color:var(--muted)"></span>
       <label class="check"><input type="checkbox" id="df-hide"> hide unchanged lines</label>
     </div>
-    <div class="diff-view" id="df-out"></div>
-    ${shPanel('diff', [
-      {why:'unified diff', cmd:`diff -u a.txt b.txt`},
-      {why:'word-level highlighting via git (works outside repos too)', cmd:`git diff --no-index --word-diff a.txt b.txt`},
-      {why:'diff two command outputs directly', cmd:`diff <(sort a.txt) <(sort b.txt)`},
-    ])}`,
+    <div class="diff-view" id="df-out"></div>`,
   wire(){
     const A = $('#df-a'), B = $('#df-b'), out = $('#df-out'), stats = $('#df-stats');
     const diffLines = (a, b) => {
@@ -3060,12 +2808,7 @@ tool({
     <label class="lbl" for="gz-out">Output ${cpyBtn('#gz-out')}</label>
     <textarea id="gz-out" readonly></textarea>
     <div class="row" style="margin-top:.4rem"><span id="gz-stats" style="font-size:.84rem;color:var(--muted)"></span></div>
-    <div class="err" id="gz-err"></div>
-    ${shPanel('gz', [
-      {why:'compress → base64', cmd:`printf %s 'some long text' | gzip -c | base64`},
-      {why:'decompress a blob', cmd:`base64 -d <<< 'H4sIAAAA…' | gunzip`},
-      {why:'zlib/deflate via python', cmd:`python3 -c 'import zlib,base64,sys;print(base64.b64encode(zlib.compress(sys.argv[1].encode())).decode())' 'some long text'`},
-    ])}`,
+    <div class="err" id="gz-err"></div>`,
   wire(){
     let mode = 'enc', seq = 0;
     const inp = $('#gz-in'), out = $('#gz-out'), err = $('#gz-err'), stats = $('#gz-stats'), fmt = $('#gz-fmt');
@@ -3123,10 +2866,6 @@ tool({
       ${outRow('Preview','du-prev')}
     </div>
     <div class="row" style="margin-top:.6rem"><button class="act" id="du-dl" style="display:none">Download file</button></div>
-    ${shPanel('duri', [
-      {why:'build a data URI from a file', cmd:`echo "data:image/png;base64,$(base64 < logo.png | tr -d '\\n')"`},
-      {why:'extract the payload back out', cmd:`cut -d, -f2 <<< "$URI" | base64 -d > file.bin`},
-    ])}
     <p class="note">Data URIs inflate size by ~33% and can’t be cached separately — great for icons and small assets, wrong for anything big.</p>`,
   wire(){
     const drop = $('#du-drop'), file = $('#du-file'), out = $('#du-out'), stats = $('#du-stats');
@@ -3184,11 +2923,7 @@ tool({
     <textarea id="b58-in" spellcheck="false" placeholder="hello"></textarea>
     <label class="lbl" for="b58-out">Output ${cpyBtn('#b58-out')}</label>
     <textarea id="b58-out" readonly></textarea>
-    <div class="err" id="b58-err"></div>
-    ${shPanel('b58', [
-      {why:'with the python base58 package (pip install base58)', cmd:`printf %s 'hello' | base58`},
-      {why:'decode', cmd:`printf %s 'Cn8eVZg' | base58 -d`},
-    ])}`,
+    <div class="err" id="b58-err"></div>`,
   wire(){
     const A = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
     const enc = bytes => {
@@ -3220,8 +2955,6 @@ tool({
       if (!v) return;
       try { out.value = mode === 'enc' ? enc(te.encode(v)) : td.decode(dec(v)); }
       catch { err.textContent = 'Not valid Base58 (0, O, I and l are never used)'; }
-      setSh('b58', 0, `printf %s ${shq(shTrim(mode==='enc' ? v : 'hello', 40))} | base58`);
-      setSh('b58', 1, `printf %s ${shq(shTrim(mode==='dec' ? v : 'Cn8eVZg', 40))} | base58 -d`);
     };
     inp.addEventListener('input', run);
     $$('#b58-mode button').forEach(b => b.addEventListener('click', () => {
@@ -3243,12 +2976,7 @@ tool({
     <textarea id="bin-in" spellcheck="false" placeholder="Hi  ·  01001000 01101001"></textarea>
     <label class="lbl" for="bin-out">Output ${cpyBtn('#bin-out')}</label>
     <textarea id="bin-out" readonly></textarea>
-    <div class="err" id="bin-err"></div>
-    ${shPanel('bin', [
-      {why:'text → bits', cmd:`printf %s 'Hi' | perl -lpe '$_=unpack"B*"'`},
-      {why:'bits → text', cmd:`printf %s '0100100001101001' | perl -lpe '$_=pack"B*",$_'`},
-      {why:'bit dump of any file', cmd:`xxd -b file.bin | head`},
-    ])}`,
+    <div class="err" id="bin-err"></div>`,
   wire(){
     let mode = 'enc';
     const inp = $('#bin-in'), out = $('#bin-out'), err = $('#bin-err');
@@ -3265,8 +2993,6 @@ tool({
         for (let i = 0; i < bytes.length; i++) bytes[i] = parseInt(clean.substr(i*8, 8), 2);
         try { out.value = td.decode(bytes); } catch { err.textContent = 'Bits are not valid UTF-8'; }
       }
-      setSh('bin', 0, `printf %s ${shq(shTrim(mode==='enc' ? v : 'Hi', 30))} | perl -lpe '$_=unpack"B*"'`);
-      setSh('bin', 1, `printf %s ${shq(mode==='dec' ? shTrim(v.replace(/\s/g,''), 60) : '0100100001101001')} | perl -lpe '$_=pack"B*",$_'`);
     };
     inp.addEventListener('input', run);
     $('#bin-sp').addEventListener('change', run);
@@ -3289,11 +3015,7 @@ tool({
     <textarea id="js2-in" spellcheck="false" placeholder='line one&#10;line "two"'></textarea>
     <label class="lbl" for="js2-out">Output ${cpyBtn('#js2-out')}</label>
     <textarea id="js2-out" readonly></textarea>
-    <div class="err" id="js2-err"></div>
-    ${shPanel('jstr', [
-      {why:'escape with jq', cmd:`printf %s 'line one\nline "two"' | jq -Rs .`},
-      {why:'unescape', cmd:`jq -r . <<< '"a\\nb"'`},
-    ])}`,
+    <div class="err" id="js2-err"></div>`,
   wire(){
     let mode = 'enc';
     const inp = $('#js2-in'), out = $('#js2-out'), err = $('#js2-err');
@@ -3336,11 +3058,7 @@ tool({
       ${outRow('ASCII / punycode','pn-ascii')}
       ${outRow('Unicode','pn-uni')}
       ${outRow('Non-ASCII labels','pn-flag')}
-    </div>
-    ${shPanel('puny', [
-      {why:'encode with python', cmd:`python3 -c 'print("münchen.de".encode("idna").decode())'`},
-      {why:'decode', cmd:`python3 -c 'print(b"xn--mnchen-3ya.de".decode("idna"))'`},
-    ])}`,
+    </div>`,
   wire(){
     const inp = $('#pn-in'), err = $('#pn-err');
     const punyDecode = input => {                       // RFC 3492
@@ -3397,8 +3115,6 @@ tool({
       $('#pn-flag').textContent = idnLabels
         ? `${idnLabels} — check carefully if you expected plain ASCII`
         : 'none — plain ASCII domain';
-      setSh('puny', 0, `python3 -c 'print(${JSON.stringify(uni)}.encode("idna").decode())'`);
-      setSh('puny', 1, `python3 -c 'print(b${JSON.stringify(ascii)}.decode("idna"))'`);
     };
     inp.addEventListener('input', run); run();
   }
@@ -3416,10 +3132,7 @@ tool({
     <label class="lbl">Input</label>
     <textarea id="mo-in" spellcheck="false" placeholder="SOS  ·  ... --- ..."></textarea>
     <label class="lbl" for="mo-out">Output ${cpyBtn('#mo-out')}</label>
-    <textarea id="mo-out" readonly></textarea>
-    ${shPanel('morse', [
-      {why:'the classic (bsdgames package)', cmd:`morse -s 'hello world'`},
-    ])}`,
+    <textarea id="mo-out" readonly></textarea>`,
   wire(){
     const MAP = { a:'.-', b:'-...', c:'-.-.', d:'-..', e:'.', f:'..-.', g:'--.', h:'....', i:'..',
       j:'.---', k:'-.-', l:'.-..', m:'--', n:'-.', o:'---', p:'.--.', q:'--.-', r:'.-.', s:'...',
@@ -3482,10 +3195,6 @@ tool({
       ${outRow('Double-quoted','sq-double')}
       ${outRow("ANSI-C $'…'",'sq-ansi')}
     </div>
-    ${shPanel('shquote', [
-      {why:'let the shell do it', cmd:`printf '%q\\n' 'some string'`},
-      {why:'bash 4.4+ parameter transformation', cmd:`var='some string'; echo "\${var@Q}"`},
-    ])}
     <p class="note">Single quotes are the safest default — nothing expands inside them. Double quotes still expand <code>$vars</code>, backticks and <code>\\</code>; the form here escapes those so the literal text survives.</p>`,
   wire(){
     const inp = $('#sq-in');
@@ -3497,7 +3206,6 @@ tool({
         .replace(/\n/g,'\\n').replace(/\t/g,'\\t').replace(/\r/g,'\\r')
         .replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, c => '\\x' + hex2(c.charCodeAt(0)));
       $('#sq-ansi').textContent = v ? "$'" + ansi + "'" : '—';
-      setSh('shquote', 0, `printf '%q\\n' ${shq(shTrim(v || 'some string', 50))}`);
     };
     inp.addEventListener('input', run); run();
   }
@@ -3517,10 +3225,6 @@ tool({
     <label class="lbl" for="b85-out">Output ${cpyBtn('#b85-out')}</label>
     <textarea id="b85-out" readonly></textarea>
     <div class="err" id="b85-err"></div>
-    ${shPanel('b85', [
-      {why:'ascii85 with python', cmd:`python3 -c 'import base64,sys; print(base64.a85encode(sys.argv[1].encode()).decode())' 'hello'`},
-      {why:'decode', cmd:`python3 -c 'import base64,sys; print(base64.a85decode(sys.argv[1]).decode())' 'BOu!rDZ'`},
-    ])}
     <p class="note">Z85 is defined only for 4-byte-aligned data; shorter input is zero-padded here, so a Z85 round-trip of unaligned text gains trailing NULs. Ascii85 handles any length exactly.</p>`,
   wire(){
     const Z85A = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ.-:+=^!/*?&<>()[]{}@%$#';
@@ -3600,10 +3304,7 @@ tool({
     <textarea id="b62-in" spellcheck="false" placeholder="hello"></textarea>
     <label class="lbl" for="b62-out">Output ${cpyBtn('#b62-out')}</label>
     <textarea id="b62-out" readonly></textarea>
-    <div class="err" id="b62-err"></div>
-    ${shPanel('b62', [
-      {why:'no standard cli — python stdlib does it in a pinch', cmd:`python3 -c "import sys;A='0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';n=int.from_bytes(sys.argv[1].encode(),'big');s=''\nwhile n: s,n=A[n%62]+s,n//62\nprint(s or '0')" 'hello'`},
-    ])}`,
+    <div class="err" id="b62-err"></div>`,
   wire(){
     const A = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
     const enc = bytes => {
@@ -3663,10 +3364,6 @@ tool({
     </div>
     <div class="pw-meter"><div id="tp-bar" style="background:var(--accent)"></div></div>
     <div class="outs" style="margin-top:.8rem">${outRow('Next code','tp-next')}</div>
-    ${shPanel('totp', [
-      {why:'oathtool (apt/brew install oath-toolkit)', cmd:`oathtool --totp -b 'JBSWY3DPEHPK3PXP'`},
-      {why:'pure python stdlib', cmd:`python3 -c 'import hmac,hashlib,base64,struct,time,sys;k=sys.argv[1].upper().replace(" ","");s=base64.b32decode(k+"="*((8-len(k)%8)%8));h=hmac.new(s,struct.pack(">Q",int(time.time())//30),hashlib.sha1).digest();o=h[-1]&15;print(str((int.from_bytes(h[o:o+4],"big")&0x7fffffff)%10**6).zfill(6))' JBSWY3DPEHPK3PXP`},
-    ])}
     <p class="note">The secret never leaves this tab and is not saved between sessions. Most services use the defaults: 6 digits, 30 seconds, SHA-1.</p>`,
   wire(){
     const inp = $('#tp-in'), err = $('#tp-err');
@@ -3760,10 +3457,6 @@ tool({
     </label>
     <textarea id="xr-out" readonly></textarea>
     <div class="err" id="xr-err"></div>
-    ${shPanel('xor', [
-      {why:'xor with a repeating key in python', cmd:`python3 -c 'import sys;d=sys.argv[1].encode();k=sys.argv[2].encode();print(bytes(b^k[i%len(k)] for i,b in enumerate(d)).hex())' 'attack at dawn' 'key'`},
-      {why:'decode hex back through the same key', cmd:`python3 -c 'import sys;d=bytes.fromhex(sys.argv[1]);k=sys.argv[2].encode();print(bytes(b^k[i%len(k)] for i,b in enumerate(d)).decode())' 0a111d0a0e42 'key'`},
-    ])}
     <p class="note">XOR is symmetric — run the output back through with the same key to get the input. It is not encryption: a repeating key falls to frequency analysis in minutes.</p>`,
   wire(){
     const inp = $('#xr-in'), key = $('#xr-key'), out = $('#xr-out'), err = $('#xr-err');
@@ -3790,8 +3483,6 @@ tool({
       if (f === 'hex') out.value = [...res].map(hex2).join('');
       else if (f === 'b64') out.value = bytesToB64(res);
       else { try { out.value = td.decode(res); } catch { out.value = ''; err.textContent = 'Result is not valid UTF-8 — try hex output'; } }
-      if (infmt === 'text' && keyfmt === 'text')
-        setSh('xor', 0, `python3 -c 'import sys;d=sys.argv[1].encode();k=sys.argv[2].encode();print(bytes(b^k[i%len(k)] for i,b in enumerate(d)).hex())' ${shq(shTrim(inp.value, 40))} ${shq(shTrim(key.value, 20))}`);
     };
     [inp, key].forEach(el => el.addEventListener('input', run));
     $('#xr-outfmt').addEventListener('change', run);
@@ -3826,12 +3517,7 @@ Ada,engineer,99
 Grace,"rear admiral",97</textarea>
     <div class="err" id="cv-err"></div>
     <label class="lbl" for="cv-out">Output ${cpyBtn('#cv-out')}</label>
-    <textarea id="cv-out" readonly style="min-height:150px"></textarea>
-    ${shPanel('csv', [
-      {why:'the dedicated tool: Miller', cmd:`mlr --icsv --ojson cat data.csv`},
-      {why:'back again', cmd:`mlr --ijson --ocsv cat data.json`},
-      {why:'python stdlib', cmd:`python3 -c 'import csv,json,sys; print(json.dumps(list(csv.DictReader(open(sys.argv[1]))), indent=2))' data.csv`},
-    ])}`,
+    <textarea id="cv-out" readonly style="min-height:150px"></textarea>`,
   wire(){
     let mode = 'c2j';
     const inp = $('#cv-in'), out = $('#cv-out'), err = $('#cv-err');
@@ -3921,11 +3607,7 @@ tool({
     <textarea id="qs-in" spellcheck="false" style="min-height:90px">q=hello%20world&tag=a&tag=b&page=2</textarea>
     <div class="err" id="qs-err"></div>
     <label class="lbl" for="qs-out">Output ${cpyBtn('#qs-out')}</label>
-    <textarea id="qs-out" readonly style="min-height:110px"></textarea>
-    ${shPanel('qs', [
-      {why:'decode with python', cmd:`python3 -c 'import sys,urllib.parse as u,json; print(json.dumps(u.parse_qs(sys.argv[1]), indent=2))' 'q=hello&tag=a&tag=b'`},
-      {why:'build one with jq', cmd:`jq -rn --arg q 'hello world' --arg page 2 '"q=\\($q|@uri)&page=\\($page)"'`},
-    ])}`,
+    <textarea id="qs-out" readonly style="min-height:110px"></textarea>`,
   wire(){
     let mode = 'q2j';
     const inp = $('#qs-in'), out = $('#qs-out'), err = $('#qs-err');
@@ -3974,11 +3656,7 @@ tool({
     <textarea id="xj-in" spellcheck="false" style="min-height:130px"><note id="1"><to>Ada</to><from>Grace</from><body>Hi there</body></note></textarea>
     <div class="err" id="xj-err"></div>
     <label class="lbl" for="xj-out">Output ${cpyBtn('#xj-out')}</label>
-    <textarea id="xj-out" readonly style="min-height:150px"></textarea>
-    ${shPanel('xj', [
-      {why:'yq handles XML too', cmd:`yq -p xml -o json '.' file.xml`},
-      {why:'back to XML', cmd:`yq -p json -o xml '.' file.json`},
-    ])}`,
+    <textarea id="xj-out" readonly style="min-height:150px"></textarea>`,
   wire(){
     let mode='x2j';
     const inp=$('#xj-in'), out=$('#xj-out'), err=$('#xj-err');
@@ -4044,11 +3722,7 @@ authors:
     role: admiral</textarea>
     <div class="err" id="ya-err"></div>
     <label class="lbl" for="ya-out">Output ${cpyBtn('#ya-out')}</label>
-    <textarea id="ya-out" readonly style="min-height:150px"></textarea>
-    ${shPanel('ya', [
-      {why:'yq', cmd:`yq -o json '.' file.yaml`},
-      {why:'back to YAML', cmd:`yq -p json -o yaml '.' file.json`},
-    ])}`,
+    <textarea id="ya-out" readonly style="min-height:150px"></textarea>`,
   wire(){
     let mode='y2j';
     const inp=$('#ya-in'), out=$('#ya-out'), err=$('#ya-err');
@@ -4156,8 +3830,7 @@ host = "a.local"
 port = 8080</textarea>
     <div class="err" id="tm-err"></div>
     <label class="lbl" for="tm-out">Output ${cpyBtn('#tm-out')}</label>
-    <textarea id="tm-out" readonly style="min-height:150px"></textarea>
-    ${shPanel('tm',[{why:'yq (TOML)',cmd:`yq -p toml -o json '.' file.toml`},{why:'taplo',cmd:`taplo get -f file.toml -o json`}])}`,
+    <textarea id="tm-out" readonly style="min-height:150px"></textarea>`,
   wire(){
     let mode='t2j'; const inp=$('#tm-in'), out=$('#tm-out'), err=$('#tm-err');
     const val = t => { let p=0;
@@ -4214,8 +3887,7 @@ tool({
     <textarea id="mp-in" spellcheck="false" style="min-height:110px">{"name":"powertoy","version":2,"tags":["dev","offline"]}</textarea>
     <div class="err" id="mp-err"></div>
     <label class="lbl" for="mp-out">Output ${cpyBtn('#mp-out')}</label>
-    <textarea id="mp-out" readonly style="min-height:110px"></textarea>
-    ${shPanel('mp',[{why:'MessagePack CLI',cmd:`msgpack-cli encode file.json`},{why:'CBOR (python)',cmd:`python3 -c 'import cbor2,json; open("o.cbor","wb").write(cbor2.dumps(json.load(open("file.json"))))'`}])}`,
+    <textarea id="mp-out" readonly style="min-height:110px"></textarea>`,
   wire(){
     let fmt='msgpack', mode='enc';
     const inp=$('#mp-in'), out=$('#mp-out'), err=$('#mp-err');
@@ -4313,8 +3985,7 @@ tool({
     <textarea id="ph-in" spellcheck="false" style="min-height:120px">a:3:{s:4:"name";s:8:"powertoy";s:3:"ver";i:2;s:4:"tags";a:2:{i:0;s:3:"dev";i:1;s:7:"offline";}}</textarea>
     <div class="err" id="ph-err"></div>
     <label class="lbl" for="ph-out">Output ${cpyBtn('#ph-out')}</label>
-    <textarea id="ph-out" readonly style="min-height:130px"></textarea>
-    ${shPanel('ph',[{why:'PHP CLI',cmd:`php -r 'echo json_encode(unserialize($argv[1]));' 'a:1:{...}'`},{why:'back to serialize',cmd:`php -r 'echo serialize(json_decode($argv[1], true));' '{...}'`}])}`,
+    <textarea id="ph-out" readonly style="min-height:130px"></textarea>`,
   wire(){
     let mode='p2j'; const inp=$('#ph-in'), out=$('#ph-out'), err=$('#ph-err');
     const parse = input => {
@@ -4371,8 +4042,7 @@ host = a.local
 port = 8080</textarea>
     <div class="err" id="in-err"></div>
     <label class="lbl" for="in-out">Output ${cpyBtn('#in-out')}</label>
-    <textarea id="in-out" readonly style="min-height:130px"></textarea>
-    ${shPanel('in',[{why:'crudini',cmd:`crudini --get --format=json file.ini`},{why:'python',cmd:`python3 -c 'import configparser,json; c=configparser.ConfigParser(); c.read("f.ini"); print(json.dumps({s:dict(c[s]) for s in c.sections()}))'`}])}`,
+    <textarea id="in-out" readonly style="min-height:130px"></textarea>`,
   wire(){
     let mode='i2j'; const inp=$('#in-in'), out=$('#in-out'), err=$('#in-err');
     const coerce = v => { if(v==='true')return true; if(v==='false')return false; if(/^-?\d+$/.test(v))return parseInt(v,10); if(/[.eE]/.test(v)&&/^-?(\d+\.\d*|\.\d+|\d+)([eE][+-]?\d+)?$/.test(v))return parseFloat(v); return v; };
@@ -4412,8 +4082,7 @@ PORT=8080
 GREETING="hello world"</textarea>
     <div class="err" id="ep-err"></div>
     <label class="lbl" for="ep-out">Output ${cpyBtn('#ep-out')}</label>
-    <textarea id="ep-out" readonly style="min-height:120px"></textarea>
-    ${shPanel('ep',[{why:'dotenv → json (jq)',cmd:`grep -v '^#' .env | jq -R 'split("=")|{(.[0]):.[1]}' | jq -s add`},{why:'load into shell',cmd:`set -a; . ./.env; set +a`}])}`,
+    <textarea id="ep-out" readonly style="min-height:120px"></textarea>`,
   wire(){
     let mode='e2j', fmt='env'; const inp=$('#ep-in'), out=$('#ep-out'), err=$('#ep-err');
     const parseEnv = src => { const o={}; for(const raw of src.split(/\r?\n/)){ let line=raw.trim(); if(!line||line[0]==='#')continue; line=line.replace(/^export\s+/,''); const i=line.indexOf('='); if(i<0)continue; let k=line.slice(0,i).trim(), v=line.slice(i+1).trim(); const c=v[0]; if((c==='"'||c==="'")&&v.length>1&&v.endsWith(c)){ v=v.slice(1,-1); if(c==='"')v=v.replace(/\\n/g,'\n').replace(/\\t/g,'\t').replace(/\\"/g,'"').replace(/\\\\/g,'\\'); } o[k]=v; } return o; };
@@ -4447,8 +4116,7 @@ tool({
 {"id":2,"name":"Grace"}</textarea>
     <div class="err" id="nd-err"></div>
     <label class="lbl" for="nd-out">Output ${cpyBtn('#nd-out')}</label>
-    <textarea id="nd-out" readonly style="min-height:130px"></textarea>
-    ${shPanel('nd',[{why:'ndjson → array (jq)',cmd:`jq -s '.' file.ndjson`},{why:'array → ndjson (jq)',cmd:`jq -c '.[]' file.json`}])}`,
+    <textarea id="nd-out" readonly style="min-height:130px"></textarea>`,
   wire(){
     let mode='n2j'; const inp=$('#nd-in'), out=$('#nd-out'), err=$('#nd-err');
     const run=()=>{ err.textContent=''; out.value=''; const v=inp.value; if(!v.trim())return;
@@ -4471,8 +4139,7 @@ tool({
     <textarea id="pb-in" spellcheck="false" style="min-height:90px">089601120774657374696e67</textarea>
     <div class="err" id="pb-err"></div>
     <label class="lbl" for="pb-out">Decoded ${cpyBtn('#pb-out')}</label>
-    <textarea id="pb-out" readonly style="min-height:150px"></textarea>
-    ${shPanel('pb',[{why:'protoc',cmd:`protoc --decode_raw < message.bin`},{why:'from hex',cmd:`xxd -r -p <<< '089601' | protoc --decode_raw`}])}`,
+    <textarea id="pb-out" readonly style="min-height:150px"></textarea>`,
   wire(){
     const inp=$('#pb-in'), out=$('#pb-out'), err=$('#pb-err');
     const WT={0:'varint',1:'64-bit',2:'len-delim',5:'32-bit'};
@@ -4518,8 +4185,7 @@ tool({
 }</textarea>
     <div class="err" id="j5-err"></div>
     <label class="lbl" for="j5-out">Strict JSON ${cpyBtn('#j5-out')}</label>
-    <textarea id="j5-out" readonly style="min-height:150px"></textarea>
-    ${shPanel('j5',[{why:'json5 CLI',cmd:`json5 -c file.json5`},{why:'strip comments with jq',cmd:`jq '.' file.jsonc`}])}`,
+    <textarea id="j5-out" readonly style="min-height:150px"></textarea>`,
   wire(){
     const inp=$('#j5-in'), out=$('#j5-out'), err=$('#j5-err');
     const parse = src => {
@@ -4557,8 +4223,7 @@ tool({
     <textarea id="a1-in" spellcheck="false" style="min-height:110px">MAoGCCqGSM49AwEH</textarea>
     <div class="err" id="a1-err"></div>
     <label class="lbl" for="a1-out">Structure ${cpyBtn('#a1-out')}</label>
-    <textarea id="a1-out" readonly style="min-height:170px;font-family:var(--mono)"></textarea>
-    ${shPanel('a1',[{why:'openssl (PEM)',cmd:`openssl asn1parse -in file.pem`},{why:'from DER',cmd:`openssl asn1parse -inform DER -in file.der`}])}`,
+    <textarea id="a1-out" readonly style="min-height:170px;font-family:var(--mono)"></textarea>`,
   wire(){
     const inp=$('#a1-in'), out=$('#a1-out'), err=$('#a1-err');
     const toHex=u=>[...u].map(b=>b.toString(16).padStart(2,'0')).join('');
@@ -4614,8 +4279,7 @@ MAoGCCqGSM49AwEH
 -----END EC PARAMETERS-----</textarea>
     <div class="err" id="pd-err"></div>
     <label class="lbl" for="pd-out">Output ${cpyBtn('#pd-out')}</label>
-    <textarea id="pd-out" readonly style="min-height:110px;font-family:var(--mono)"></textarea>
-    ${shPanel('pd',[{why:'PEM → DER',cmd:`openssl x509 -in cert.pem -outform DER -out cert.der`},{why:'DER → PEM',cmd:`openssl x509 -inform DER -in cert.der -out cert.pem`}])}`,
+    <textarea id="pd-out" readonly style="min-height:110px;font-family:var(--mono)"></textarea>`,
   wire(){
     let mode='p2d'; const inp=$('#pd-in'), out=$('#pd-out'), err=$('#pd-err');
     const toHex=u=>[...u].map(b=>b.toString(16).padStart(2,'0')).join('');
@@ -4644,8 +4308,7 @@ tool({
     <textarea id="bs-in" spellcheck="false" style="min-height:110px">{"name":"powertoy","ver":2,"ok":true,"tags":["dev","offline"]}</textarea>
     <div class="err" id="bs-err"></div>
     <label class="lbl" for="bs-out">Output ${cpyBtn('#bs-out')}</label>
-    <textarea id="bs-out" readonly style="min-height:110px"></textarea>
-    ${shPanel('bs',[{why:'bsondump',cmd:`bsondump file.bson`},{why:'python',cmd:`python3 -c 'import bson,json; open("o.bson","wb").write(bson.dumps(json.load(open("f.json"))))'`}])}`,
+    <textarea id="bs-out" readonly style="min-height:110px"></textarea>`,
   wire(){
     let mode='enc'; const inp=$('#bs-in'), out=$('#bs-out'), err=$('#bs-err');
     const toHex=u=>[...u].map(b=>b.toString(16).padStart(2,'0')).join('');
@@ -4724,8 +4387,7 @@ tool({
 </plist></textarea>
     <div class="err" id="pl-err"></div>
     <label class="lbl" for="pl-out">Output ${cpyBtn('#pl-out')}</label>
-    <textarea id="pl-out" readonly style="min-height:150px"></textarea>
-    ${shPanel('pl',[{why:'plutil (macOS)',cmd:`plutil -convert json -o - file.plist`},{why:'back to xml plist',cmd:`plutil -convert xml1 -o - file.json`}])}`,
+    <textarea id="pl-out" readonly style="min-height:150px"></textarea>`,
   wire(){
     let mode='p2j'; const inp=$('#pl-in'), out=$('#pl-out'), err=$('#pl-err');
     const esc=s=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -4766,8 +4428,7 @@ tool({
     <textarea id="hd-in" spellcheck="false" style="min-height:90px">Hello, powertoy!</textarea>
     <div class="err" id="hd-err"></div>
     <label class="lbl" for="hd-out">Hexdump ${cpyBtn('#hd-out')}</label>
-    <textarea id="hd-out" readonly style="min-height:150px;font-family:var(--mono)"></textarea>
-    ${shPanel('hd',[{why:'xxd',cmd:`xxd file`},{why:'from a string',cmd:`printf '%s' 'Hello' | xxd`}])}`,
+    <textarea id="hd-out" readonly style="min-height:150px;font-family:var(--mono)"></textarea>`,
   wire(){
     let mode='text'; const inp=$('#hd-in'), out=$('#hd-out'), err=$('#hd-err');
     const run=()=>{ err.textContent=''; out.value=''; const v=inp.value; if(!v)return;
@@ -4801,11 +4462,7 @@ tool({
     <div class="err" id="calc-err"></div>
     <div id="calc-out" style="margin:.7rem 0;font-family:var(--sans);font-size:1.5rem;min-height:1.4rem;word-break:break-all"></div>
     <canvas id="calc-graph" class="game-cv" width="640" height="380" style="display:none;width:min(100%,640px)"></canvas>
-    <div class="outs" id="calc-alt"></div>
-    ${shPanel('calc', [
-      {why:'bc — arbitrary precision', cmd:`echo '2^100 + 1' | bc`},
-      {why:'python (big ints + math)', cmd:`python3 -c 'import math; print(math.factorial(100))'`},
-    ])}`,
+    <div class="outs" id="calc-alt"></div>`,
   wire(){
     let deg=false;
     const F={ sqrt:Math.sqrt,cbrt:Math.cbrt,abs:Math.abs,round:Math.round,floor:Math.floor,ceil:Math.ceil,trunc:Math.trunc,sign:Math.sign,
@@ -4921,7 +4578,6 @@ tool({
       if(parsed.usesX){
         cv.style.display=''; dom.style.display='inline-flex'; outEl.innerHTML=`<span style="font-size:1rem;color:var(--muted)">y = ${esc(s)}</span>`;
         try{ drawGraph(parsed.ast); }catch(e){ errEl.textContent=e.message||'Could not plot'; }
-        setSh('calc',0,`# plot with gnuplot`); setSh('calc',1,`gnuplot -e "plot [${$('#calc-xmin').value}:${$('#calc-xmax').value}] ${s.replace(/\*\*/g,'**')}"`);
         return;
       }
       cv.style.display='none'; dom.style.display='none';
@@ -4933,8 +4589,6 @@ tool({
       let ir=null; if(big)ir=r; else if(Number.isInteger(r)&&Math.abs(r)<2**53)ir=BigInt(r);
       if(ir!==null){ const neg=ir<0n, a=neg?-ir:ir, sg=neg?'-':'';
         altEl.innerHTML=row('Hex',sg+'0x'+a.toString(16))+row('Binary',sg+'0b'+a.toString(2))+row('Octal',sg+'0o'+a.toString(8))+(big?row('Digits',String(a.toString().length)):''); }
-      setSh('calc',0,`echo ${shq(s.replace(/\*\*/g,'^'))} | bc -l`);
-      setSh('calc',1,`python3 -c ${shq('print('+s.replace(/\bln\(/g,'__import__("math").log(').replace(/!/g,'')+')')}`);
     };
     inp.addEventListener('input',run);
     ['calc-xmin','calc-xmax'].forEach(id=>$('#'+id).addEventListener('input',run));
@@ -4957,8 +4611,7 @@ tool({
     <div class="err" id="sql-err"></div>
     <div id="sql-issues" style="display:none;margin-top:.4rem"></div>
     <label class="lbl" id="sql-outlbl">Output ${cpyBtn('#sql-out')}</label>
-    <textarea id="sql-out" readonly style="min-height:150px;font-family:var(--mono)"></textarea>
-    ${shPanel('sqlfmt',[{why:'format with sqlparse',cmd:`sqlformat -r -k upper query.sql`},{why:'lint with sqlfluff',cmd:`sqlfluff lint query.sql`}])}`,
+    <textarea id="sql-out" readonly style="min-height:150px;font-family:var(--mono)"></textarea>`,
   wire(){
     let mode='fmt';
     const inp=$('#sql-in'), out=$('#sql-out'), err=$('#sql-err'), issues=$('#sql-issues');
@@ -5106,8 +4759,7 @@ tool({
     <label class="lbl" for="kg-pub">Public key (SPKI) ${cpyBtn('#kg-pub')}</label>
     <textarea id="kg-pub" readonly style="min-height:110px;font-family:var(--mono);font-size:.78rem"></textarea>
     <label class="lbl" for="kg-priv">Private key (PKCS#8) ${cpyBtn('#kg-priv')}</label>
-    <textarea id="kg-priv" readonly style="min-height:130px;font-family:var(--mono);font-size:.78rem"></textarea>
-    ${shPanel('keygen',[{why:'OpenSSL — RSA',cmd:`openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out key.pem`},{why:'OpenSSL — EC P-256',cmd:`openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:P-256 -out key.pem`}])}`,
+    <textarea id="kg-priv" readonly style="min-height:130px;font-family:var(--mono);font-size:.78rem"></textarea>`,
   wire(){
     let alg='rsa';
     const sizeSel=$('#kg-size'), pub=$('#kg-pub'), priv=$('#kg-priv'), err=$('#kg-err');
@@ -5145,8 +4797,7 @@ tool({
       ${outRow('CRC-32 (hex)','crc-c32h')}
       ${outRow('CRC-32 (decimal)','crc-c32d')}
       ${outRow('Adler-32 (hex)','crc-a32h')}
-    </div>
-    ${shPanel('crc',[{why:'crc32 (from libarchive/perl)',cmd:`printf '%s' 'The quick brown fox' | crc32 /dev/stdin`},{why:'python zlib',cmd:`python3 -c 'import zlib;print(hex(zlib.crc32(b"The quick brown fox")))'`}])}`,
+    </div>`,
   wire(){
     let mode='text';
     const TBL=(()=>{ const t=new Uint32Array(256); for(let n=0;n<256;n++){ let c=n; for(let k=0;k<8;k++) c=c&1?0xEDB88320^(c>>>1):c>>>1; t[n]=c>>>0; } return t; })();
@@ -5178,8 +4829,7 @@ tool({
       ${outRow('Engine','ua-eng')}
       ${outRow('Operating system','ua-os')}
       ${outRow('Device','ua-dev')}
-    </div>
-    ${shPanel('ua',[{why:'inspect your own UA',cmd:`curl -s https://example.com -A "$(python3 -c 'print(1)')" >/dev/null; echo "$HTTP_USER_AGENT"`},{why:'parse with a library',cmd:`python3 -c 'from ua_parser import user_agent_parser as p,json; print(json.dumps(p.Parse(open(0).read())))'`}])}`,
+    </div>`,
   wire(){
     const inp=$('#ua-in');
     const parseUA=ua=>{
@@ -5222,8 +4872,7 @@ tool({
     <label class="lbl">Number, or a list of numbers</label>
     <input type="text" id="nt-in" class="grow" spellcheck="false" value="1234" placeholder="e.g. 2024  ·  or  4, 8, 15, 16, 23, 42" style="width:100%;max-width:34rem">
     <div class="err" id="nt-err"></div>
-    <div class="outs" id="nt-out" style="margin-top:.6rem"></div>
-    ${shPanel('numtool',[{why:'factor (GNU coreutils)',cmd:`factor 1234`},{why:'stats with datamash',cmd:`printf '%s\\n' 4 8 15 16 23 42 | datamash mean 1 median 1 sstdev 1`}])}`,
+    <div class="outs" id="nt-out" style="margin-top:.6rem"></div>`,
   wire(){
     const inp=$('#nt-in'), errEl=$('#nt-err'), outEl=$('#nt-out');
     const row=(k,v)=>`<div class="out"><span class="k" style="text-transform:none;letter-spacing:0">${k}</span><span class="v">${esc(String(v))}</span><button class="cpy" data-copy-text="${esc(String(v))}">Copy</button></div>`;
@@ -5281,12 +4930,7 @@ tool({
     <div class="row">
       <input type="text" id="cd-test" spellcheck="false" placeholder="10.0.3.99" style="width:14rem">
       <span id="cd-testres" style="font-size:.9rem"></span>
-    </div>
-    ${shPanel('cidr', [
-      {why:'ipcalc says it all (apt/brew install ipcalc)', cmd:`ipcalc 10.0.0.0/22`},
-      {why:'python stdlib', cmd:`python3 -c 'import ipaddress;n=ipaddress.ip_network("10.0.0.0/22");print(n.netmask, n.broadcast_address, n.num_addresses-2)'`},
-      {why:'check membership', cmd:`python3 -c 'import ipaddress;print(ipaddress.ip_address("10.0.3.99") in ipaddress.ip_network("10.0.0.0/22"))'`},
-    ])}`,
+    </div>`,
   wire(){
     const inp = $('#cd-in'), err = $('#cd-err'), test = $('#cd-test'), testres = $('#cd-testres');
     const ip2int = s => {
@@ -5328,8 +4972,6 @@ tool({
         + '  (' + total.toLocaleString('en-US') + ' total)';
       $('#cd-type').textContent  = kind(net);
       $('#cd-bin').textContent   = mask.toString(2).padStart(32, '0').replace(/(.{8})(?=.)/g, '$1.');
-      setSh('cidr', 0, `ipcalc ${int2ip(net)}/${p}`);
-      setSh('cidr', 1, `python3 -c 'import ipaddress;n=ipaddress.ip_network("${int2ip(net)}/${p}");print(n.netmask, n.broadcast_address, n.num_addresses-2)'`);
       check();
     };
     const check = () => {
@@ -5341,7 +4983,6 @@ tool({
         testres.innerHTML = inside
           ? '<span style="color:var(--good)">✓ inside the subnet</span>'
           : '<span style="color:var(--bad)">✗ outside the subnet</span>';
-        setSh('cidr', 2, `python3 -c 'import ipaddress;print(ipaddress.ip_address("${int2ip(t)}") in ipaddress.ip_network("${int2ip(state.net)}/${state.p}"))'`);
       } catch { testres.innerHTML = '<span style="color:var(--bad)">invalid IP</span>'; }
     };
     inp.addEventListener('input', run);
@@ -5376,11 +5017,6 @@ tool({
       <label class="check"><input type="checkbox" id="ch-sgid"> setgid (2000)</label>
       <label class="check"><input type="checkbox" id="ch-sticky"> sticky (1000)</label>
     </div>
-    ${shPanel('chmod', [
-      {why:'apply it', cmd:`chmod 755 script.sh`},
-      {why:"read a file's current mode (GNU stat; macOS: stat -f '%Lp')", cmd:`stat -c '%a %A' script.sh`},
-      {why:'symbolic form works too', cmd:`chmod u=rwx,go=rx script.sh`},
-    ])}
     <p class="note">setuid on an executable runs it as the file’s owner; setgid on a directory makes new files inherit its group; the sticky bit on a shared directory (like /tmp) stops users deleting each other’s files.</p>`,
   wire(){
     const WHO = ['User','Group','Other'], PERM = ['r','w','x'];
@@ -5409,10 +5045,6 @@ tool({
         sym += special ? (wi === 2 ? (xc ? 't' : 'T') : (xc ? 's' : 'S')) : (xc ? 'x' : '-');
       });
       $('#ch-sym').textContent = sym;
-      setSh('chmod', 0, `chmod ${octStr} script.sh`);
-      const symArg = [0,1,2].map((wi) => 'ugo'[wi] + '=' +
-        ((digits[wi]&4?'r':'')+(digits[wi]&2?'w':'')+(digits[wi]&1?'x':'') || '-')).join(',');
-      setSh('chmod', 2, `chmod ${symArg.replace(/=-(?=,|$)/g,'=')} script.sh`);
     };
     const applyOct = v => {
       err.textContent = '';
@@ -5459,13 +5091,7 @@ apple
       <button class="ghost ln-op" data-op="noempty">Drop empty</button>
     </div>
     <label class="lbl">Output <span id="ln-stats" style="text-transform:none;letter-spacing:0;color:var(--muted)"></span> ${cpyBtn('#ln-out')} <button class="cpy" id="ln-chain">Use as input</button></label>
-    <textarea id="ln-out" readonly style="min-height:130px"></textarea>
-    ${shPanel('lines', [
-      {why:'sort / unique', cmd:`sort file.txt | uniq`},
-      {why:'dedupe but keep original order', cmd:`awk '!seen[$0]++' file.txt`},
-      {why:'reverse (GNU tac; macOS: tail -r)', cmd:`tac file.txt`},
-      {why:'shuffle · number · trim', cmd:`shuf file.txt | nl | sed -E 's/^[[:space:]]+|[[:space:]]+$//g'`},
-    ])}`,
+    <textarea id="ln-out" readonly style="min-height:130px"></textarea>`,
   wire(){
     const inp = $('#ln-in'), out = $('#ln-out'), stats = $('#ln-stats');
     const OPS = {
@@ -5517,12 +5143,7 @@ tool({
     <label class="lbl">Input</label>
     <textarea id="rr-in" spellcheck="false" style="min-height:110px">Contact ada@example.com or grace@navy.mil for access.</textarea>
     <label class="lbl">Output <span id="rr-count" style="text-transform:none;letter-spacing:0;color:var(--accent-2)"></span> ${cpyBtn('#rr-out')}</label>
-    <textarea id="rr-out" readonly style="min-height:110px"></textarea>
-    ${shPanel('rrep', [
-      {why:'sed (BRE/ERE — \\1 for groups)', cmd:`sed -E 's/(\\w+)@[[:alnum:].]+/\\1@redacted/g' file.txt`},
-      {why:'perl for full PCRE', cmd:`perl -pe 's/(\\w+)@([\\w.]+)/$1\\@redacted/g' file.txt`},
-      {why:'in-place edit (keep a backup!)', cmd:`sed -E -i.bak 's/foo/bar/g' file.txt`},
-    ])}`,
+    <textarea id="rr-out" readonly style="min-height:110px"></textarea>`,
   wire(){
     const pat = $('#rr-pat'), rep = $('#rr-rep'), inp = $('#rr-in'), out = $('#rr-out');
     const err = $('#rr-err'), count = $('#rr-count');
@@ -5545,7 +5166,6 @@ tool({
           .replace(/\$\$/g, '$');
       });
       count.textContent = `· ${n} replacement${n === 1 ? '' : 's'}`;
-      setSh('rrep', 1, `perl -pe 's/${pat.value.replace(/\//g,'\\/')}/${rep.value.replace(/\$(\d)/g,'$$$1').replace(/\//g,'\\/').replace(/@/g,'\\@')}/${flags.replace(/[s]/g,'')}' file.txt`);
     };
     [pat, rep, inp].forEach(el => el.addEventListener('input', run));
     ['g','i','m','s'].forEach(f => $('#rr-'+f).addEventListener('change', run));
@@ -5565,11 +5185,6 @@ tool({
     </div>
     <div class="err" id="bw-err"></div>
     <div class="outs" id="bw-out"></div>
-    ${shPanel('bitw', [
-      {why:'bash arithmetic does bitwise natively', cmd:`echo $(( 0xCAFE & 0x00FF ))`},
-      {why:'see it in hex', cmd:`printf '%X\\n' $(( 0xCAFE ^ 0x00FF ))`},
-      {why:'shifts too', cmd:`echo $(( 1 << 16 ))`},
-    ])}
     <p class="note">Operations use 32-bit unsigned semantics — the same as C’s uint32_t and what you almost always mean for flags and masks.</p>`,
   wire(){
     const err = $('#bw-err'), outd = $('#bw-out');
@@ -5598,9 +5213,6 @@ tool({
         row('A', a) + row('B', b) +
         row('A & B', a & b) + row('A | B', a | b) + row('A ^ B', a ^ b) +
         row('~A', ~a) + row(`A << ${n}`, a << n) + row(`A >> ${n}`, a >>> n);
-      setSh('bitw', 0, `echo $(( ${$('#bw-a').value.trim()} & ${$('#bw-b').value.trim()} ))`);
-      setSh('bitw', 1, `printf '%X\\n' $(( ${$('#bw-a').value.trim()} ^ ${$('#bw-b').value.trim()} ))`);
-      setSh('bitw', 2, `echo $(( ${$('#bw-a').value.trim()} << ${n} ))`);
     };
     ['bw-a','bw-b','bw-n'].forEach(id => $('#'+id).addEventListener('input', run));
     run();
@@ -5619,11 +5231,7 @@ tool({
       <button class="act" id="lo-go">Generate</button>
     </div>
     <label class="lbl">Output <span id="lo-stats" style="text-transform:none;letter-spacing:0;color:var(--muted)"></span> ${cpyBtn('#lo-out')}</label>
-    <textarea id="lo-out" readonly style="min-height:200px"></textarea>
-    ${shPanel('lorem', [
-      {why:'Text::Lorem ships a cli (cpan/apt install libtext-lorem-perl)', cmd:`lorem -p 3`},
-      {why:'or improvise from the dictionary', cmd:`shuf -n 60 /usr/share/dict/words | paste -sd ' ' -`},
-    ])}`,
+    <textarea id="lo-out" readonly style="min-height:200px"></textarea>`,
   wire(){
     const BANK = ('lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua enim ad minim veniam quis nostrud exercitation ullamco laboris nisi aliquip ex ea commodo consequat duis aute irure in reprehenderit voluptate velit esse cillum eu fugiat nulla pariatur excepteur sint occaecat cupidatat non proident sunt culpa qui officia deserunt mollit anim id est laborum').split(' ');
     const r = n => Math.floor(Math.random() * n);
@@ -5673,10 +5281,6 @@ tool({
     </div>
     <label class="lbl">History</label>
     <div class="outs" id="kc-hist"><div class="out"><span class="v" style="color:var(--faint)">—</span></div></div>
-    ${shPanel('keycode', [
-      {why:'raw key events in a Linux console', cmd:`showkey -a`},
-      {why:'X11 events', cmd:`xev | grep -A2 KeyPress`},
-    ])}
     <p class="note">Prefer <code>event.key</code> for “what character” and <code>event.code</code> for “which physical key”. <code>keyCode</code> is deprecated — shown because legacy code still asks for it.</p>`,
   wire(){
     const zone = $('#kc-zone');
@@ -5706,11 +5310,7 @@ tool({
   blurb:'Every status code you’ll actually meet, and what it really means in practice. Searchable, so that is one fewer tab open on MDN.',
   html: `
     <div class="row"><input class="grow" type="text" id="ht-q" spellcheck="false" placeholder="filter: 404, teapot, redirect…" style="max-width:20rem"></div>
-    <div class="outs" id="ht-list" style="max-height:520px;overflow:auto"></div>
-    ${shPanel('http', [
-      {why:'what status does this URL return', cmd:`curl -s -o /dev/null -w '%{http_code}\\n' https://example.com`},
-      {why:'python knows the names', cmd:`python3 -c 'from http import HTTPStatus; s=HTTPStatus(418); print(s, "-", s.phrase)'`},
-    ])}`,
+    <div class="outs" id="ht-list" style="max-height:520px;overflow:auto"></div>`,
   wire(){
     const DATA = [
       [100,'Continue','Keep sending the request body.'],[101,'Switching Protocols','Upgrading — e.g. to WebSocket.'],
@@ -5769,12 +5369,7 @@ tool({
   blurb:'All 128 — control characters named, printables shown, with decimal, hex and octal side by side.',
   html: `
     <div class="row"><input class="grow" type="text" id="as-q" spellcheck="false" placeholder="filter: 65, 0x41, A, escape…" style="max-width:20rem"></div>
-    <div class="outs" id="as-list" style="max-height:520px;overflow:auto"></div>
-    ${shPanel('ascii', [
-      {why:'the manual has the table', cmd:`man ascii`},
-      {why:'character → code', cmd:`printf '%d\\n' "'A"`},
-      {why:'code → character', cmd:`printf "\\x41\\n"`},
-    ])}`,
+    <div class="outs" id="as-list" style="max-height:520px;overflow:auto"></div>`,
   wire(){
     const CTRL = ['NUL null','SOH start of heading','STX start of text','ETX end of text (Ctrl-C!)','EOT end of transmission (Ctrl-D)','ENQ enquiry','ACK acknowledge','BEL bell \\a','BS backspace \\b','TAB horizontal tab \\t','LF line feed \\n','VT vertical tab \\v','FF form feed \\f','CR carriage return \\r','SO shift out','SI shift in','DLE data link escape','DC1 XON','DC2 device control 2','DC3 XOFF','DC4 device control 4','NAK negative ack','SYN synchronous idle','ETB end of block','CAN cancel','EM end of medium','SUB substitute (Ctrl-Z)','ESC escape \\e','FS file separator','GS group separator','RS record separator','US unit separator'];
     const list = $('#as-list'), q = $('#as-q');
@@ -5811,12 +5406,7 @@ tool({
   blurb:'“What’s on 5432 again?” — the ports you’ll actually meet, searchable by number or name.',
   html: `
     <div class="row"><input class="grow" type="text" id="po-q" spellcheck="false" placeholder="filter: 5432, redis, mail…" style="max-width:20rem"></div>
-    <div class="outs" id="po-list" style="max-height:520px;overflow:auto"></div>
-    ${shPanel('ports', [
-      {why:'what is listening on a port right now', cmd:`lsof -i :5432`},
-      {why:'the system’s own registry', cmd:`grep -w 5432 /etc/services`},
-      {why:'is a remote port open', cmd:`nc -zv db.internal 5432`},
-    ])}`,
+    <div class="outs" id="po-list" style="max-height:520px;overflow:auto"></div>`,
   wire(){
     const DATA = [
       [20,'FTP data'],[21,'FTP control'],[22,'SSH / SFTP'],[23,'Telnet (plaintext — avoid)'],[25,'SMTP relay'],
@@ -5843,7 +5433,6 @@ tool({
           <span class="v" style="color:var(--accent-2);font-weight:700">${p}</span>
           <span class="v">${esc(n)}</span>
         </div>`).join('') || '<div class="out"><span class="v" style="color:var(--faint)">no match</span></div>';
-      if (needle && /^\d+$/.test(needle)) setSh('ports', 0, `lsof -i :${needle}`);
     };
     q.addEventListener('input', () => render(q.value.trim()));
     render('');
@@ -5873,10 +5462,7 @@ tool({
 }</textarea>
     <div class="err" id="jt-err"></div>
     <label class="lbl" for="jt-out">Output ${cpyBtn('#jt-out')}</label>
-    <textarea id="jt-out" readonly style="min-height:180px"></textarea>
-    ${shPanel('j2t', [
-      {why:'quicktype does this for every language (npm i -g quicktype)', cmd:`quicktype --lang ts --src data.json --top-level Root`},
-    ])}`,
+    <textarea id="jt-out" readonly style="min-height:180px"></textarea>`,
   wire(){
     const inp = $('#jt-in'), out = $('#jt-out'), err = $('#jt-err');
     let lang = 'ts';
@@ -6024,10 +5610,6 @@ tool({
     <textarea id="cu-fetch" readonly style="min-height:160px"></textarea>
     <label class="lbl" for="cu-py">Python requests ${cpyBtn('#cu-py')}</label>
     <textarea id="cu-py" readonly style="min-height:140px"></textarea>
-    ${shPanel('curl', [
-      {why:'see exactly what curl sends', cmd:`curl -v https://api.example.com 2>&1 | grep '^[<>]'`},
-      {why:'timing breakdown', cmd:`curl -s -o /dev/null -w 'dns %{time_namelookup}s · connect %{time_connect}s · total %{time_total}s\\n' https://example.com`},
-    ])}
     <p class="note">Handles -X, -H, -d/--data*, --json, -u, -F, -b/--cookie, -A, -e, -k and -L. Anything unrecognized is ignored rather than guessed at.</p>`,
   wire(){
     const inp = $('#cu-in'), err = $('#cu-err');
@@ -6149,12 +5731,7 @@ tool({
       ${outRow('Original','im-orig')}
       ${outRow('Output','im-res')}
     </div>
-    <div style="margin-top:.8rem"><img id="im-prev" style="max-width:100%;max-height:340px;border:1px solid var(--border);border-radius:8px;display:none"></div>
-    ${shPanel('img', [
-      {why:'the same with ImageMagick', cmd:`magick photo.jpg -resize 1200x1200 -quality 85 out.jpg`},
-      {why:'strip metadata only', cmd:`magick photo.jpg -strip clean.jpg`},
-      {why:'batch a folder', cmd:`for f in *.png; do magick "$f" -resize 1200x1200 "\${f%.png}.webp"; done`},
-    ])}`,
+    <div style="margin-top:.8rem"><img id="im-prev" style="max-width:100%;max-height:340px;border:1px solid var(--border);border-radius:8px;display:none"></div>`,
   wire(){
     const drop = $('#im-drop'), file = $('#im-file'), dl = $('#im-dl'), prev = $('#im-prev');
     let img = null, name = 'image', outUrl = null, outExt = 'jpg';
@@ -6219,11 +5796,7 @@ tool({
     </div>
     <div class="err" id="qr-err"></div>
     <div style="margin-top:1rem"><canvas id="qr-cv" style="border:1px solid var(--border);border-radius:8px;image-rendering:pixelated;background:#fff"></canvas></div>
-    <div class="outs" style="margin-top:.8rem">${outRow('Symbol','qr-meta')}</div>
-    ${shPanel('qr', [
-      {why:'qrencode (apt/brew install qrencode)', cmd:`qrencode -o qr.png 'https://example.com'`},
-      {why:'straight into the terminal', cmd:`qrencode -t ansiutf8 'https://example.com'`},
-    ])}`,
+    <div class="outs" style="margin-top:.8rem">${outRow('Symbol','qr-meta')}</div>`,
   wire(){
     const inp = $('#qr-in'), err = $('#qr-err'), cv = $('#qr-cv'), dl = $('#qr-dl');
     let timer = null;
@@ -6235,8 +5808,6 @@ tool({
         const r = ptQR.toCanvas(cv, v, +$('#qr-px').value || 6);
         $('#qr-meta').textContent = `version ${r.v} · ${r.N}×${r.N} modules · EC level M · mask ${r.mask} · ${r.bytes} bytes`;
         dl.disabled = false;
-        setSh('qr', 0, `qrencode -o qr.png ${shq(shTrim(v, 60))}`);
-        setSh('qr', 1, `qrencode -t ansiutf8 ${shq(shTrim(v, 60))}`);
       } catch (e){
         err.textContent = String(e);
         cv.width = cv.height = 0; dl.disabled = true; $('#qr-meta').textContent = '—';
@@ -6273,12 +5844,7 @@ tool({
       <input class="grow" type="text" id="hm-exp" spellcheck="false" placeholder="paste a signature to compare">
       <span id="hm-vres" style="font-size:.9rem"></span>
     </div>
-    <div class="err" id="hm-err"></div>
-    ${shPanel('hmac', [
-      {why:'sign with openssl', cmd:`printf %s 'payload' | openssl dgst -sha256 -hmac 'secret'`},
-      {why:'GitHub-style hex signature', cmd:`printf %s "$BODY" | openssl dgst -sha256 -hmac "$SECRET" | sed 's/^.* //'`},
-      {why:'base64 output (Stripe, Slack style)', cmd:`printf %s 'payload' | openssl dgst -sha256 -hmac 'secret' -binary | base64`},
-    ])}`,
+    <div class="err" id="hm-err"></div>`,
   wire(){
     const msg = $('#hm-msg'), key = $('#hm-key'), out = $('#hm-out'), err = $('#hm-err');
     const exp = $('#hm-exp'), vres = $('#hm-vres');
@@ -6312,7 +5878,6 @@ tool({
           vres.innerHTML = match ? '<span style="color:var(--good)">✓ signature matches</span>'
                                  : '<span style="color:var(--bad)">✗ does not match</span>';
         }
-        setSh('hmac', 0, `printf %s ${shq(shTrim(msg.value, 40))} | openssl dgst -${algo.toLowerCase().replace('-','')} -hmac ${shq(shTrim(key.value, 30))}`);
       } catch { err.textContent = 'Signing failed'; }
     };
     [msg, key, exp].forEach(el => el.addEventListener('input', run));
@@ -6338,11 +5903,6 @@ tool({
     <div class="err" id="jq-err"></div>
     <label class="lbl">Result <span id="jq-n" style="text-transform:none;letter-spacing:0;color:var(--accent-2)"></span> ${cpyBtn('#jq-out')}</label>
     <textarea id="jq-out" readonly style="min-height:120px"></textarea>
-    ${shPanel('jsonquery', [
-      {why:'the real thing', cmd:`jq '.users[].name' data.json`},
-      {why:'recursive descent', cmd:`jq '.. | .id? // empty' data.json`},
-      {why:'an index', cmd:`jq '.items[0]' data.json`},
-    ])}
     <p class="note">Supported: <code>$</code> root, <code>.key</code>, <code>['key']</code>, <code>[n]</code>, <code>[*]</code> wildcard, <code>..key</code> recursive descent. Filters and slices are out of scope — use jq for those.</p>`,
   wire(){
     const path = $('#jq-path'), inp = $('#jq-in'), out = $('#jq-out'), err = $('#jq-err'), nlab = $('#jq-n');
@@ -6406,7 +5966,6 @@ tool({
       out.value = res.length === 1 && tokens.every(t => t.op === 'key' || t.op === 'index')
         ? (typeof res[0] === 'object' ? JSON.stringify(res[0], null, 2) : String(res[0]))
         : JSON.stringify(res, null, 2);
-      setSh('jsonquery', 0, `jq ${shq(path.value.replace(/^\$\.?/, '.').replace(/\[\*\]/g,'[]') || '.')} data.json`);
     };
     [path, inp].forEach(el => el.addEventListener('input', run));
     run();
@@ -6446,11 +6005,7 @@ const x = 42;
         <div class="md-prev" id="md-prev"></div></div>
     </div>
     <label class="lbl" for="md-html">HTML source ${cpyBtn('#md-html')}</label>
-    <textarea id="md-html" readonly style="min-height:100px"></textarea>
-    ${shPanel('md', [
-      {why:'pandoc renders markdown to anything', cmd:`pandoc -f markdown -t html README.md`},
-      {why:'GitHub-flavored to a standalone page', cmd:`pandoc -f gfm -s README.md -o readme.html`},
-    ])}`,
+    <textarea id="md-html" readonly style="min-height:100px"></textarea>`,
   wire(){
     const inp = $('#md-in'), prev = $('#md-prev'), html = $('#md-html');
     const e = s => s.replace(/[&<>]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;' }[c]));
@@ -6544,11 +6099,7 @@ tool({
       <label class="check"><input type="checkbox" id="mk-active"> active</label>
     </div>
     <label class="lbl" for="mk-out">Output ${cpyBtn('#mk-out')}</label>
-    <textarea id="mk-out" readonly style="min-height:200px"></textarea>
-    ${shPanel('mock', [
-      {why:'quick CSV with a shell loop', cmd:`for i in $(seq 5); do echo "$i,user$i@example.com"; done`},
-      {why:'richer fake data: the mkjson / faker ecosystems', cmd:`npx -y @faker-js/faker --help`},
-    ])}`,
+    <textarea id="mk-out" readonly style="min-height:200px"></textarea>`,
   wire(){
     const FIRST = 'Ada Grace Alan Linus Margaret Katherine Dennis Ken Barbara Tim Vint Radia Hedy Guido Bjarne Anita Shafi Leslie Frances Edsger Maurice Ole Niklaus Brian'.split(' ');
     const LAST = 'Lovelace Hopper Turing Torvalds Hamilton Johnson Ritchie Thompson Liskov Cerf Perlman Lamarr Rossum Stroustrup Borg Goldwasser Lamport Knuth Allen Dijkstra Wilkes Dahl Wirth Kernighan'.split(' ');
@@ -6613,10 +6164,7 @@ tool({
     <input type="text" id="jws-secret" spellcheck="false" value="your-256-bit-secret">
     <div class="err" id="jws-err"></div>
     <label class="lbl" for="jws-out">Token ${cpyBtn('#jws-out')}</label>
-    <textarea id="jws-out" readonly style="min-height:90px"></textarea>
-    ${shPanel('jwtsign', [
-      {why:'sign an HS256 JWT in one shell line', cmd:`h=$(printf %s '{"alg":"HS256","typ":"JWT"}'|basenc --base64url|tr -d '='); p=$(printf %s '{"sub":"1"}'|basenc --base64url|tr -d '='); s=$(printf %s "$h.$p"|openssl dgst -sha256 -hmac 'secret' -binary|basenc --base64url|tr -d '='); echo "$h.$p.$s"`},
-    ])}`,
+    <textarea id="jws-out" readonly style="min-height:90px"></textarea>`,
   wire(){
     const b64url = bytes => bytesToB64(bytes).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
     const hdr = $('#jws-header'), pl = $('#jws-payload'), sec = $('#jws-secret'), out = $('#jws-out'), err = $('#jws-err');
@@ -6662,11 +6210,7 @@ tool({
       ${outRow('UTC','idd-utc')}
       ${outRow('Relative','idd-rel')}
       ${outRow('Notes','idd-note')}
-    </div>
-    ${shPanel('iddecode', [
-      {why:'ObjectId timestamp (first 4 bytes, seconds)', cmd:`python3 -c 'import sys,datetime; print(datetime.datetime.utcfromtimestamp(int(sys.argv[1][:8],16)))' 65f99c110309d4610309d461`},
-      {why:'Snowflake (Twitter epoch)', cmd:`python3 -c 'import sys; print((int(sys.argv[1])>>22)+1288834974657)' 1541815603606036480`},
-    ])}`,
+    </div>`,
   wire(){
     const inp = $('#idd-in'), err = $('#idd-err');
     const rtf = new Intl.RelativeTimeFormat('en', { numeric:'auto' });
@@ -6746,11 +6290,7 @@ tool({
       ${outRow('Bits','ie-bits')}
       ${outRow('Hex','ie-hex')}
       ${outRow('Nearest stored','ie-stored')}
-    </div>
-    ${shPanel('ieee', [
-      {why:'the bits of a double in python', cmd:`python3 -c 'import struct,sys; print(struct.pack(">d", float(sys.argv[1])).hex())' 0.1`},
-      {why:'the bits of a 32-bit float', cmd:`python3 -c 'import struct,sys; print(struct.pack(">f", float(sys.argv[1])).hex())' 0.1`},
-    ])}`,
+    </div>`,
   wire(){
     const inp = $('#ie-in'), err = $('#ie-err');
     let prec = 64;
@@ -6774,7 +6314,6 @@ tool({
       $('#ie-hex').textContent = '0x' + [...new Uint8Array(buf)].map(hex2).join('');
       const stored = prec === 64 ? dv.getFloat64(0) : dv.getFloat32(0);
       $('#ie-stored').textContent = Number.isFinite(stored) ? stored.toPrecision(prec === 64 ? 17 : 9) : String(stored);
-      setSh('ieee', 0, `python3 -c 'import struct,sys; print(struct.pack(">${prec===64?'d':'f'}", float(sys.argv[1])).hex())' ${shq(t)}`);
     };
     inp.addEventListener('input', run);
     $$('#ie-prec button').forEach(b => b.addEventListener('click', () => {
@@ -6813,11 +6352,7 @@ tool({
         <button class="ghost" id="bz-replay" style="margin-top:.7rem">▶ Replay</button>
         <p class="note" style="margin-top:.8rem">Drag the two dots. The X axis is time, Y is progress — pull a handle above the box or below it for overshoot/anticipation effects.</p>
       </div>
-    </div>
-    ${shPanel('bezier', [
-      {why:'drop it straight into CSS', cmd:`transition: transform .4s cubic-bezier(0.25, 0.1, 0.25, 1);`},
-      {why:'as a keyframe animation', cmd:`animation: slide .4s cubic-bezier(0.25, 0.1, 0.25, 1) both;`},
-    ])}`,
+    </div>`,
   wire(){
     const SZ = 200, PADX = 20, PADY = 30;
     const svg = $('#bz-svg'), dot = $('#bz-dot');
@@ -6871,11 +6406,7 @@ tool({
   html: `
     <div class="row"><input class="grow" type="text" id="em-q" spellcheck="false" placeholder="filter: rocket, fire, check, heart, arrow…" style="max-width:22rem"></div>
     <div id="em-grid" style="display:flex;flex-wrap:wrap;gap:.3rem;margin-top:.8rem;max-height:340px;overflow:auto"></div>
-    <div class="outs" style="margin-top:.8rem">${outRow('Last copied','em-last')}</div>
-    ${shPanel('emoji', [
-      {why:'macOS emoji picker', cmd:`# press Control-Command-Space`},
-      {why:'the code point of a character', cmd:`printf '%s' '🚀' | python3 -c 'import sys; print(hex(ord(sys.stdin.read().strip())))'`},
-    ])}`,
+    <div class="outs" style="margin-top:.8rem">${outRow('Last copied','em-last')}</div>`,
   wire(){
     const DATA = `😀 grinning face happy smile
 😂 face with tears of joy laughing lol
@@ -7120,11 +6651,6 @@ tool({
       ${outRow('Public key','x5-key')}
       ${outRow('Version','x5-ver')}
     </div>
-    ${shPanel('x509', [
-      {why:'the canonical viewer', cmd:`openssl x509 -in cert.pem -noout -text`},
-      {why:'just the essentials', cmd:`openssl x509 -in cert.pem -noout -subject -issuer -dates -ext subjectAltName`},
-      {why:'inspect a live server', cmd:`echo | openssl s_client -connect example.com:443 2>/dev/null | openssl x509 -noout -text`},
-    ])}
     <p class="note">Parses X.509 v3 with RSA and EC keys. Reads the structure only — it does not validate the signature or chain.</p>`,
   wire(){
     const inp = $('#x5-in'), err = $('#x5-err'), box = $('#x5-out');
@@ -7290,12 +6816,7 @@ tool({
     <div class="row">
       <input class="grow" type="text" id="fh-exp" spellcheck="false" placeholder="paste an expected hash (any algorithm)">
       <span id="fh-vres" style="font-size:.9rem"></span>
-    </div>
-    ${shPanel('filehash', [
-      {why:'sha-256 of a file', cmd:`shasum -a 256 file.iso`},
-      {why:'md5 and sha-512', cmd:`md5sum file.iso; shasum -a 512 file.iso`},
-      {why:'verify against a published checksum', cmd:`echo 'EXPECTED  file.iso' | shasum -a 256 -c`},
-    ])}`,
+    </div>`,
   wire(){
     const drop = $('#fh-drop'), file = $('#fh-file'), exp = $('#fh-exp'), err = $('#fh-err');
     let hashes = {};
@@ -7350,8 +6871,7 @@ tool({
     <div id="gr-stops" style="margin-top:.7rem;display:flex;flex-direction:column;gap:.4rem"></div>
     <div id="gr-preview" style="height:130px;border:1px solid var(--border-2);border-radius:var(--radius);margin-top:.8rem"></div>
     <label class="lbl" for="gr-css">CSS ${cpyBtn('#gr-css')}</label>
-    <textarea id="gr-css" readonly style="min-height:50px"></textarea>
-    ${shPanel('gradient', [{why:'pure CSS — drop it into a stylesheet', cmd:`background: linear-gradient(90deg, #106b5b, #ffb000);`}])}`,
+    <textarea id="gr-css" readonly style="min-height:50px"></textarea>`,
   wire(){
     let type = 'linear';
     let stops = [{ c:'#106b5b', p:0 }, { c:'#ffb000', p:100 }];
@@ -7414,8 +6934,7 @@ tool({
       <div id="sh-preview" style="width:150px;height:95px;background:var(--surface);border-radius:12px"></div>
     </div>
     <label class="lbl" for="sh-css">CSS ${cpyBtn('#sh-css')}</label>
-    <textarea id="sh-css" readonly style="min-height:46px"></textarea>
-    ${shPanel('shadow', [{why:'pure CSS — drop it into a stylesheet', cmd:`box-shadow: 0 10px 25px -5px rgba(16, 107, 91, 0.30);`}])}`,
+    <textarea id="sh-css" readonly style="min-height:46px"></textarea>`,
   wire(){
     const ids = ['sh-x','sh-y','sh-blur','sh-spread','sh-color','sh-alpha','sh-inset'];
     const update = () => {
@@ -7451,8 +6970,7 @@ tool({
       <span style="color:var(--muted)">→</span>
       <label class="check">height <input type="number" id="ar-h" value="1080" min="0" style="width:7rem"> px</label>
     </div>
-    <div class="outs" style="margin-top:.8rem">${outRow('Simplified ratio','ar-norm')}</div>
-    ${shPanel('aspect', [{why:'resize keeping ratio (width fixed, height auto)', cmd:`magick in.jpg -resize 1920x out.jpg`}])}`,
+    <div class="outs" style="margin-top:.8rem">${outRow('Simplified ratio','ar-norm')}</div>`,
   wire(){
     const rw = $('#ar-rw'), rh = $('#ar-rh'), w = $('#ar-w'), h = $('#ar-h'), preset = $('#ar-preset');
     const gcd = (a,b) => b ? gcd(b, a % b) : a;
@@ -7481,11 +6999,7 @@ tool({
   blurb:'Look up the MIME type for a file extension or the other way round — the common ones you actually serve.',
   html: `
     <div class="row"><input class="grow" type="text" id="mi-q" spellcheck="false" placeholder="filter: webp, json, .mp4, font…" style="max-width:22rem"></div>
-    <div class="outs" id="mi-list" style="max-height:520px;overflow:auto"></div>
-    ${shPanel('mime', [
-      {why:'detect a file type from its content', cmd:`file --mime-type -b photo.webp`},
-      {why:'the system table', cmd:`grep -w webp /etc/mime.types`},
-    ])}`,
+    <div class="outs" id="mi-list" style="max-height:520px;overflow:auto"></div>`,
   wire(){
     const DATA = [
       ['html','text/html'],['htm','text/html'],['css','text/css'],['js','text/javascript'],['mjs','text/javascript'],
@@ -7540,12 +7054,7 @@ tool({
       <label class="check"><input type="checkbox" id="ws-crlf"> normalize to LF</label>
     </div>
     <label class="lbl" for="ws-out">Cleaned ${cpyBtn('#ws-out')}</label>
-    <textarea id="ws-out" readonly style="min-height:110px"></textarea>
-    ${shPanel('ws', [
-      {why:'find non-ASCII / invisible bytes', cmd:`grep -nP '[^\\x00-\\x7F]' file.txt`},
-      {why:'strip trailing whitespace', cmd:`sed -i 's/[[:space:]]*$//' file.txt`},
-      {why:'CRLF → LF', cmd:`sed -i 's/\\r$//' file.txt`},
-    ])}`,
+    <textarea id="ws-out" readonly style="min-height:110px"></textarea>`,
   wire(){
     const inp = $('#ws-in');
     const SPECIAL = {
@@ -7598,10 +7107,7 @@ tool({
       <label class="check"><input type="checkbox" id="sl-lower" checked> lowercase</label>
     </div>
     <label class="lbl" for="sl-out">Slug ${cpyBtn('#sl-out')}</label>
-    <textarea id="sl-out" readonly style="min-height:44px"></textarea>
-    ${shPanel('slug', [
-      {why:'a slugify pipeline', cmd:`echo 'My Café Recipe' | iconv -t ascii//TRANSLIT | tr A-Z a-z | sed -E 's/[^a-z0-9]+/-/g; s/^-+|-+$//g'`},
-    ])}`,
+    <textarea id="sl-out" readonly style="min-height:44px"></textarea>`,
   wire(){
     const inp = $('#sl-in');
     const run = () => {
@@ -7631,11 +7137,7 @@ tool({
       <div class="row" style="margin-top:.9rem"><button class="act" id="fv-ico">Download favicon.ico</button></div>
       <label class="lbl" for="fv-html">HTML ${cpyBtn('#fv-html')}</label>
       <textarea id="fv-html" readonly style="min-height:104px"></textarea>
-    </div>
-    ${shPanel('favicon', [
-      {why:'one size with ImageMagick', cmd:`magick logo.png -resize 32x32 favicon-32.png`},
-      {why:'a multi-resolution .ico', cmd:`magick logo.png -define icon:auto-resize=16,32,48 favicon.ico`},
-    ])}`,
+    </div>`,
   wire(){
     const SIZES = [16, 32, 48, 180, 192, 512];
     const drop = $('#fv-drop'), file = $('#fv-file'), err = $('#fv-err');
@@ -7736,12 +7238,7 @@ tool({
     </div>
     <label class="lbl" for="aa-out">Output ${cpyBtn('#aa-out')}</label>
     <textarea id="aa-out" readonly style="min-height:230px;font-size:.62rem;line-height:1;white-space:pre;overflow:auto;font-family:var(--mono)"></textarea>
-    <div id="aa-preview" hidden style="margin-top:.5rem;background:#0d0d0d;border:1px solid var(--border);border-radius:8px;padding:.6rem;font-family:var(--mono);font-size:.62rem;line-height:1;white-space:pre;overflow:auto"></div>
-    ${shPanel('asciiart', [
-      {why:'image → ASCII (jp2a)', cmd:`jp2a --width=80 photo.jpg`},
-      {why:'or resize + map with ImageMagick', cmd:`magick photo.jpg -resize 80x txt:- | head`},
-      {why:'text banners (figlet)', cmd:`figlet -w 120 'powertoy'`},
-    ])}`,
+    <div id="aa-preview" hidden style="margin-top:.5rem;background:#0d0d0d;border:1px solid var(--border);border-radius:8px;padding:.6rem;font-family:var(--mono);font-size:.62rem;line-height:1;white-space:pre;overflow:auto"></div>`,
   wire(){
     const RAMPS = { standard:' .:-=+*#%@', detailed:" .'`^\",:;Il!i~+_-?][}{1)(|\\/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$", blocks:' ░▒▓█' };
     const FONTS = { sans:'"Avenir Next", Arial, sans-serif', serif:'Georgia, "Times New Roman", serif',
@@ -7843,13 +7340,7 @@ tool({
       ${outRow('Round-trip (est.)','cn-rtt')}
       ${outRow('Save-Data','cn-save')}
     </div>
-    <p class="note">Browsers can't read true WiFi signal — the values above are a coarse estimate from recent traffic, exposed only by Chromium. For real RSSI/SSID/channel, run a command below or use the native macOS app (which fills the WiFi section above).</p>
-    ${shPanel('wifi', [
-      {why:'macOS — full WiFi status (some fields need sudo)', cmd:`wdutil info`},
-      {why:'macOS — no sudo', cmd:`system_profiler SPAirPortDataType`},
-      {why:'Linux', cmd:`nmcli -f IN-USE,SSID,SIGNAL,RATE,CHAN dev wifi`},
-      {why:'Windows', cmd:`netsh wlan show interfaces`},
-    ])}`,
+    <p class="note">Browsers can't read true WiFi signal — the values above are a coarse estimate from recent traffic, exposed only by Chromium. For real RSSI/SSID/channel, run a command below or use the native macOS app (which fills the WiFi section above).</p>`,
   wire(){
     const set = (id, v) => $('#'+id).textContent = (v == null || v === '') ? '—' : v;
     const qual = r => r >= -50 ? 'Excellent' : r >= -60 ? 'Good' : r >= -67 ? 'Fair' : r >= -75 ? 'Weak' : 'Very weak';
@@ -7911,13 +7402,7 @@ tool({
       ${outRow('Cookies','dv-cookie')}
       ${outRow('Local IP','dv-localip')}
       ${outRow('Public IP','dv-pubip')}
-    </div>
-    ${shPanel('device', [
-      {why:'local IP (macOS / BSD)', cmd:`ifconfig | grep 'inet ' | grep -v 127.0.0.1`},
-      {why:'local IP (Linux)', cmd:`ip -4 addr show | grep inet`},
-      {why:'public IP', cmd:`curl -s ifconfig.me`},
-      {why:'OS / kernel', cmd:`uname -a; sw_vers 2>/dev/null`},
-    ])}`,
+    </div>`,
   wire(){
     const set = (id, v) => $('#'+id).textContent = (v == null || v === '') ? '—' : v;
     const gpu = () => { try { const c = document.createElement('canvas'); const gl = c.getContext('webgl') || c.getContext('experimental-webgl'); if (!gl) return null; const e = gl.getExtension('WEBGL_debug_renderer_info'); return e ? gl.getParameter(e.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER); } catch { return null; } };
@@ -8451,12 +7936,7 @@ Bob
 Carol
 Dave</textarea>
     <div class="row"><button class="act" id="dc-pick">Pick one</button><button class="ghost" id="dc-shuf">Shuffle</button></div>
-    <div class="outs"><div class="out" style="grid-template-columns:1fr"><span class="v" id="dc-pickout" style="font-size:1.05rem">—</span></div></div>
-    ${shPanel('roll', [
-      {why:'roll a d6 in the shell', cmd:`echo $((RANDOM % 6 + 1))`},
-      {why:'pick a random line', cmd:`shuf -n 1 names.txt`},
-      {why:'coin flip', cmd:`shuf -e -n 1 Heads Tails`},
-    ])}`,
+    <div class="outs"><div class="out" style="grid-template-columns:1fr"><span class="v" id="dc-pickout" style="font-size:1.05rem">—</span></div></div>`,
   wire(){
     const items = () => $('#dc-list').value.split('\n').map(s => s.trim()).filter(Boolean);
     $('#dc-roll').addEventListener('click', () => { const s = +$('#dc-sides').value, n = Math.min(30, Math.max(1, +$('#dc-n').value || 1)); const rolls = Array.from({length:n}, () => rint(s)+1); const sum = rolls.reduce((a,b) => a+b, 0); $('#dc-out').textContent = rolls.join(', ') + (n>1 ? '   =  ' + sum : ''); });
@@ -9074,9 +8554,6 @@ tool({
       <div class="out"><span class="k">AAA · large text</span><span class="v" id="ct-aaa-l">—</span><span style="color:var(--faint);font-size:.74rem">≥ 4.5</span></div>
       <div class="out"><span class="k">UI components</span><span class="v" id="ct-ui">—</span><span style="color:var(--faint);font-size:.74rem">≥ 3.0</span></div>
     </div>
-    ${shPanel('contrast', [
-      {why:'compute the ratio anywhere python lives', cmd:''},
-    ])}
     <p class="note">Large text means ≥ 24px, or ≥ 18.5px bold. UI components covers icons, input borders and focus indicators (WCAG 1.4.11).</p>`,
   wire(){
     const fg = $('#ct-fg'), bg = $('#ct-bg'), err = $('#ct-err');
@@ -9096,8 +8573,6 @@ tool({
       $('#ct-aaa-n').innerHTML = chip(ratio >= 7);
       $('#ct-aaa-l').innerHTML = chip(ratio >= 4.5);
       $('#ct-ui').innerHTML    = chip(ratio >= 3);
-      const hx = c => rgbToHex(c.r, c.g, c.b).slice(1);
-      setSh('contrast', 0, `python3 -c 'import sys;f=lambda h:[int(h[i:i+2],16)/255 for i in(0,2,4)];g=lambda c:c/12.92 if c<=.04045 else((c+.055)/1.055)**2.4;L=lambda h:sum(w*g(c) for w,c in zip((.2126,.7152,.0722),f(h)));a,b=L(sys.argv[1]),L(sys.argv[2]);print(round((max(a,b)+.05)/(min(a,b)+.05),2))' ${hx(cf)} ${hx(cb)}`);
     };
     $('#ct-swap').addEventListener('click', () => {
       const t = fg.value; fg.value = bg.value; bg.value = t; run();
@@ -9126,10 +8601,7 @@ tool({
     <label class="lbl">Triadic</label>
     <div class="fadebar" id="pal-tri" style="height:44px"></div>
     <label class="lbl">Split-complementary</label>
-    <div class="fadebar" id="pal-split" style="height:44px"></div>
-    ${shPanel('palette', [
-      {why:'complementary color with python', cmd:''},
-    ])}`,
+    <div class="fadebar" id="pal-split" style="height:44px"></div>`,
   wire(){
     const inp = $('#pal-in'), err = $('#pal-err');
     const STOPS = [50,100,200,300,400,500,600,700,800,900];
@@ -9155,7 +8627,6 @@ tool({
       strip($('#pal-ana'),   [at(-30), at(0), at(30)]);
       strip($('#pal-tri'),   [at(0), at(120), at(240)]);
       strip($('#pal-split'), [at(0), at(150), at(210)]);
-      setSh('palette', 0, `python3 -c 'import colorsys;r,g,b=0x${hex2(c.r)}/255,0x${hex2(c.g)}/255,0x${hex2(c.b)}/255;h,l,s=colorsys.rgb_to_hls(r,g,b);print("#%02x%02x%02x"%tuple(round(x*255) for x in colorsys.hls_to_rgb((h+.5)%1,l,s)))'`);
     };
     inp.addEventListener('input', run); run();
   }
@@ -9169,11 +8640,7 @@ tool({
     <div class="drop" id="ip-drop">Drop an image here, click to choose, or paste from the clipboard</div>
     <input type="file" id="ip-file" accept="image/*" style="display:none">
     <div class="fadebar" id="ip-bar" style="display:none"></div>
-    <div class="outs" id="ip-list" style="display:none"></div>
-    ${shPanel('imgpal', [
-      {why:'the same idea with ImageMagick', cmd:`magick photo.jpg -resize 64x64 -colors 8 -unique-colors txt:- | tail -n +2`},
-      {why:'dominant color only', cmd:`magick photo.jpg -resize 1x1 txt:- | tail -1`},
-    ])}`,
+    <div class="outs" id="ip-list" style="display:none"></div>`,
   wire(){
     const drop = $('#ip-drop'), file = $('#ip-file'), bar = $('#ip-bar'), list = $('#ip-list');
     const medianCut = (px, n) => {
@@ -9452,11 +8919,6 @@ tool({
       ${outRow('Applied','sp-o-app')}
     </div>
 
-    ${shPanel('sharpen', [
-      {why:'the same unsharp mask with ImageMagick', cmd:`magick photo.jpg -unsharp 0x1.2+1.0+0.008 out.jpg`},
-      {why:"Richardson–Lucy deconvolution with G'MIC", cmd:`gmic photo.jpg deblur_richardsonlucy 1.5,12,1 -o out.jpg`},
-      {why:'contrast limited adaptive histogram equalization', cmd:`magick photo.jpg -clahe 12x12%+256+2.5 out.jpg`},
-    ])}
 
     <div class="note">Unsharp mask and CLAHE work on the BT.601 luma channel; deconvolution works on
       linear-light luminance and re-applies the result to RGB as a gain, which is where the physics
@@ -9490,11 +8952,6 @@ tool({
       $('#sp-d-itv').textContent  = V.dit();
       $('#sp-cl-tv').textContent = $('#sp-cl-tv2').textContent = V.clt();
       $('#sp-cl-cv').textContent = V.clc().toFixed(1);
-      setSh('sharpen', 0, `magick photo.jpg -unsharp 0x${V.urad().toFixed(1)}+${V.uamt().toFixed(2)}+${(V.uthr()/255).toFixed(3)} out.jpg`);
-      setSh('sharpen', 1, psf === 'gauss'
-        ? `gmic photo.jpg deblur_richardsonlucy ${V.dsig().toFixed(1)},${V.dit()},1 -o out.jpg`
-        : `gmic photo.jpg deblur_richardsonlucy ${(V.dlen()/4).toFixed(1)},${V.dit()},1 -o out.jpg   # G'MIC has no motion PSF`);
-      setSh('sharpen', 2, `magick photo.jpg -clahe ${Math.round(100/V.clt())}x${Math.round(100/V.clt())}%+256+${V.clc().toFixed(1)} out.jpg`);
     };
 
     /* ── unsharp mask on luma, classic radius/amount/threshold ── */
@@ -10091,11 +9548,6 @@ tool({
       ${outRow('Subject','ct-o-cov')}
     </div>
 
-    ${shPanel('cutout', [
-      {why:'magic wand — flood fill the corner colour to transparent', cmd:`magick photo.png -alpha set -fuzz 12% -fill none -draw 'alpha 0,0 floodfill' cut.png`},
-      {why:'GrabCut from a box, with OpenCV', cmd:`python3 -c "import cv2,numpy as np;i=cv2.imread('photo.jpg');m=np.zeros(i.shape[:2],'u1');cv2.grabCut(i,m,(50,50,400,400),np.zeros((1,65)),np.zeros((1,65)),3,cv2.GC_INIT_WITH_RECT);cv2.imwrite('cut.png',np.dstack([i,(m&1)*255]))"`},
-      {why:'drop a flat white studio background', cmd:`magick photo.jpg -fuzz 8% -transparent white cut.png`},
-    ])}
 
     <div class="note">GrabCut segments at 360&nbsp;px and the mask is scaled back up, with the soft edge
       re-snapped to full-resolution colour edges — the graph has one node per pixel and one 8-neighbour
@@ -10122,9 +9574,6 @@ tool({
       $('#ct-feav').textContent = V.fea();
       $('#ct-itv').textContent = V.it();
       $('#ct-bfeav').textContent = V.bfea();
-      setSh('cutout', 0, `magick photo.png -alpha set -fuzz ${Math.round(V.tol()/441*100)}% -fill none -draw 'alpha 0,0 floodfill' cut.png`);
-      if (rect) setSh('cutout', 1,
-        `python3 -c "import cv2,numpy as np;i=cv2.imread('photo.jpg');m=np.zeros(i.shape[:2],'u1');cv2.grabCut(i,m,(${rect.x},${rect.y},${rect.w},${rect.h}),np.zeros((1,65)),np.zeros((1,65)),${V.it()},cv2.GC_INIT_WITH_RECT);cv2.imwrite('cut.png',np.dstack([i,(m&1)*255]))"`);
     };
 
     /* paint the RGBA result: source colour, current alpha, optional mask view */
@@ -10471,11 +9920,6 @@ tool({
       ${outRow('Solve','cz-o-solve')}
     </div>
 
-    ${shPanel('colorize', [
-      {why:"the same interaction in G'MIC (opens its own window)", cmd:`gmic photo.png x_colorize 0,1024,1 -o colorized.png`},
-      {why:'flatten to grey first, if the source still has colour', cmd:`magick photo.jpg -colorspace Gray grey.png`},
-      {why:'a global tint instead — no propagation, just one hue', cmd:`magick grey.png -fill '#c08457' -tint 60 tinted.png`},
-    ])}
 
     <div class="note">Colour lives only in the Cb/Cr channels: the grey image supplies luminance and stays
       untouched, so the result keeps every bit of the original detail. Strokes are constraints, not paint —
