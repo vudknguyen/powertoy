@@ -224,6 +224,11 @@ button.ghost:hover{color:var(--accent-2);border-color:var(--accent)}
   padding:.18rem .5rem;border-radius:5px;white-space:nowrap;
 }
 .cpy:hover{color:var(--accent-2);border-color:var(--accent)}
+/* "Send to →" (tool chaining) rests in the accent colour so the affordance is visible
+   without hunting for it — but that is exactly .cpy:hover, so it looked permanently
+   hovered and never reacted to the pointer. Give it its own hover. */
+.cpy.pipe{color:var(--accent-2);border-color:var(--accent)}
+.cpy.pipe:hover{color:var(--on-accent);background:var(--accent)}
 .cpy.done{color:var(--on-accent);background:var(--accent);border-color:var(--accent)}
 
 /* shell panel */
@@ -716,7 +721,7 @@ tool({
     </div>
     <label class="lbl">Input</label>
     <textarea id="b64-in" spellcheck="false" placeholder="The quick brown fox…"></textarea>
-    <label class="lbl">Output ${cpyBtn('#b64-out')}</label>
+    <label class="lbl" for="b64-out">Output ${cpyBtn('#b64-out')}</label>
     <textarea id="b64-out" readonly></textarea>
     <div class="err" id="b64-err"></div>
     ${shPanel('base64', [
@@ -766,7 +771,7 @@ tool({
     </div>
     <label class="lbl">Input</label>
     <textarea id="url-in" spellcheck="false" placeholder="key=hello world&lang=tiếng việt"></textarea>
-    <label class="lbl">Output ${cpyBtn('#url-out')}</label>
+    <label class="lbl" for="url-out">Output ${cpyBtn('#url-out')}</label>
     <textarea id="url-out" readonly></textarea>
     <div class="err" id="url-err"></div>
     ${shPanel('url', [
@@ -805,7 +810,7 @@ tool({
     <div class="row"><div class="seg" id="ent-mode"><button class="on" data-m="enc">Escape</button><button data-m="dec">Unescape</button></div></div>
     <label class="lbl">Input</label>
     <textarea id="ent-in" spellcheck="false" placeholder='<a href="?q=1&x=2">café</a>'></textarea>
-    <label class="lbl">Output ${cpyBtn('#ent-out')}</label>
+    <label class="lbl" for="ent-out">Output ${cpyBtn('#ent-out')}</label>
     <textarea id="ent-out" readonly></textarea>
     ${shPanel('entity', [
       {why:'escape', cmd:`python3 -c 'import sys,html; print(html.escape(sys.argv[1]))' '<b>&</b>'`},
@@ -841,9 +846,9 @@ tool({
     <label class="lbl">Token</label>
     <textarea id="jwt-in" spellcheck="false" placeholder="Bearer eyJhbGciOi…"></textarea>
     <div class="err" id="jwt-err"></div>
-    <label class="lbl">Header ${cpyBtn('#jwt-h')}</label>
+    <label class="lbl" for="jwt-h">Header ${cpyBtn('#jwt-h')}</label>
     <textarea id="jwt-h" readonly style="min-height:64px"></textarea>
-    <label class="lbl">Payload ${cpyBtn('#jwt-p')}</label>
+    <label class="lbl" for="jwt-p">Payload ${cpyBtn('#jwt-p')}</label>
     <textarea id="jwt-p" readonly style="min-height:120px"></textarea>
     <div class="outs">
       ${outRow('Expires (exp)','jwt-exp')}
@@ -990,9 +995,9 @@ tool({
       <label class="check">steps <input type="number" id="fade-n" value="8" min="2" max="32" style="width:4.5rem"></label>
     </div>
     <div class="fadebar" id="fade-bar"></div>
-    <label class="lbl">Hex steps ${cpyBtn('#fade-list')}</label>
+    <label class="lbl" for="fade-list">Hex steps ${cpyBtn('#fade-list')}</label>
     <textarea id="fade-list" readonly style="min-height:64px"></textarea>
-    <label class="lbl">CSS gradient ${cpyBtn('#fade-css')}</label>
+    <label class="lbl" for="fade-css">CSS gradient ${cpyBtn('#fade-css')}</label>
     <textarea id="fade-css" readonly style="min-height:48px"></textarea>
     ${shPanel('fade', [
       {why:'same interpolation in python3', cmd:''},
@@ -1506,7 +1511,7 @@ tool({
     <label class="lbl" id="aes-inlbl">Plaintext</label>
     <textarea id="aes-in" data-nosave spellcheck="false"></textarea>
     <div class="row" style="margin-top:.8rem"><button class="act" id="aes-go">Run</button></div>
-    <label class="lbl">Output ${cpyBtn('#aes-out')}</label>
+    <label class="lbl" for="aes-out">Output ${cpyBtn('#aes-out')}</label>
     <textarea id="aes-out" readonly></textarea>
     <div class="err" id="aes-err"></div>
     ${shPanel('aes', [
@@ -1608,7 +1613,7 @@ tool({
         <label class="check">digits <input type="number" id="pw-pinlen" value="6" min="4" max="16" style="width:4.5rem"></label>
       </div>
     </div>
-    <label class="lbl">Password ${cpyBtn('#pw-out')}</label>
+    <label class="lbl" for="pw-out">Password ${cpyBtn('#pw-out')}</label>
     <textarea id="pw-out" readonly style="min-height:56px;font-size:1rem"></textarea>
     <div class="pw-meter"><div id="pw-bar"></div></div>
     <div class="outs" style="margin-top:.8rem">
@@ -1739,7 +1744,7 @@ tool({
       <label class="check"><input type="checkbox" id="rnd-sy"> !@#$%…</label>
       <button class="act" id="rnd-go">Generate</button>
     </div>
-    <label class="lbl">Output ${cpyBtn('#rnd-out')}</label>
+    <label class="lbl" for="rnd-out">Output ${cpyBtn('#rnd-out')}</label>
     <textarea id="rnd-out" readonly style="min-height:56px;font-size:1rem"></textarea>
     <div class="outs">${outRow('Entropy','rnd-ent')}</div>
     ${shPanel('random', [
@@ -1801,7 +1806,7 @@ tool({
       ${outRow('Structure','uu-struct')}
       ${outRow('Sortable','uu-sort')}
     </div>
-    <label class="lbl">Output ${cpyBtn('#uu-out')}</label>
+    <label class="lbl" for="uu-out">Output ${cpyBtn('#uu-out')}</label>
     <textarea id="uu-out" readonly style="min-height:130px"></textarea>
     ${shPanel('uuid', [
       {why:'this scheme in the shell', cmd:`uuidgen | tr '[:upper:]' '[:lower:]'`},
@@ -1924,7 +1929,7 @@ tool({
     <label class="lbl">Input</label>
     <textarea id="js-in" spellcheck="false" style="min-height:140px" placeholder='{"b":1,"a":[2,3]}'></textarea>
     <div class="err" id="js-err"></div>
-    <label class="lbl">Output ${cpyBtn('#js-out')}</label>
+    <label class="lbl" for="js-out">Output ${cpyBtn('#js-out')}</label>
     <textarea id="js-out" readonly style="min-height:140px"></textarea>
     ${shPanel('json', [
       {why:'pretty-print (the canonical tool)', cmd:`jq . data.json`},
@@ -2130,7 +2135,7 @@ tool({
     </div>
     <label class="lbl">Input</label>
     <textarea id="hx-in" spellcheck="false" placeholder="hello  ·  68 65 6c 6c 6f"></textarea>
-    <label class="lbl">Output ${cpyBtn('#hx-out')}</label>
+    <label class="lbl" for="hx-out">Output ${cpyBtn('#hx-out')}</label>
     <textarea id="hx-out" readonly></textarea>
     <div class="err" id="hx-err"></div>
     ${shPanel('hex', [
@@ -2183,7 +2188,7 @@ tool({
     </div>
     <label class="lbl">Input</label>
     <textarea id="b32-in" spellcheck="false" placeholder="hello"></textarea>
-    <label class="lbl">Output ${cpyBtn('#b32-out')}</label>
+    <label class="lbl" for="b32-out">Output ${cpyBtn('#b32-out')}</label>
     <textarea id="b32-out" readonly></textarea>
     <div class="err" id="b32-err"></div>
     ${shPanel('b32', [
@@ -2246,7 +2251,7 @@ tool({
     </div>
     <label class="lbl">Input</label>
     <textarea id="uni-in" spellcheck="false" placeholder="café ✓ 日本語"></textarea>
-    <label class="lbl">Output ${cpyBtn('#uni-out')}</label>
+    <label class="lbl" for="uni-out">Output ${cpyBtn('#uni-out')}</label>
     <textarea id="uni-out" readonly></textarea>
     <div class="err" id="uni-err"></div>
     <label class="lbl">Code points (first 24)</label>
@@ -2310,7 +2315,7 @@ tool({
     </div>
     <label class="lbl">Input</label>
     <textarea id="rot-in" spellcheck="false" placeholder="The treasure is buried under the old oak."></textarea>
-    <label class="lbl">Output ${cpyBtn('#rot-out')}</label>
+    <label class="lbl" for="rot-out">Output ${cpyBtn('#rot-out')}</label>
     <textarea id="rot-out" readonly></textarea>
     ${shPanel('rot', [
       {why:'rot13', cmd:`printf %s 'hello' | tr 'A-Za-z' 'N-ZA-Mn-za-m'`},
@@ -3052,7 +3057,7 @@ tool({
     </div>
     <label class="lbl">Input</label>
     <textarea id="gz-in" spellcheck="false" placeholder="text to compress, or a Base64 blob to decompress"></textarea>
-    <label class="lbl">Output ${cpyBtn('#gz-out')}</label>
+    <label class="lbl" for="gz-out">Output ${cpyBtn('#gz-out')}</label>
     <textarea id="gz-out" readonly></textarea>
     <div class="row" style="margin-top:.4rem"><span id="gz-stats" style="font-size:.84rem;color:var(--muted)"></span></div>
     <div class="err" id="gz-err"></div>
@@ -3106,7 +3111,7 @@ tool({
   html: `
     <div class="drop" id="du-drop">Drop a file here or click to choose</div>
     <input type="file" id="du-file" style="display:none">
-    <label class="lbl">Data URI ${cpyBtn('#du-out')}</label>
+    <label class="lbl" for="du-out">Data URI ${cpyBtn('#du-out')}</label>
     <textarea id="du-out" readonly style="min-height:90px"></textarea>
     <div class="row"><span id="du-stats" style="font-size:.84rem;color:var(--muted)"></span></div>
     <label class="lbl">Decode a data URI</label>
@@ -3177,7 +3182,7 @@ tool({
     <div class="row"><div class="seg" id="b58-mode"><button class="on" data-m="enc">Encode</button><button data-m="dec">Decode</button></div></div>
     <label class="lbl">Input</label>
     <textarea id="b58-in" spellcheck="false" placeholder="hello"></textarea>
-    <label class="lbl">Output ${cpyBtn('#b58-out')}</label>
+    <label class="lbl" for="b58-out">Output ${cpyBtn('#b58-out')}</label>
     <textarea id="b58-out" readonly></textarea>
     <div class="err" id="b58-err"></div>
     ${shPanel('b58', [
@@ -3236,7 +3241,7 @@ tool({
     </div>
     <label class="lbl">Input</label>
     <textarea id="bin-in" spellcheck="false" placeholder="Hi  ·  01001000 01101001"></textarea>
-    <label class="lbl">Output ${cpyBtn('#bin-out')}</label>
+    <label class="lbl" for="bin-out">Output ${cpyBtn('#bin-out')}</label>
     <textarea id="bin-out" readonly></textarea>
     <div class="err" id="bin-err"></div>
     ${shPanel('bin', [
@@ -3282,7 +3287,7 @@ tool({
     </div>
     <label class="lbl">Input</label>
     <textarea id="js2-in" spellcheck="false" placeholder='line one&#10;line "two"'></textarea>
-    <label class="lbl">Output ${cpyBtn('#js2-out')}</label>
+    <label class="lbl" for="js2-out">Output ${cpyBtn('#js2-out')}</label>
     <textarea id="js2-out" readonly></textarea>
     <div class="err" id="js2-err"></div>
     ${shPanel('jstr', [
@@ -3410,7 +3415,7 @@ tool({
     </div>
     <label class="lbl">Input</label>
     <textarea id="mo-in" spellcheck="false" placeholder="SOS  ·  ... --- ..."></textarea>
-    <label class="lbl">Output ${cpyBtn('#mo-out')}</label>
+    <label class="lbl" for="mo-out">Output ${cpyBtn('#mo-out')}</label>
     <textarea id="mo-out" readonly></textarea>
     ${shPanel('morse', [
       {why:'the classic (bsdgames package)', cmd:`morse -s 'hello world'`},
@@ -3509,7 +3514,7 @@ tool({
     </div>
     <label class="lbl">Input</label>
     <textarea id="b85-in" spellcheck="false" placeholder="hello"></textarea>
-    <label class="lbl">Output ${cpyBtn('#b85-out')}</label>
+    <label class="lbl" for="b85-out">Output ${cpyBtn('#b85-out')}</label>
     <textarea id="b85-out" readonly></textarea>
     <div class="err" id="b85-err"></div>
     ${shPanel('b85', [
@@ -3593,7 +3598,7 @@ tool({
     <div class="row"><div class="seg" id="b62-mode"><button class="on" data-m="enc">Encode</button><button data-m="dec">Decode</button></div></div>
     <label class="lbl">Input</label>
     <textarea id="b62-in" spellcheck="false" placeholder="hello"></textarea>
-    <label class="lbl">Output ${cpyBtn('#b62-out')}</label>
+    <label class="lbl" for="b62-out">Output ${cpyBtn('#b62-out')}</label>
     <textarea id="b62-out" readonly></textarea>
     <div class="err" id="b62-err"></div>
     ${shPanel('b62', [
@@ -3820,7 +3825,7 @@ tool({
 Ada,engineer,99
 Grace,"rear admiral",97</textarea>
     <div class="err" id="cv-err"></div>
-    <label class="lbl">Output ${cpyBtn('#cv-out')}</label>
+    <label class="lbl" for="cv-out">Output ${cpyBtn('#cv-out')}</label>
     <textarea id="cv-out" readonly style="min-height:150px"></textarea>
     ${shPanel('csv', [
       {why:'the dedicated tool: Miller', cmd:`mlr --icsv --ojson cat data.csv`},
@@ -3915,7 +3920,7 @@ tool({
     <label class="lbl">Input</label>
     <textarea id="qs-in" spellcheck="false" style="min-height:90px">q=hello%20world&tag=a&tag=b&page=2</textarea>
     <div class="err" id="qs-err"></div>
-    <label class="lbl">Output ${cpyBtn('#qs-out')}</label>
+    <label class="lbl" for="qs-out">Output ${cpyBtn('#qs-out')}</label>
     <textarea id="qs-out" readonly style="min-height:110px"></textarea>
     ${shPanel('qs', [
       {why:'decode with python', cmd:`python3 -c 'import sys,urllib.parse as u,json; print(json.dumps(u.parse_qs(sys.argv[1]), indent=2))' 'q=hello&tag=a&tag=b'`},
@@ -3968,7 +3973,7 @@ tool({
     <label class="lbl">Input</label>
     <textarea id="xj-in" spellcheck="false" style="min-height:130px"><note id="1"><to>Ada</to><from>Grace</from><body>Hi there</body></note></textarea>
     <div class="err" id="xj-err"></div>
-    <label class="lbl">Output ${cpyBtn('#xj-out')}</label>
+    <label class="lbl" for="xj-out">Output ${cpyBtn('#xj-out')}</label>
     <textarea id="xj-out" readonly style="min-height:150px"></textarea>
     ${shPanel('xj', [
       {why:'yq handles XML too', cmd:`yq -p xml -o json '.' file.xml`},
@@ -4038,7 +4043,7 @@ authors:
   - name: Grace
     role: admiral</textarea>
     <div class="err" id="ya-err"></div>
-    <label class="lbl">Output ${cpyBtn('#ya-out')}</label>
+    <label class="lbl" for="ya-out">Output ${cpyBtn('#ya-out')}</label>
     <textarea id="ya-out" readonly style="min-height:150px"></textarea>
     ${shPanel('ya', [
       {why:'yq', cmd:`yq -o json '.' file.yaml`},
@@ -4150,7 +4155,7 @@ tags = ["dev", "offline"]
 host = "a.local"
 port = 8080</textarea>
     <div class="err" id="tm-err"></div>
-    <label class="lbl">Output ${cpyBtn('#tm-out')}</label>
+    <label class="lbl" for="tm-out">Output ${cpyBtn('#tm-out')}</label>
     <textarea id="tm-out" readonly style="min-height:150px"></textarea>
     ${shPanel('tm',[{why:'yq (TOML)',cmd:`yq -p toml -o json '.' file.toml`},{why:'taplo',cmd:`taplo get -f file.toml -o json`}])}`,
   wire(){
@@ -4208,7 +4213,7 @@ tool({
     <label class="lbl">Input</label>
     <textarea id="mp-in" spellcheck="false" style="min-height:110px">{"name":"powertoy","version":2,"tags":["dev","offline"]}</textarea>
     <div class="err" id="mp-err"></div>
-    <label class="lbl">Output ${cpyBtn('#mp-out')}</label>
+    <label class="lbl" for="mp-out">Output ${cpyBtn('#mp-out')}</label>
     <textarea id="mp-out" readonly style="min-height:110px"></textarea>
     ${shPanel('mp',[{why:'MessagePack CLI',cmd:`msgpack-cli encode file.json`},{why:'CBOR (python)',cmd:`python3 -c 'import cbor2,json; open("o.cbor","wb").write(cbor2.dumps(json.load(open("file.json"))))'`}])}`,
   wire(){
@@ -4307,7 +4312,7 @@ tool({
     <label class="lbl">Input</label>
     <textarea id="ph-in" spellcheck="false" style="min-height:120px">a:3:{s:4:"name";s:8:"powertoy";s:3:"ver";i:2;s:4:"tags";a:2:{i:0;s:3:"dev";i:1;s:7:"offline";}}</textarea>
     <div class="err" id="ph-err"></div>
-    <label class="lbl">Output ${cpyBtn('#ph-out')}</label>
+    <label class="lbl" for="ph-out">Output ${cpyBtn('#ph-out')}</label>
     <textarea id="ph-out" readonly style="min-height:130px"></textarea>
     ${shPanel('ph',[{why:'PHP CLI',cmd:`php -r 'echo json_encode(unserialize($argv[1]));' 'a:1:{...}'`},{why:'back to serialize',cmd:`php -r 'echo serialize(json_decode($argv[1], true));' '{...}'`}])}`,
   wire(){
@@ -4365,7 +4370,7 @@ debug = true
 host = a.local
 port = 8080</textarea>
     <div class="err" id="in-err"></div>
-    <label class="lbl">Output ${cpyBtn('#in-out')}</label>
+    <label class="lbl" for="in-out">Output ${cpyBtn('#in-out')}</label>
     <textarea id="in-out" readonly style="min-height:130px"></textarea>
     ${shPanel('in',[{why:'crudini',cmd:`crudini --get --format=json file.ini`},{why:'python',cmd:`python3 -c 'import configparser,json; c=configparser.ConfigParser(); c.read("f.ini"); print(json.dumps({s:dict(c[s]) for s in c.sections()}))'`}])}`,
   wire(){
@@ -4406,7 +4411,7 @@ NAME=powertoy
 PORT=8080
 GREETING="hello world"</textarea>
     <div class="err" id="ep-err"></div>
-    <label class="lbl">Output ${cpyBtn('#ep-out')}</label>
+    <label class="lbl" for="ep-out">Output ${cpyBtn('#ep-out')}</label>
     <textarea id="ep-out" readonly style="min-height:120px"></textarea>
     ${shPanel('ep',[{why:'dotenv → json (jq)',cmd:`grep -v '^#' .env | jq -R 'split("=")|{(.[0]):.[1]}' | jq -s add`},{why:'load into shell',cmd:`set -a; . ./.env; set +a`}])}`,
   wire(){
@@ -4441,7 +4446,7 @@ tool({
     <textarea id="nd-in" spellcheck="false" style="min-height:120px">{"id":1,"name":"Ada"}
 {"id":2,"name":"Grace"}</textarea>
     <div class="err" id="nd-err"></div>
-    <label class="lbl">Output ${cpyBtn('#nd-out')}</label>
+    <label class="lbl" for="nd-out">Output ${cpyBtn('#nd-out')}</label>
     <textarea id="nd-out" readonly style="min-height:130px"></textarea>
     ${shPanel('nd',[{why:'ndjson → array (jq)',cmd:`jq -s '.' file.ndjson`},{why:'array → ndjson (jq)',cmd:`jq -c '.[]' file.json`}])}`,
   wire(){
@@ -4465,7 +4470,7 @@ tool({
     <label class="lbl">Input bytes</label>
     <textarea id="pb-in" spellcheck="false" style="min-height:90px">089601120774657374696e67</textarea>
     <div class="err" id="pb-err"></div>
-    <label class="lbl">Decoded ${cpyBtn('#pb-out')}</label>
+    <label class="lbl" for="pb-out">Decoded ${cpyBtn('#pb-out')}</label>
     <textarea id="pb-out" readonly style="min-height:150px"></textarea>
     ${shPanel('pb',[{why:'protoc',cmd:`protoc --decode_raw < message.bin`},{why:'from hex',cmd:`xxd -r -p <<< '089601' | protoc --decode_raw`}])}`,
   wire(){
@@ -4512,7 +4517,7 @@ tool({
   /* trailing comma above is fine */
 }</textarea>
     <div class="err" id="j5-err"></div>
-    <label class="lbl">Strict JSON ${cpyBtn('#j5-out')}</label>
+    <label class="lbl" for="j5-out">Strict JSON ${cpyBtn('#j5-out')}</label>
     <textarea id="j5-out" readonly style="min-height:150px"></textarea>
     ${shPanel('j5',[{why:'json5 CLI',cmd:`json5 -c file.json5`},{why:'strip comments with jq',cmd:`jq '.' file.jsonc`}])}`,
   wire(){
@@ -4551,7 +4556,7 @@ tool({
     <label class="lbl">PEM, hex or base64</label>
     <textarea id="a1-in" spellcheck="false" style="min-height:110px">MAoGCCqGSM49AwEH</textarea>
     <div class="err" id="a1-err"></div>
-    <label class="lbl">Structure ${cpyBtn('#a1-out')}</label>
+    <label class="lbl" for="a1-out">Structure ${cpyBtn('#a1-out')}</label>
     <textarea id="a1-out" readonly style="min-height:170px;font-family:var(--mono)"></textarea>
     ${shPanel('a1',[{why:'openssl (PEM)',cmd:`openssl asn1parse -in file.pem`},{why:'from DER',cmd:`openssl asn1parse -inform DER -in file.der`}])}`,
   wire(){
@@ -4608,7 +4613,7 @@ tool({
 MAoGCCqGSM49AwEH
 -----END EC PARAMETERS-----</textarea>
     <div class="err" id="pd-err"></div>
-    <label class="lbl">Output ${cpyBtn('#pd-out')}</label>
+    <label class="lbl" for="pd-out">Output ${cpyBtn('#pd-out')}</label>
     <textarea id="pd-out" readonly style="min-height:110px;font-family:var(--mono)"></textarea>
     ${shPanel('pd',[{why:'PEM → DER',cmd:`openssl x509 -in cert.pem -outform DER -out cert.der`},{why:'DER → PEM',cmd:`openssl x509 -inform DER -in cert.der -out cert.pem`}])}`,
   wire(){
@@ -4638,7 +4643,7 @@ tool({
     <label class="lbl">Input</label>
     <textarea id="bs-in" spellcheck="false" style="min-height:110px">{"name":"powertoy","ver":2,"ok":true,"tags":["dev","offline"]}</textarea>
     <div class="err" id="bs-err"></div>
-    <label class="lbl">Output ${cpyBtn('#bs-out')}</label>
+    <label class="lbl" for="bs-out">Output ${cpyBtn('#bs-out')}</label>
     <textarea id="bs-out" readonly style="min-height:110px"></textarea>
     ${shPanel('bs',[{why:'bsondump',cmd:`bsondump file.bson`},{why:'python',cmd:`python3 -c 'import bson,json; open("o.bson","wb").write(bson.dumps(json.load(open("f.json"))))'`}])}`,
   wire(){
@@ -4718,7 +4723,7 @@ tool({
 </dict>
 </plist></textarea>
     <div class="err" id="pl-err"></div>
-    <label class="lbl">Output ${cpyBtn('#pl-out')}</label>
+    <label class="lbl" for="pl-out">Output ${cpyBtn('#pl-out')}</label>
     <textarea id="pl-out" readonly style="min-height:150px"></textarea>
     ${shPanel('pl',[{why:'plutil (macOS)',cmd:`plutil -convert json -o - file.plist`},{why:'back to xml plist',cmd:`plutil -convert xml1 -o - file.json`}])}`,
   wire(){
@@ -4760,7 +4765,7 @@ tool({
     <label class="lbl">Input</label>
     <textarea id="hd-in" spellcheck="false" style="min-height:90px">Hello, powertoy!</textarea>
     <div class="err" id="hd-err"></div>
-    <label class="lbl">Hexdump ${cpyBtn('#hd-out')}</label>
+    <label class="lbl" for="hd-out">Hexdump ${cpyBtn('#hd-out')}</label>
     <textarea id="hd-out" readonly style="min-height:150px;font-family:var(--mono)"></textarea>
     ${shPanel('hd',[{why:'xxd',cmd:`xxd file`},{why:'from a string',cmd:`printf '%s' 'Hello' | xxd`}])}`,
   wire(){
@@ -5098,9 +5103,9 @@ tool({
       <button class="act" id="kg-go">Generate</button>
     </div>
     <div class="err" id="kg-err"></div>
-    <label class="lbl">Public key (SPKI) ${cpyBtn('#kg-pub')}</label>
+    <label class="lbl" for="kg-pub">Public key (SPKI) ${cpyBtn('#kg-pub')}</label>
     <textarea id="kg-pub" readonly style="min-height:110px;font-family:var(--mono);font-size:.78rem"></textarea>
-    <label class="lbl">Private key (PKCS#8) ${cpyBtn('#kg-priv')}</label>
+    <label class="lbl" for="kg-priv">Private key (PKCS#8) ${cpyBtn('#kg-priv')}</label>
     <textarea id="kg-priv" readonly style="min-height:130px;font-family:var(--mono);font-size:.78rem"></textarea>
     ${shPanel('keygen',[{why:'OpenSSL — RSA',cmd:`openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out key.pem`},{why:'OpenSSL — EC P-256',cmd:`openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:P-256 -out key.pem`}])}`,
   wire(){
@@ -5867,7 +5872,7 @@ tool({
   "active": true
 }</textarea>
     <div class="err" id="jt-err"></div>
-    <label class="lbl">Output ${cpyBtn('#jt-out')}</label>
+    <label class="lbl" for="jt-out">Output ${cpyBtn('#jt-out')}</label>
     <textarea id="jt-out" readonly style="min-height:180px"></textarea>
     ${shPanel('j2t', [
       {why:'quicktype does this for every language (npm i -g quicktype)', cmd:`quicktype --lang ts --src data.json --top-level Root`},
@@ -6015,9 +6020,9 @@ tool({
   -H 'Authorization: Bearer TOKEN' \\
   -d '{"name":"test","count":3}'</textarea>
     <div class="err" id="cu-err"></div>
-    <label class="lbl">fetch ${cpyBtn('#cu-fetch')}</label>
+    <label class="lbl" for="cu-fetch">fetch ${cpyBtn('#cu-fetch')}</label>
     <textarea id="cu-fetch" readonly style="min-height:160px"></textarea>
-    <label class="lbl">Python requests ${cpyBtn('#cu-py')}</label>
+    <label class="lbl" for="cu-py">Python requests ${cpyBtn('#cu-py')}</label>
     <textarea id="cu-py" readonly style="min-height:140px"></textarea>
     ${shPanel('curl', [
       {why:'see exactly what curl sends', cmd:`curl -v https://api.example.com 2>&1 | grep '^[<>]'`},
@@ -6261,7 +6266,7 @@ tool({
     <input type="text" id="hm-key" spellcheck="false" placeholder="whsec_…">
     <label class="lbl">Message</label>
     <textarea id="hm-msg" spellcheck="false" placeholder="the payload to sign"></textarea>
-    <label class="lbl">Signature ${cpyBtn('#hm-out')}</label>
+    <label class="lbl" for="hm-out">Signature ${cpyBtn('#hm-out')}</label>
     <textarea id="hm-out" readonly></textarea>
     <label class="lbl">Verify against (optional)</label>
     <div class="row">
@@ -6440,7 +6445,7 @@ const x = 42;
       <div><label class="lbl" style="margin-top:0">Preview</label>
         <div class="md-prev" id="md-prev"></div></div>
     </div>
-    <label class="lbl">HTML source ${cpyBtn('#md-html')}</label>
+    <label class="lbl" for="md-html">HTML source ${cpyBtn('#md-html')}</label>
     <textarea id="md-html" readonly style="min-height:100px"></textarea>
     ${shPanel('md', [
       {why:'pandoc renders markdown to anything', cmd:`pandoc -f markdown -t html README.md`},
@@ -6538,7 +6543,7 @@ tool({
       <label class="check"><input type="checkbox" id="mk-date" checked> created_at</label>
       <label class="check"><input type="checkbox" id="mk-active"> active</label>
     </div>
-    <label class="lbl">Output ${cpyBtn('#mk-out')}</label>
+    <label class="lbl" for="mk-out">Output ${cpyBtn('#mk-out')}</label>
     <textarea id="mk-out" readonly style="min-height:200px"></textarea>
     ${shPanel('mock', [
       {why:'quick CSV with a shell loop', cmd:`for i in $(seq 5); do echo "$i,user$i@example.com"; done`},
@@ -6607,7 +6612,7 @@ tool({
     <label class="lbl">Secret</label>
     <input type="text" id="jws-secret" spellcheck="false" value="your-256-bit-secret">
     <div class="err" id="jws-err"></div>
-    <label class="lbl">Token ${cpyBtn('#jws-out')}</label>
+    <label class="lbl" for="jws-out">Token ${cpyBtn('#jws-out')}</label>
     <textarea id="jws-out" readonly style="min-height:90px"></textarea>
     ${shPanel('jwtsign', [
       {why:'sign an HS256 JWT in one shell line', cmd:`h=$(printf %s '{"alg":"HS256","typ":"JWT"}'|basenc --base64url|tr -d '='); p=$(printf %s '{"sub":"1"}'|basenc --base64url|tr -d '='); s=$(printf %s "$h.$p"|openssl dgst -sha256 -hmac 'secret' -binary|basenc --base64url|tr -d '='); echo "$h.$p.$s"`},
@@ -7344,7 +7349,7 @@ tool({
     </div>
     <div id="gr-stops" style="margin-top:.7rem;display:flex;flex-direction:column;gap:.4rem"></div>
     <div id="gr-preview" style="height:130px;border:1px solid var(--border-2);border-radius:var(--radius);margin-top:.8rem"></div>
-    <label class="lbl">CSS ${cpyBtn('#gr-css')}</label>
+    <label class="lbl" for="gr-css">CSS ${cpyBtn('#gr-css')}</label>
     <textarea id="gr-css" readonly style="min-height:50px"></textarea>
     ${shPanel('gradient', [{why:'pure CSS — drop it into a stylesheet', cmd:`background: linear-gradient(90deg, #106b5b, #ffb000);`}])}`,
   wire(){
@@ -7408,7 +7413,7 @@ tool({
     <div style="display:flex;justify-content:center;align-items:center;height:190px;background:var(--code-bg);border-radius:var(--radius);margin-top:.9rem">
       <div id="sh-preview" style="width:150px;height:95px;background:var(--surface);border-radius:12px"></div>
     </div>
-    <label class="lbl">CSS ${cpyBtn('#sh-css')}</label>
+    <label class="lbl" for="sh-css">CSS ${cpyBtn('#sh-css')}</label>
     <textarea id="sh-css" readonly style="min-height:46px"></textarea>
     ${shPanel('shadow', [{why:'pure CSS — drop it into a stylesheet', cmd:`box-shadow: 0 10px 25px -5px rgba(16, 107, 91, 0.30);`}])}`,
   wire(){
@@ -7534,7 +7539,7 @@ tool({
       <label class="check"><input type="checkbox" id="ws-collapse"> collapse spaces</label>
       <label class="check"><input type="checkbox" id="ws-crlf"> normalize to LF</label>
     </div>
-    <label class="lbl">Cleaned ${cpyBtn('#ws-out')}</label>
+    <label class="lbl" for="ws-out">Cleaned ${cpyBtn('#ws-out')}</label>
     <textarea id="ws-out" readonly style="min-height:110px"></textarea>
     ${shPanel('ws', [
       {why:'find non-ASCII / invisible bytes', cmd:`grep -nP '[^\\x00-\\x7F]' file.txt`},
@@ -7592,7 +7597,7 @@ tool({
         <select id="sl-sep"><option value="-">- dash</option><option value="_">_ underscore</option></select></label>
       <label class="check"><input type="checkbox" id="sl-lower" checked> lowercase</label>
     </div>
-    <label class="lbl">Slug ${cpyBtn('#sl-out')}</label>
+    <label class="lbl" for="sl-out">Slug ${cpyBtn('#sl-out')}</label>
     <textarea id="sl-out" readonly style="min-height:44px"></textarea>
     ${shPanel('slug', [
       {why:'a slugify pipeline', cmd:`echo 'My Café Recipe' | iconv -t ascii//TRANSLIT | tr A-Z a-z | sed -E 's/[^a-z0-9]+/-/g; s/^-+|-+$//g'`},
@@ -7624,7 +7629,7 @@ tool({
       <label class="lbl">Sizes <span style="text-transform:none;letter-spacing:0;color:var(--faint)">click a tile to download that PNG</span></label>
       <div id="fv-grid" style="display:flex;flex-wrap:wrap;gap:1rem;align-items:flex-end"></div>
       <div class="row" style="margin-top:.9rem"><button class="act" id="fv-ico">Download favicon.ico</button></div>
-      <label class="lbl">HTML ${cpyBtn('#fv-html')}</label>
+      <label class="lbl" for="fv-html">HTML ${cpyBtn('#fv-html')}</label>
       <textarea id="fv-html" readonly style="min-height:104px"></textarea>
     </div>
     ${shPanel('favicon', [
@@ -7729,7 +7734,7 @@ tool({
       <div class="drop" id="aa-drop">Drop an image here or click to choose</div>
       <input type="file" id="aa-file" accept="image/*" style="display:none">
     </div>
-    <label class="lbl">Output ${cpyBtn('#aa-out')}</label>
+    <label class="lbl" for="aa-out">Output ${cpyBtn('#aa-out')}</label>
     <textarea id="aa-out" readonly style="min-height:230px;font-size:.62rem;line-height:1;white-space:pre;overflow:auto;font-family:var(--mono)"></textarea>
     <div id="aa-preview" hidden style="margin-top:.5rem;background:#0d0d0d;border:1px solid var(--border);border-radius:8px;padding:.6rem;font-family:var(--mono);font-size:.62rem;line-height:1;white-space:pre;overflow:auto"></div>
     ${shPanel('asciiart', [
@@ -9112,7 +9117,7 @@ tool({
     <div class="err" id="pal-err"></div>
     <label class="lbl">Shade scale 50 → 900</label>
     <div class="fadebar" id="pal-scale"></div>
-    <label class="lbl">CSS variables ${cpyBtn('#pal-css')}</label>
+    <label class="lbl" for="pal-css">CSS variables ${cpyBtn('#pal-css')}</label>
     <textarea id="pal-css" readonly style="min-height:150px"></textarea>
     <label class="lbl">Complementary</label>
     <div class="fadebar" id="pal-comp" style="height:44px"></div>
@@ -11065,7 +11070,7 @@ function addSendToButton(tid){
   const lbl = out.previousElementSibling;
   if (!lbl || !lbl.classList.contains('lbl')) return;
   const btn = document.createElement('button');
-  btn.className = 'cpy'; btn.style.borderColor = 'var(--accent)'; btn.style.color = 'var(--accent-2)';
+  btn.className = 'cpy pipe';
   btn.textContent = 'Send to →'; btn.dataset.pipe = tid;
   lbl.appendChild(btn);
 }
