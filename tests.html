@@ -551,6 +551,53 @@ t('game keys do not hijack typing in inputs', async () => { await go('g2048'); a
    is why single-tool tests miss it. ('sq-in' was shared by Shell quote and SQL
    toolkit: visiting Shell quote first left SQL toolkit reading the wrong box.)
    Hydrate everything, then assert ids are unique. */
+/* ---------- date picker ---------- */
+/* The native date popup is browser chrome and cannot be styled, so on a pointer
+   device it is replaced. CSS and script both gate on the single .pt-fine class
+   the picker puts on <html>; if those ever disagreed you would get NO picker. */
+const dpOpen = sel => {
+  const i = $(sel), r = i.getBoundingClientRect();
+  i.dispatchEvent(new (W().MouseEvent)('click', { bubbles:true, clientX:r.right-12, clientY:r.top+r.height/2 }));
+  return D().querySelector('.dp');
+};
+t('date picker: opens on a pointer device and writes the value back', async () => {
+  await go('dmath');
+  D().documentElement.classList.add('pt-fine');
+  set('#dm-base','2026-06-10T09:30');
+  const dp = dpOpen('#dm-base'); await wait(60);
+  assert(dp && dp.classList.contains('open'), 'panel did not open');
+  eq(dp.querySelector('.dp-title').textContent, 'June 2026');
+  eq(dp.querySelector('.dp-sel').textContent, '10');          // current value preselected
+  eq(dp.querySelectorAll('.dp-day').length, 42);
+  [...dp.querySelectorAll('.dp-day:not(.dp-out)')].find(b => b.textContent === '15').click();
+  await wait(60);
+  eq(val('#dm-base'), '2026-06-15T09:30');                    // time preserved
+  assert(!dp.classList.contains('open'), 'panel stayed open after picking');
+});
+/* .out is the app's output-row class (display:grid, 9.5rem first column); using
+   it as the "day outside this month" modifier stretched every column to 203px. */
+t('date picker: the day grid stays inside the panel', async () => {
+  await go('dmath');
+  D().documentElement.classList.add('pt-fine');
+  const dp = dpOpen('#dm-base'); await wait(60);
+  const box = dp.getBoundingClientRect();
+  const days = [...dp.querySelectorAll('.dp-day')];
+  const widths = [...new Set(days.map(d => Math.round(d.getBoundingClientRect().width)))];
+  eq(widths.length, 1);                                       // all seven columns equal
+  const escaped = days.filter(d => { const b = d.getBoundingClientRect(); return b.right > box.right + 1 || b.left < box.left - 1; });
+  eq(escaped.length, 0);
+  dp.classList.remove('open');
+});
+t('date picker: a touch device keeps the native one', async () => {
+  await go('dmath');
+  D().documentElement.classList.remove('pt-fine');            // what a coarse pointer produces
+  const i = $('#dm-base');
+  eq(W().getComputedStyle(i).backgroundImage, 'none');        // our calendar icon is gone
+  const dp = dpOpen('#dm-base'); await wait(60);
+  assert(!dp || !dp.classList.contains('open'), 'custom panel opened on a touch device');
+  D().documentElement.classList.add('pt-fine');
+});
+
 /* ---------- regressions from the implementation review ---------- */
 t('radix: a lone "-" is an error, not 0', async () => {
   await go('radix'); set('#rad-in','-'); inc(txt('#rad-err'),'Not a valid number');   // BigInt('') is 0n

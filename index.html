@@ -223,6 +223,70 @@ input[type=date]:hover::-webkit-calendar-picker-indicator,
 input[type=time]:hover::-webkit-calendar-picker-indicator,
 input[type=datetime-local]:hover::-webkit-calendar-picker-indicator{opacity:1}
 
+/* ── date picker ─────────────────────────────────────────────────────────
+   The browser's own date popup is native UI: no stylesheet can reach its
+   layout, spacing or colours, so on a pointer device we hide it and draw the
+   panel below from the same tokens as everything else. Touch keeps the native
+   picker — the OS wheel beats anything here and is what people expect. */
+/* Scoped to .pt-fine, a class the picker itself puts on <html> from the one
+   matchMedia it also gates on. A second copy of the media query here could
+   disagree with the script — and that failure mode is the bad one: the native
+   button hidden while our panel declines to open, leaving no picker at all. */
+html.pt-fine{
+  --dp-on:1;
+}
+html.pt-fine input[type=date]::-webkit-calendar-picker-indicator,
+html.pt-fine input[type=datetime-local]::-webkit-calendar-picker-indicator{display:none}
+html.pt-fine input[type=date],html.pt-fine input[type=datetime-local]{
+    padding-right:2rem;
+    background-repeat:no-repeat;background-position:right .62rem center;background-size:13px 13px;
+    background-image:url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cg fill='none' stroke='%235c6270' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='2' y='3' width='12' height='11' rx='2'/%3E%3Cpath d='M2 6.5h12M5.5 1.6v2.6M10.5 1.6v2.6'/%3E%3C/g%3E%3C/svg%3E");
+  }
+html.pt-fine[data-theme="dark"] input[type=date],
+html.pt-fine[data-theme="dark"] input[type=datetime-local]{background-image:url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cg fill='none' stroke='%239aa1b2' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='2' y='3' width='12' height='11' rx='2'/%3E%3Cpath d='M2 6.5h12M5.5 1.6v2.6M10.5 1.6v2.6'/%3E%3C/g%3E%3C/svg%3E")}
+.dp{
+  position:fixed;z-index:220;display:none;width:16.5rem;padding:.55rem;
+  background:var(--surface);border:1px solid var(--border-2);border-radius:10px;
+  box-shadow:0 12px 34px rgba(0,0,0,.24);font-family:var(--sans);
+}
+.dp.open{display:block}
+.dp:focus{outline:none}
+.dp-head{display:flex;align-items:center;justify-content:space-between;gap:.4rem;margin-bottom:.4rem}
+.dp-title{font-size:.84rem;font-weight:640;color:var(--ink);letter-spacing:-.01em}
+.dp-nav{display:flex;gap:.15rem}
+.dp-nav button{
+  background:none;border:1px solid transparent;border-radius:5px;cursor:pointer;
+  color:var(--muted);font-size:.9rem;line-height:1;width:1.55rem;height:1.55rem;
+}
+.dp-nav button:hover{color:var(--accent-2);border-color:var(--border-2);background:var(--hover)}
+.dp-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
+.dp-dow{font-size:.6rem;text-transform:uppercase;letter-spacing:.07em;color:var(--faint);text-align:center;padding:.2rem 0}
+.dp-day{
+  background:none;border:0;border-radius:5px;cursor:pointer;color:var(--ink);
+  font-family:var(--mono);font-size:.76rem;padding:.33rem 0;text-align:center;
+}
+.dp-day:hover{background:var(--hover)}
+.dp-day.dp-out{color:var(--faint);opacity:.5}
+.dp-day.dp-today{box-shadow:inset 0 0 0 1px var(--accent)}
+.dp-day.dp-sel{background:var(--accent);color:var(--on-accent);font-weight:650}
+.dp-day.dp-sel:hover{background:var(--accent-2)}
+.dp-foot{display:flex;align-items:center;gap:.45rem;margin-top:.5rem;padding-top:.5rem;border-top:1px solid var(--border)}
+.dp-foot .lbl2{font-size:.6rem;text-transform:uppercase;letter-spacing:.09em;color:var(--faint);font-weight:600}
+.dp-time{
+  width:2.6rem;height:1.6rem;padding:0 .25rem;text-align:center;
+  background:var(--bg);border:1px solid var(--border-2);border-radius:5px;
+  color:var(--ink);font-family:var(--mono);font-size:.76rem;outline:none;
+}
+.dp-time:focus{border-color:var(--accent)}
+.dp-foot .dp-sp{flex:1}
+.dp-foot button{
+  background:none;border:1px solid var(--border-2);border-radius:5px;cursor:pointer;
+  color:var(--muted);font-family:var(--sans);font-size:.7rem;padding:.22rem .5rem;
+}
+.dp-foot button:hover{color:var(--accent-2);border-color:var(--accent)}
+.dp-foot button.dp-ok{background:var(--accent);border-color:var(--accent);color:var(--on-accent);font-weight:600}
+.dp-foot button.dp-ok:hover{background:var(--accent-2);border-color:var(--accent-2);color:var(--on-accent)}
+
 /* Colour swatches carried their own size inline — 52x36, 48x34, 44x32 and
    2.4rem x 1.9rem across five tools. */
 input[type=color]{
@@ -10450,6 +10514,178 @@ document.addEventListener('fullscreenchange', () => {
   const el = document.fullscreenElement;
   if (el){ const b = el.querySelector('.fsbtn'); if (b){ b.textContent = '⤢'; b.title = 'Exit full screen'; } }
 });
+
+/* ── date picker ───────────────────────────────────────────────────────────
+   The browser's native date popup cannot be styled — it is browser chrome, not
+   DOM — so on a pointer device this replaces it. The <input> itself stays the
+   source of truth and keeps its type, so every tool still reads .value in the
+   same format and keyboard entry into the segmented field works as before; this
+   only takes over the little calendar button. Touch devices keep the native
+   picker, which is better than anything here on a phone. */
+const ptDate = (() => {
+  /* One source of truth for "is this a pointer device": the stylesheet reads it
+     back off <html>, so CSS and script can never disagree about which picker is
+     in play. Re-evaluated on change, so plugging in a mouse switches over. */
+  const FINE = matchMedia('(hover:hover) and (pointer:fine)');
+  const syncFine = () => document.documentElement.classList.toggle('pt-fine', FINE.matches);
+  syncFine();
+  FINE.addEventListener ? FINE.addEventListener('change', syncFine) : FINE.addListener(syncFine);
+  const DOW = ['Mo','Tu','We','Th','Fr','Sa','Su'];
+  const MON = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  let box = null, input = null, view = null, pick = null;   // view: month on show, pick: chosen date
+
+  const parse = v => {
+    const m = /^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2}))?/.exec(v || '');
+    if (!m) return null;
+    const d = new Date(+m[1], +m[2] - 1, +m[3], m[4] ? +m[4] : 0, m[5] ? +m[5] : 0);
+    return isNaN(d) ? null : d;
+  };
+  const withTime = () => input && input.type === 'datetime-local';
+  const fmt = d => `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}` +
+                   (withTime() ? `T${pad2(d.getHours())}:${pad2(d.getMinutes())}` : '');
+  const sameDay = (a, b) => a && b && a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth() && a.getDate()===b.getDate();
+
+  const build = () => {
+    box = document.createElement('div');
+    box.className = 'dp'; box.tabIndex = -1;
+    box.setAttribute('role', 'dialog'); box.setAttribute('aria-label', 'Choose a date');
+    box.innerHTML = `
+      <div class="dp-head">
+        <span class="dp-title"></span>
+        <span class="dp-nav">
+          <button type="button" data-mv="-1" aria-label="Previous month">‹</button>
+          <button type="button" data-mv="1" aria-label="Next month">›</button>
+        </span>
+      </div>
+      <div class="dp-grid">${DOW.map(d => `<span class="dp-dow">${d}</span>`).join('')}</div>
+      <div class="dp-grid dp-days"></div>
+      <div class="dp-foot">
+        <span class="lbl2 dp-tlabel">Time</span>
+        <input class="dp-time" id="dp-h" inputmode="numeric" maxlength="2" aria-label="Hour">
+        <span class="lbl2">:</span>
+        <input class="dp-time" id="dp-mi" inputmode="numeric" maxlength="2" aria-label="Minute">
+        <span class="dp-sp"></span>
+        <button type="button" class="dp-now">Today</button>
+        <button type="button" class="dp-ok">Done</button>
+      </div>`;
+    document.body.appendChild(box);
+
+    box.addEventListener('click', e => {
+      const mv = e.target.closest('[data-mv]');
+      if (mv){ view = new Date(view.getFullYear(), view.getMonth() + (+mv.dataset.mv), 1); draw(); return; }
+      const day = e.target.closest('.dp-day');
+      if (day){ choose(new Date(+day.dataset.y, +day.dataset.m, +day.dataset.d)); return; }
+      if (e.target.closest('.dp-now')){ const n = new Date(); choose(n, true); return; }
+      if (e.target.closest('.dp-ok')) close(true);
+    });
+    const timeIn = () => {
+      const h = Math.min(23, Math.max(0, +$('#dp-h').value || 0));
+      const mi = Math.min(59, Math.max(0, +$('#dp-mi').value || 0));
+      pick.setHours(h, mi, 0, 0); commit();
+    };
+    [$('#dp-h'), $('#dp-mi')].forEach(el => el.addEventListener('input', timeIn));
+    box.addEventListener('keydown', e => {
+      if (e.key === 'Escape'){ e.preventDefault(); close(true); return; }
+      if (/^(INPUT)$/.test(e.target.tagName)) return;      // let the time fields take their own keys
+      const step = { ArrowLeft:-1, ArrowRight:1, ArrowUp:-7, ArrowDown:7 }[e.key];
+      if (step !== undefined){
+        e.preventDefault();
+        const d = new Date(pick); d.setDate(d.getDate() + step); choose(d, false, true);
+      } else if (e.key === 'PageUp' || e.key === 'PageDown'){
+        e.preventDefault();
+        const d = new Date(pick); d.setMonth(d.getMonth() + (e.key === 'PageUp' ? -1 : 1)); choose(d, false, true);
+      } else if (e.key === 'Enter'){ e.preventDefault(); close(true); }
+    });
+  };
+
+  const commit = () => {
+    input.value = fmt(pick);
+    input.dispatchEvent(new Event('input', { bubbles:true }));
+    input.dispatchEvent(new Event('change', { bubbles:true }));
+  };
+  const choose = (d, useNow, keepOpen) => {
+    if (!useNow && pick) d.setHours(pick.getHours(), pick.getMinutes(), 0, 0);
+    pick = d; view = new Date(d.getFullYear(), d.getMonth(), 1);
+    $('#dp-h').value = pad2(pick.getHours()); $('#dp-mi').value = pad2(pick.getMinutes());
+    draw(); commit();
+    if (!keepOpen && !useNow) close(true);
+  };
+
+  const draw = () => {
+    box.querySelector('.dp-title').textContent = `${MON[view.getMonth()]} ${view.getFullYear()}`;
+    const first = new Date(view.getFullYear(), view.getMonth(), 1);
+    const lead = (first.getDay() + 6) % 7;                 // weeks start Monday
+    const start = new Date(first); start.setDate(1 - lead);
+    const today = new Date();
+    let html = '';
+    for (let i = 0; i < 42; i++){
+      const d = new Date(start.getFullYear(), start.getMonth(), start.getDate() + i);
+      const cls = ['dp-day'];
+      // dp- prefixes throughout: a bare `out` here picked up the app's
+      // output-row class (.out is display:grid with a 9.5rem first column) and
+      // stretched every column of the calendar to 203px.
+      if (d.getMonth() !== view.getMonth()) cls.push('dp-out');
+      if (sameDay(d, today)) cls.push('dp-today');
+      if (sameDay(d, pick)) cls.push('dp-sel');
+      html += `<button type="button" class="${cls.join(' ')}" data-y="${d.getFullYear()}" data-m="${d.getMonth()}" data-d="${d.getDate()}"`
+            + `${sameDay(d, pick) ? ' aria-current="date"' : ''}>${d.getDate()}</button>`;
+    }
+    box.querySelector('.dp-days').innerHTML = html;
+    const on = withTime();
+    box.querySelector('.dp-tlabel').style.display = on ? '' : 'none';
+    $('#dp-h').style.display = $('#dp-mi').style.display = on ? '' : 'none';
+    box.querySelectorAll('.dp-foot .lbl2')[1].style.display = on ? '' : 'none';
+  };
+
+  const place = () => {
+    const r = input.getBoundingClientRect(), h = box.offsetHeight, w = box.offsetWidth;
+    const below = r.bottom + 6, above = r.top - h - 6;
+    box.style.top = (below + h < innerHeight || above < 0 ? below : above) + 'px';
+    box.style.left = Math.max(8, Math.min(r.left, innerWidth - w - 8)) + 'px';
+  };
+  const onScroll = () => { if (box && box.classList.contains('open')) place(); };
+  const onDocDown = e => { if (box.classList.contains('open') && !box.contains(e.target) && e.target !== input) close(false); };
+
+  const close = refocus => {
+    if (!box || !box.classList.contains('open')) return;
+    box.classList.remove('open');
+    removeEventListener('scroll', onScroll, true); removeEventListener('resize', onScroll);
+    document.removeEventListener('pointerdown', onDocDown, true);
+    const el = input; input = null;
+    if (refocus && el) el.focus();
+  };
+
+  const open = el => {
+    if (!box) build();
+    input = el;
+    pick = parse(el.value) || new Date();
+    if (!withTime()) pick.setHours(0, 0, 0, 0);
+    view = new Date(pick.getFullYear(), pick.getMonth(), 1);
+    $('#dp-h').value = pad2(pick.getHours()); $('#dp-mi').value = pad2(pick.getMinutes());
+    draw();
+    box.classList.add('open'); place(); box.focus();
+    addEventListener('scroll', onScroll, true); addEventListener('resize', onScroll);
+    document.addEventListener('pointerdown', onDocDown, true);
+  };
+
+  /* One delegated listener: the calendar button is the right ~30px of the field,
+     so clicking into the text still edits the segment you clicked. Alt+Down
+     opens it from the keyboard, the way a combobox does. */
+  const on = () => document.documentElement.classList.contains('pt-fine');
+  document.addEventListener('click', e => {
+    if (!on()) return;                      // read the class, not a second copy of the query
+    const el = e.target.closest('input[type=date],input[type=datetime-local]');
+    if (!el || el.disabled || el.readOnly) return;
+    if (e.clientX < el.getBoundingClientRect().right - 30) return;
+    e.preventDefault(); open(el);
+  });
+  document.addEventListener('keydown', e => {
+    if (!on() || !e.altKey || e.key !== 'ArrowDown') return;
+    const el = e.target.closest && e.target.closest('input[type=date],input[type=datetime-local]');
+    if (el){ e.preventDefault(); open(el); }
+  });
+  return { open, close };
+})();
 
 /* Put the caret in the tool's first real input. Only on an explicit pick (nav click,
    palette, search, catalogue) — never on load or hashchange, where stealing focus
