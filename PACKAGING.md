@@ -211,11 +211,8 @@ new worker and reinstall.
 ## Testing
 
 - `tests.html` — open in a browser (or serve + visit). Drives every tool in a live iframe
-  with known-answer vectors and prints a pass/fail report. 123 assertions across 105 tools.
-- `verify-commands.sh` — runs each tool's documented shell command on your machine and
-  checks it matches the tool's output. Needs GNU coreutils, openssl, jq, python3.
+  with known-answer vectors and prints a pass/fail report. 207 assertions across 130 tools.
 
 ```bash
 python3 -m http.server 8000 & open http://localhost:8000/tests.html
-./verify-commands.sh
 ```

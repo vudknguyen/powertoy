@@ -1,7 +1,7 @@
 {
   "name": "powertoy — developer utilities",
   "short_name": "powertoy",
-  "description": "76 offline developer & power-user tools: base64, color, hashing, JWT, regex, cron, CIDR, QR, certificates and more. Each with its shell equivalent.",
+  "description": "130 offline developer & power-user tools: base64, color, hashing, JWT, regex, cron, CIDR, QR, certificates and more.",
   "id": "/powertoy/",
   "start_url": "./index.html",
   "scope": "./",

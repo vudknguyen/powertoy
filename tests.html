@@ -73,7 +73,7 @@ function lumaStdev(px){
 const meanAlpha = sel => { const px = grab(sel); let a = 0;
   for (let i = 0; i < px.width*px.height; i++) a += px.data[i*4+3];
   return a / (px.width*px.height*255); };
-/* a red disc on flat blue — the same scene verify-commands.sh builds with magick */
+/* a red disc on flat blue — a known palette with two dominant colours */
 const discScene = (w, h) => cx => {
   cx.fillStyle = '#2050c8'; cx.fillRect(0, 0, w, h);
   cx.fillStyle = '#d03028'; cx.beginPath(); cx.arc(w/2, h/2, Math.min(w,h)*0.28, 0, 7); cx.fill();
@@ -136,10 +136,25 @@ t('hex decode', async () => { await go('hex'); $$('#hx-mode [data-m]')[1].click(
 t('base32 rfc', async () => { await go('b32'); $$('#b32-mode [data-m]')[0].click(); set('#b32-var','rfc'); set('#b32-in','hello'); eq(val('#b32-out'),'NBSWY3DP'); });
 t('base32 crockford roundtrip', async () => { await go('b32'); set('#b32-var','crock'); $$('#b32-mode [data-m]')[0].click(); set('#b32-in','hello'); const e=val('#b32-out'); $$('#b32-mode [data-m]')[1].click(); set('#b32-in',e); eq(val('#b32-out'),'hello'); });
 t('unicode escape', async () => { await go('uni'); $$('#uni-mode [data-m]')[0].click(); set('#uni-in','café'); eq(val('#uni-out'),'caf\\u00e9'); });
+/* Astral chars need BOTH surrogates. [...ch] iterates code points, so the old
+   escape emitted only the high one and every emoji round-tripped to U+FFFD. */
+t('unicode escape: astral char keeps both surrogates', async () => {
+  await go('uni'); $$('#uni-mode [data-m]')[0].click();
+  set('#uni-in','😀'); eq(val('#uni-out'),'\\ud83d\\ude00');
+  $$('#uni-mode [data-m]')[1].click();
+  set('#uni-in','\\ud83d\\ude00'); eq(val('#uni-out'),'😀');
+});
 t('rot13', async () => { await go('rot'); set('#rot-n','13'); set('#rot-in','Hello'); eq(val('#rot-out'),'Uryyb'); });
 t('urlparse', async () => { await go('urlparse'); set('#up-in','https://ex.com:8443/p?a=1&b=2#h'); eq(txt('#up-host'),'ex.com'); eq(txt('#up-port'),'8443'); });
 t('gzip roundtrip', async () => { await go('gz'); $$('#gz-mode [data-m]')[0].click(); set('#gz-fmt','gzip'); set('#gz-in','hello hello hello compress me'); await wait(250); const blob=val('#gz-out'); assert(blob.length>0,'no gz output'); $$('#gz-mode [data-m]')[1].click(); set('#gz-in',blob); await wait(250); eq(val('#gz-out'),'hello hello hello compress me'); });
 t('data uri decode', async () => { await go('duri'); set('#du-in','data:text/plain;base64,aGVsbG8gd29ybGQ='); eq(txt('#du-mime'),'text/plain'); inc(txt('#du-prev'),'hello world'); });
+/* A media type may carry parameters. [^;,]* stopped at the first ';', so this
+   perfectly ordinary data URI was rejected as "Not a data: URI". */
+t('data uri decode: media type with a charset parameter', async () => {
+  await go('duri');
+  set('#du-in','data:text/plain;charset=utf-8;base64,aGVsbG8=');
+  eq(txt('#du-err'),''); eq(txt('#du-mime'),'text/plain;charset=utf-8'); inc(txt('#du-prev'),'hello');
+});
 t('base58', async () => { await go('b58'); $$('#b58-mode [data-m]')[0].click(); set('#b58-in','hello'); eq(val('#b58-out'),'Cn8eVZg'); });
 t('binary text', async () => { await go('bin'); $$('#bin-mode [data-m]')[0].click(); chk('#bin-sp',true); set('#bin-in','Hi'); eq(val('#bin-out'),'01001000 01101001'); });
 t('json escape', async () => { await go('jstr'); $$('#js2-mode [data-m]')[0].click(); chk('#js2-q',true); set('#js2-in','a"b\nc'); eq(val('#js2-out'),'"a\\"b\\nc"'); });
@@ -334,6 +349,25 @@ t('timezone duration window', async () => { await go('tz'); set('#tz-dt','2026-0
 t('hash md5+sha256', async () => { await go('hash'); set('#hash-in','hello'); await wait(120); eq(txt('#hash-md5'),'5d41402abc4b2a76b9719d911017c592'); eq(txt('#hash-sha256'),'2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824'); });
 t('aes roundtrip', async () => { await go('aes'); $$('#aes-mode [data-m]')[0].click(); set('#aes-pass','pw123'); set('#aes-in','secret message ✓'); click('#aes-go'); await wait(400); const blob=val('#aes-out'); assert(blob.length>0,'no ciphertext'); $$('#aes-mode [data-m]')[1].click(); set('#aes-in',blob); click('#aes-go'); await wait(400); eq(val('#aes-out'),'secret message ✓'); });
 t('hmac sha256', async () => { await go('hmac'); set('#hm-algo','SHA-256'); set('#hm-keyfmt','text'); set('#hm-outfmt','hex'); set('#hm-key','secret'); set('#hm-msg','payload'); await wait(200); eq(val('#hm-out'),'b82fcb791acec57859b989b430a826488ce2e479fdf92326bd0a2e8375a42ba4'); });
+/* The hex-key cleaner was /[\s0x]/gi — a character class, so it deleted every '0'
+   and every 'x' in the key. Keys 00ff and ff signed identically. Vectors from
+   Python hmac.new(bytes.fromhex(k), b'abc', sha256). */
+t('hmac: hex key keeps its zero bytes', async () => {
+  await go('hmac'); set('#hm-algo','SHA-256'); set('#hm-outfmt','hex'); set('#hm-keyfmt','hex');
+  set('#hm-key','00ff'); set('#hm-msg','abc'); await wait(200);
+  eq(val('#hm-out'),'95e9ac7e35b5708a9d182dc0d1dd37e43b53361dbee57cb76389d80de4114601');
+  set('#hm-key','0x00ff'); await wait(200);
+  eq(val('#hm-out'),'95e9ac7e35b5708a9d182dc0d1dd37e43b53361dbee57cb76389d80de4114601');
+  set('#hm-key','ff'); await wait(200);
+  eq(val('#hm-out'),'19a05a8b31a3631f7dc9f0b767707784df7c4f0a17578aea5732838b8651f8b3');
+});
+/* "nullable" lives on the shape; the Go generator read it off the field wrapper,
+   so a nullable field got `int64` where TypeScript got `number | null`. */
+t('json → types: Go emits a pointer for a nullable field', async () => {
+  await go('j2t'); $$('#jt-lang button').find(b=>b.dataset.l==='go').click();
+  set('#jt-in','{"a":[{"x":1},{"x":null}]}'); await wait(30);
+  inc(val('#jt-out'),'*int64');
+});
 t('password gen', async () => { await go('pw'); $$('#pw-mode [data-m]')[0].click(); click('#pw-go'); assert(val('#pw-out').length>0,'no password'); inc(txt('#pw-ent'),'bits'); });
 t('random string len', async () => { await go('random'); set('#rnd-len','24'); chk('#rnd-lo',true); click('#rnd-go'); eq(val('#rnd-out').length,24); });
 t('uuid v4 format', async () => { await go('uuid'); set('#uu-type','v4'); click('#uu-go'); rx(val('#uu-out').split('\n')[0], /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/); });
@@ -481,25 +515,171 @@ t('hexdump', async () => { await go('hexdump'); $$('#hd-mode button').find(b=>b.
 t('calc: bitwise + bases', async () => { await go('calc'); set('#calc-in','0xff & 0b1010'); await wait(20); inc(txt('#calc-out'),'10'); assert($$('#calc-alt .v').some(v=>v.textContent==='0xa'),'no hex alt'); });
 t('calc: power + functions', async () => { await go('calc'); set('#calc-in','2**10'); await wait(20); inc(txt('#calc-out'),'1024'); assert($$('#calc-alt .v').some(v=>v.textContent==='0x400'),'no hex 0x400'); });
 t('calc: error on bad expr', async () => { await go('calc'); set('#calc-in','1/'); await wait(20); assert(txt('#calc-err').length>0,'no error shown'); });
+/* `k in obj` walks the prototype chain, so a key literally called "constructor"
+   looked like a repeat of a key that was never set. Three tools shared the bug. */
+t('inherited key names are not treated as existing keys', async () => {
+  await go('qs'); $$('#qs-mode [data-m]')[0].click();
+  set('#qs-in','constructor=x'); eq(JSON.parse(val('#qs-out')).constructor,'x');
+  await go('xmljson'); $$('#xj-mode button').find(b=>b.dataset.m==='x2j').click();
+  set('#xj-in','<r><constructor>a</constructor></r>');
+  eq(JSON.parse(val('#xj-out')).r.constructor,'a');
+  await go('calc'); set('#calc-in','constructor'); await wait(20);
+  inc(txt('#calc-err'),'Unknown name');
+});
 t('calc: exact big integer', async () => { await go('calc'); set('#calc-in','2**100 + 1'); await wait(20); eq(txt('#calc-out'),'1267650600228229401496703205377'); });
 t('calc: no float flop', async () => { await go('calc'); set('#calc-in','0.1 + 0.2'); await wait(20); eq(txt('#calc-out'),'0.3'); });
 t('calc: factorial + ncr', async () => { await go('calc'); set('#calc-in','5!'); await wait(20); inc(txt('#calc-out'),'120'); set('#calc-in','ncr(52,5)'); await wait(20); inc(txt('#calc-out'),'2598960'); });
 t('calc: degree-mode trig', async () => { await go('calc'); $$('#calc-ang button').find(b=>b.dataset.ang==='deg').click(); set('#calc-in','sin(30)'); await wait(20); inc(txt('#calc-out'),'0.5'); $$('#calc-ang button').find(b=>b.dataset.ang==='rad').click(); });
 t('calc: graph mode on x', async () => { await go('calc'); set('#calc-in','sin(x)/x'); await wait(40); assert($('#calc-graph').style.display!=='none','graph not shown'); assert($('#calc-graph').width>0,'no canvas'); });
-t('sql format', async () => { await go('sqlfmt'); $$('#sq-mode button').find(b=>b.dataset.m==='fmt').click(); set('#sq-in','select a, count(*) from t where x=1'); await wait(20); const o=val('#sq-out'); inc(o,'SELECT'); inc(o,'COUNT(*)'); assert(o.split('\n').length>=3,'not multiline'); });
-t('sql lint: clean query', async () => { await go('sqlfmt'); $$('#sq-mode button').find(b=>b.dataset.m==='lint').click(); set('#sq-in','select a from t where x is null'); await wait(20); inc($('#sq-issues').textContent,'No obvious problems'); });
-t('sql lint: trailing comma', async () => { await go('sqlfmt'); $$('#sq-mode button').find(b=>b.dataset.m==='lint').click(); set('#sq-in','select a, from t'); await wait(20); inc($('#sq-issues').textContent,'Trailing comma'); });
-t('sql lint: = NULL suggestion', async () => { await go('sqlfmt'); $$('#sq-mode button').find(b=>b.dataset.m==='lint').click(); set('#sq-in','select * from t where x = null'); await wait(20); inc($('#sq-issues').textContent,'IS NULL'); });
-t('sql lint: unbalanced parens', async () => { await go('sqlfmt'); $$('#sq-mode button').find(b=>b.dataset.m==='lint').click(); set('#sq-in','select a from (select b from c'); await wait(20); inc($('#sq-issues').textContent,'unclosed'); });
-t('sql gen: aggregate', async () => { await go('sqlfmt'); $$('#sq-mode button').find(b=>b.dataset.m==='gen').click(); set('#sq-in','count orders'); await wait(20); inc(val('#sq-out'),'SELECT COUNT(*)'); inc(val('#sq-out'),'FROM orders'); });
-t('sql gen: top N by column', async () => { await go('sqlfmt'); $$('#sq-mode button').find(b=>b.dataset.m==='gen').click(); set('#sq-in','top 10 products by price'); await wait(20); const o=val('#sq-out'); inc(o,'FROM products'); inc(o,'ORDER BY price DESC'); inc(o,'LIMIT 10'); });
-t('sql gen: where condition', async () => { await go('sqlfmt'); $$('#sq-mode button').find(b=>b.dataset.m==='gen').click(); set('#sq-in','users where age > 30'); await wait(20); inc(val('#sq-out'),'WHERE age > 30'); });
+t('sql format', async () => { await go('sqlfmt'); $$('#sql-mode button').find(b=>b.dataset.m==='fmt').click(); set('#sql-in','select a, count(*) from t where x=1'); await wait(20); const o=val('#sql-out'); inc(o,'SELECT'); inc(o,'COUNT(*)'); assert(o.split('\n').length>=3,'not multiline'); });
+t('sql lint: clean query', async () => { await go('sqlfmt'); $$('#sql-mode button').find(b=>b.dataset.m==='lint').click(); set('#sql-in','select a from t where x is null'); await wait(20); inc($('#sql-issues').textContent,'No obvious problems'); });
+t('sql lint: trailing comma', async () => { await go('sqlfmt'); $$('#sql-mode button').find(b=>b.dataset.m==='lint').click(); set('#sql-in','select a, from t'); await wait(20); inc($('#sql-issues').textContent,'Trailing comma'); });
+t('sql lint: = NULL suggestion', async () => { await go('sqlfmt'); $$('#sql-mode button').find(b=>b.dataset.m==='lint').click(); set('#sql-in','select * from t where x = null'); await wait(20); inc($('#sql-issues').textContent,'IS NULL'); });
+t('sql lint: unbalanced parens', async () => { await go('sqlfmt'); $$('#sql-mode button').find(b=>b.dataset.m==='lint').click(); set('#sql-in','select a from (select b from c'); await wait(20); inc($('#sql-issues').textContent,'unclosed'); });
+t('sql gen: aggregate', async () => { await go('sqlfmt'); $$('#sql-mode button').find(b=>b.dataset.m==='gen').click(); set('#sql-in','count orders'); await wait(20); inc(val('#sql-out'),'SELECT COUNT(*)'); inc(val('#sql-out'),'FROM orders'); });
+t('sql gen: top N by column', async () => { await go('sqlfmt'); $$('#sql-mode button').find(b=>b.dataset.m==='gen').click(); set('#sql-in','top 10 products by price'); await wait(20); const o=val('#sql-out'); inc(o,'FROM products'); inc(o,'ORDER BY price DESC'); inc(o,'LIMIT 10'); });
+t('sql gen: where condition', async () => { await go('sqlfmt'); $$('#sql-mode button').find(b=>b.dataset.m==='gen').click(); set('#sql-in','users where age > 30'); await wait(20); inc(val('#sql-out'),'WHERE age > 30'); });
 t('crc32 known vector', async () => { await go('crc'); $$('#crc-mode button').find(b=>b.dataset.m==='text').click(); set('#crc-in','123456789'); await wait(20); eq(txt('#crc-c32h'),'0xcbf43926'); eq(txt('#crc-a32h'),'0x091e01de'); });
 t('user-agent parse', async () => { await go('ua'); set('#ua-in','Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'); await wait(20); inc(txt('#ua-br'),'Chrome'); inc(txt('#ua-os'),'Windows'); eq(txt('#ua-eng'),'Blink'); });
 t('number toolkit: single', async () => { await go('numtool'); set('#nt-in','1234'); await wait(20); const v=$$('#nt-out .v').map(x=>x.textContent); inc(v.join(' '),'MCCXXXIV'); inc(v.join(' '),'2 × 617'); });
 t('number toolkit: stats', async () => { await go('numtool'); set('#nt-in','4, 8, 15, 16, 23, 42'); await wait(20); const v=$$('#nt-out .v').map(x=>x.textContent); eq(v[0],'6'); inc(v.join(' '),'18'); inc(v.join(' '),'15.5'); });
 t('keygen: RSA PEM', async () => { await go('keygen'); $$('#kg-alg button').find(b=>b.dataset.a==='rsa').click(); $('#kg-go').click(); for(let i=0;i<40 && !/BEGIN PUBLIC KEY/.test(val('#kg-pub')); i++) await wait(200); inc(val('#kg-pub'),'BEGIN PUBLIC KEY'); inc(val('#kg-priv'),'BEGIN PRIVATE KEY'); });
 t('game keys do not hijack typing in inputs', async () => { await go('g2048'); await wait(20); const q=$('#q'); q.focus(); const ev=new (W().KeyboardEvent)('keydown',{key:'a',bubbles:true,cancelable:true}); q.dispatchEvent(ev); assert(!ev.defaultPrevented,'active game swallowed "a" typed into an input'); });
+
+/* Every tool shares one document, so a duplicated element id silently rebinds one
+   tool's $('#x') to another tool's element — and only once both are hydrated, which
+   is why single-tool tests miss it. ('sq-in' was shared by Shell quote and SQL
+   toolkit: visiting Shell quote first left SQL toolkit reading the wrong box.)
+   Hydrate everything, then assert ids are unique. */
+/* ---------- regressions from the implementation review ---------- */
+t('radix: a lone "-" is an error, not 0', async () => {
+  await go('radix'); set('#rad-in','-'); inc(txt('#rad-err'),'Not a valid number');   // BigInt('') is 0n
+  set('#rad-in','0xff'); eq(txt('#rad-10'),'255');
+});
+t('ieee: trailing junk is rejected', async () => {
+  await go('ieee'); $$('#ie-prec [data-p]').find(b=>b.dataset.p==='64').click();       // an earlier test leaves 32-bit on
+  set('#ie-in','1abc'); inc(txt('#ie-err'),'Not a number');                            // parseFloat('1abc') is 1
+  set('#ie-in','0.1'); eq(txt('#ie-hex'),'0x3fb999999999999a');
+});
+t('json5: "xInfinity" is not Infinity', async () => {
+  await go('json5'); set('#j5-in','{a: xInfinity}'); assert(txt('#j5-err').length>0,'no error');
+  set('#j5-in','{a: -Infinity}'); inc(val('#j5-out'),'null');                           // JSON has no Infinity
+});
+/* o['__proto__'] = v hits Object.prototype's setter instead of making a property,
+   so the key used to vanish from every parser's output. */
+t('parsers keep a __proto__ key', async () => {
+  await go('yaml');  $$('#ya-mode [data-m]')[0].click(); set('#ya-in','__proto__: x\nok: 1');
+  inc(val('#ya-out'),'"__proto__"');
+  await go('toml');  $$('#tm-mode [data-m]')[0].click(); set('#tm-in','__proto__ = "x"');
+  inc(val('#tm-out'),'"__proto__"');
+  await go('json5'); set('#j5-in','{__proto__: 1}'); inc(val('#j5-out'),'"__proto__"');
+});
+/* Chained .replace() calls re-substituted inserted text and ran $$ last. */
+t('regex replace: $$ escapes, and inserted text is not re-substituted', async () => {
+  await go('rrep');
+  set('#rr-pat','b'); set('#rr-rep','$$1'); set('#rr-in','abc'); eq(val('#rr-out'),'a$1c');
+  set('#rr-pat','.+'); set('#rr-rep','[$&]'); set('#rr-in','$1'); eq(val('#rr-out'),'[$1]');
+  set('#rr-pat','(\\w+)@([\\w.]+)'); set('#rr-rep','$1 at $2'); set('#rr-in','ada@x.com');
+  eq(val('#rr-out'),'ada at x.com');
+});
+t('csv: duplicate headers are suffixed, not dropped', async () => {
+  await go('csv'); $$('#cv-mode [data-m]')[0].click(); set('#cv-in','a,b,a\n1,2,3');
+  const o = JSON.parse(val('#cv-out'))[0];
+  eq(o.a, 1); eq(o.a_2, 3); inc(txt('#cv-err'),'Duplicate header');
+});
+t('json → types: two keys cannot collide on one Go field name', async () => {
+  await go('j2t'); $$('#jt-lang button').find(b=>b.dataset.l==='go').click();
+  set('#jt-in','{"user-id":1,"user_id":2}');
+  inc(val('#jt-out'),'UserId '); inc(val('#jt-out'),'UserId2 ');
+});
+t('morse: characters it cannot encode are reported', async () => {
+  await go('morse'); $$('#mo-mode [data-m]')[0].click();
+  set('#mo-in','sos ~'); eq(val('#mo-out'),'... --- ...'); inc(txt('#mo-err'),'~');
+  set('#mo-in','sos'); eq(txt('#mo-err'),'');
+});
+t('duration: a negative value keeps its sign on the clock', async () => {
+  await go('dur'); set('#dur-v','-3661'); set('#dur-u','1000');
+  inc(txt('#dur-clock'),'\u22121:01:01');
+});
+t('id decoder: UUID version 0 is not reported as "?"', async () => {
+  await go('iddecode'); set('#idd-in','00000000-0000-0000-0000-000000000000');
+  inc(txt('#idd-type'),'v0');
+});
+/* The restore loop used to run once at startup, before any tool body existed, so
+   getElementById() was null for every saved id, the "stale entry" branch deleted
+   them all and wrote the emptied object back. Remember-my-input was a no-op that
+   also threw the state away on every load. Restoring is now per tool, in hydrate(). */
+t('saved form state is restored into a tool and recomputed', async () => {
+  await go('base64');
+  $$('#b64-mode [data-m]')[0].click();                 // earlier tests may have left Decode on
+  set('#b64-in', ''); chk('#b64-url', false);
+  W().eval(`saved.fields['b64-in'] = 'hello'; saved.fields['b64-url'] = true;`);
+  W().eval(`restoreFields(document.getElementById('tool-base64'))`);
+  eq(val('#b64-in'), 'hello');
+  assert($('#b64-url').checked, 'checkbox not restored');
+  eq(val('#b64-out'), 'aGVsbG8');          // url-safe, unpadded: the tool re-ran
+});
+t('saved form state skips and scrubs sensitive fields', async () => {
+  await go('totp');
+  set('#tp-in', '');                                               // clear whatever earlier tests left
+  W().eval(`saved.fields['tp-in'] = 'JBSWY3DPEHPK3PXP';`);
+  W().eval(`restoreFields(document.getElementById('tool-totp'))`);
+  eq(val('#tp-in'), '');                                           // data-nosave: never restored
+  eq(W().eval(`'tp-in' in saved.fields`), false);                  // and dropped from the store
+});
+/* Blurbs were interpolated raw, so "$<name>" in the regex-replace blurb was parsed
+   as an unknown element and vanished from the page. */
+t('tool blurbs are HTML-escaped', async () => {
+  await go('rrep');
+  inc(txt('#tool-rrep .blurb'), '$<name>');
+});
+t('no duplicate element ids across all hydrated tools', async () => {
+  const ids = W().eval('TOOLS.map(t=>t.id)');
+  for (const id of ids){ W().location.hash = '#' + id; }
+  await wait(60);
+  const hydrated = $$('.tool:not([data-lazy])').length;
+  assert(hydrated >= ids.length, `only ${hydrated}/${ids.length} tools hydrated`);
+  const seen = new Map(), dups = [];
+  for (const el of $$('[id]')){
+    const owner = el.closest('.tool') ? el.closest('.tool').id : '(global)';
+    if (seen.has(el.id)) dups.push(`${el.id} (${seen.get(el.id)} / ${owner})`);
+    else seen.set(el.id, owner);
+  }
+  assert(!dups.length, 'duplicate ids: ' + [...new Set(dups)].join(', '));
+});
+
+/* Tool chaining is two id registries plus a DOM convention (the output's previous
+   sibling must be a .lbl, or addSendToButton bails silently). A typo in either
+   registry loses the button with no error, so assert the whole wiring. */
+t('tool chaining: every registered selector resolves and gets a button', async () => {
+  const OUT = W().eval('PIPE_OUT'), IN = W().eval('PIPE_IN');
+  for (const id of Object.keys(OUT)){ W().location.hash = '#' + id; }
+  for (const id of Object.keys(IN)){ W().location.hash = '#' + id; }
+  await wait(60);
+  const bad = [];
+  for (const [id, sel] of Object.entries(OUT)){
+    if (!$(sel)) { bad.push(`out ${id} ${sel} missing`); continue; }
+    if (!$(`button[data-pipe="${id}"]`)) bad.push(`out ${id} has no "Send to" button`);
+  }
+  for (const [id, sel] of Object.entries(IN)) if (!$(sel)) bad.push(`in ${id} ${sel} missing`);
+  assert(!bad.length, bad.join('; '));
+});
+
+t('tool chaining: YAML output pipes into the JSON formatter', async () => {
+  await go('yaml');
+  $$('#ya-mode button').find(b => /YAML\s*→\s*JSON/i.test(b.textContent)).click();
+  set('#ya-in', 'a: 1\nb: two');
+  await wait(30);
+  const produced = val('#ya-out');
+  inc(produced, '"a"');
+  $('button[data-pipe="yaml"]').click();          // opens the destination picker
+  await wait(20);
+  const dest = $$('#pipe-list .pal-item').find(d => d.dataset.tool === 'json');
+  assert(dest, 'JSON formatter not offered as a destination');
+  dest.click();
+  await wait(40);
+  eq(val('#js-in'), produced);
+});
 
 /* ---------- run ---------- */
 async function run(){
