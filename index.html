@@ -562,6 +562,14 @@ const te = new TextEncoder(), td = new TextDecoder();
 const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const shq = s => "'" + String(s).replace(/'/g, `'\\''`) + "'";
 const shTrim = (s, n=80) => s.length > n ? s.slice(0, n) + '…' : s;
+/* Assigning o['__proto__'] = v triggers Object.prototype's setter instead of
+   creating a property, so a key literally called __proto__ silently vanished
+   from the output of every parser below. defineProperty makes a real own property. */
+const setKey = (o, k, v) => {
+  if (k === '__proto__') Object.defineProperty(o, k, { value:v, writable:true, enumerable:true, configurable:true });
+  else o[k] = v;
+  return o;
+};
 const hex2 = b => b.toString(16).padStart(2,'0');
 const pad2 = n => String(n).padStart(2,'0');
 
@@ -617,6 +625,22 @@ async function flashCopy(el, text){
   el.style.outlineOffset = '-2px';
   setTimeout(() => { el.style.outline = ''; el.style.outlineOffset = ''; }, 600);
   return ok;
+}
+
+/* An interval that only exists while its tool is on screen. The three tools that
+   needed one (TOTP's countdown, the WiFi poll, Snake's game loop) each used a bare
+   setInterval that was never cleared and ran for the life of the page, doing an
+   is-this-tool-active check on every tick instead. activate() fires pt-tool-change. */
+function toolInterval(toolId, fn, ms){
+  let h = null;
+  const sync = () => {
+    const sec = document.getElementById('tool-' + toolId);
+    const on = sec && sec.classList.contains('active');
+    if (on && h === null){ fn(); h = setInterval(fn, ms); }
+    else if (!on && h !== null){ clearInterval(h); h = null; }
+  };
+  document.addEventListener('pt-tool-change', sync);
+  sync();
 }
 
 const cpyBtn = (target, label='Copy') => `<button class="cpy" data-copy="${target}">${label}</button>`;
@@ -832,10 +856,11 @@ tool({
     const inp = $('#jwt-in'), err = $('#jwt-err');
     const fmtClaim = ts => {
       if (typeof ts !== 'number') return '—';
-      const d = new Date(ts * 1000), diff = ts * 1000 - Date.now();
-      const rel = Math.abs(diff) > 86400000*2
-        ? Math.round(Math.abs(diff) / 86400000) + ' d'
-        : Math.round(Math.abs(diff) / 60000) + ' min';
+      const d = new Date(ts * 1000), diff = ts * 1000 - Date.now(), a = Math.abs(diff);
+      const rel = a >= 86400000*2 ? Math.round(a / 86400000) + ' d'
+                : a >= 5400000   ? Math.round(a / 3600000)  + ' h'
+                : a >= 90000     ? Math.round(a / 60000)    + ' min'
+                :                  Math.round(a / 1000)     + ' s';
       return `${d.toISOString()}  (${diff < 0 ? rel + ' ago' : 'in ' + rel})`;
     };
     inp.addEventListener('input', () => {
@@ -847,7 +872,12 @@ tool({
         .replace(/^Authorization:\s*(Bearer\s+)?/i, '');
       if (!t) return;
       const parts = t.split('.');
-      if (parts.length < 2){ err.textContent = 'A JWT has 3 dot-separated segments'; return; }
+      if (parts.length !== 3){
+        err.textContent = parts.length === 2
+          ? 'Only 2 segments — decoding anyway, but a JWT has 3 (header.payload.signature)'
+          : 'A JWT has 3 dot-separated segments'; 
+        if (parts.length !== 2) return;
+      }
       try {
         const h = JSON.parse(td.decode(b64ToBytes(b64uToB64(parts[0]))));
         const p = JSON.parse(td.decode(b64ToBytes(b64uToB64(parts[1]))));
@@ -1015,6 +1045,7 @@ tool({
       if (v.startsWith('-')){ neg = true; v = v.slice(1); }
       let n;
       if (b === 'auto'){
+        if (!v) throw 0;                       // BigInt('') is 0n, so "-" used to report 0
         n = BigInt(v.match(/^0[xXoObB]/) ? v : v.replace(/^0+(?=\d)/,''));
       } else {
         const digits = '0123456789abcdef'.slice(0, +b);
@@ -1091,7 +1122,10 @@ tool({
       const v = inp.value.trim(); if (!v) return;
       let ms;
       if (/^-?\d{1,17}$/.test(v)){
-        const n = parseInt(v, 10);
+        const n = Number(v);
+        if (!Number.isSafeInteger(n)) err.textContent = 'Beyond 2^53 — the last digits are approximate';
+        // A bare year is a valid epoch value, so this stays a hint, not an error.
+        else if (/^\d{4}$/.test(v) && +v >= 1000) err.textContent = `Read as ${v} epoch seconds — for the year, type ${v}-01-01`;
         ms = Math.abs(n) >= 1e12 ? n : n * 1000;
       } else {
         ms = Date.parse(v);
@@ -1672,6 +1706,7 @@ tool({
       $('#rnd-ent').textContent = `${Math.floor(len * Math.log2(pool.length))} bits (${pool.length}-char pool × ${len})`;
     };
     $('#rnd-go').addEventListener('click', gen);
+    ['rnd-len','rnd-lo','rnd-up','rnd-di','rnd-sy'].forEach(id => $('#'+id).addEventListener('change', gen));
     gen();
   }
 });
@@ -1771,13 +1806,13 @@ tool({
       v1:  { s:'60-bit Gregorian timestamp + clock seq + node', sort:'roughly — but byte order scrambles it; leaks creation time', dashes:true },
       ulid:{ s:'48-bit ms timestamp + 80 random bits, Crockford base32, 26 chars', sort:'yes — lexicographically', dashes:false },
       nano:{ s:'21 chars × 64-char URL-safe alphabet ≈ 126 random bits', sort:'no — fully random', dashes:false },
-      cuid2:{ s:'24 chars base36, starts with a letter ≈ 118 random bits', sort:'no — designed to be unguessable', dashes:false },
+      cuid2:{ s:'24 chars base36 (a letter + 23) ≈ 123 random bits', sort:'no — designed to be unguessable', dashes:false },
       objectid:{ s:'4-byte seconds timestamp + 8 random bytes, 24 hex chars', sort:'yes — to the second', dashes:false },
     };
     const gen = () => {
       const type = $('#uu-type').value, info = INFO[type];
       const n = Math.min(100, Math.max(1, +$('#uu-n').value || 1));
-      $('#uu-uuidopts').style.display = info.dashes ? '' : 'none';
+      $('#uu-uuidopts').hidden = !info.dashes;      // .hidden, like #uu-nanoopts below
       $('#uu-nanoopts').hidden = $('#uu-nanoalpha').hidden = type !== 'nano';
       let list = Array.from({ length:n }, GEN[type]);
       if (info.dashes){
@@ -1890,7 +1925,10 @@ tool({
         const m = re.exec(src);
         if (m) matches.push(m);
       }
-      count.textContent = matches.length ? `· ${matches.length} match${matches.length>1?'es':''}` : '· no matches';
+      const capped = matches.length >= 5000;
+      count.textContent = matches.length
+        ? `· ${matches.length} match${matches.length>1?'es':''}${capped ? '+ (stopped at 5000)' : ''}`
+        : '· no matches';
       let html = '', last = 0;
       for (const m of matches.slice(0, 2000)){
         html += esc(src.slice(last, m.index)) + '<mark>' + esc(m[0]) + '</mark>';
@@ -1898,7 +1936,8 @@ tool({
       }
       html += esc(src.slice(last));
       view.innerHTML = html || '<span style="color:var(--faint)">empty</span>';
-      groups.innerHTML = matches.slice(0, 50).map((m, i) => {
+      const shownGroups = matches.slice(0, 50);
+      groups.innerHTML = shownGroups.map((m, i) => {
         const named = m.groups ? Object.entries(m.groups).filter(([,v]) => v !== undefined) : [];
         const parts = [
           `<b style="color:var(--accent-2)">#${i+1}</b> @${m.index} → <span style="font-family:var(--mono)">${esc(shTrim(m[0], 60))}</span>`,
@@ -1977,7 +2016,11 @@ tool({
       $('#st-w').textContent   = String((v.match(/\S+/g) || []).length);
       $('#st-l').textContent   = v ? String(v.split('\n').length) : '0';
       $('#st-b').textContent   = String(bytes) + (bytes !== chars ? '  (≠ chars: multibyte)' : '');
-      $('#st-ll').textContent  = String(Math.max(0, ...v.split('\n').map(l => [...l].length)));
+      // A fold, not Math.max(...spread): the spread passes one argument per line
+      // and a paste of ~100k lines overflows the call stack.
+      let longest = 0;
+      for (const line of v.split('\n')){ const n = [...line].length; if (n > longest) longest = n; }
+      $('#st-ll').textContent  = String(longest);
     });
   }
 });
@@ -2306,7 +2349,8 @@ tool({
       if (rem >= 1 && parts.length < 3) parts.push(`${Math.round(rem)} ms`);
       $('#dur-hum').textContent = (ms < 0 ? '− ' : '') + (parts.slice(0, 3).join(' ') || '0');
       const ts = Math.floor(abs / 1000);
-      $('#dur-clock').textContent = `${Math.floor(ts / 3600)}:${pad2(Math.floor(ts % 3600 / 60))}:${pad2(ts % 60)}`;
+      $('#dur-clock').textContent = (ms < 0 ? '\u2212' : '') +
+        `${Math.floor(ts / 3600)}:${pad2(Math.floor(ts % 3600 / 60))}:${pad2(ts % 60)}`;
       $('#dur-ms').textContent  = fmtN(ms);
       $('#dur-s').textContent   = fmtN(ms / 1000);
       $('#dur-min').textContent = fmtN(ms / 60000);
@@ -2939,6 +2983,11 @@ tool({
       const a = document.createElement('a');
       a.href = dlUrl; a.download = dlName; a.click();
     });
+    // Release the decoded blob when you leave — otherwise the last one is pinned
+    // for the life of the page.
+    document.addEventListener('pt-tool-change', e => {
+      if (e.detail.id !== 'duri' && dlUrl){ URL.revokeObjectURL(dlUrl); dlUrl = null; dl.style.display = 'none'; }
+    });
   }
 });
 
@@ -3161,7 +3210,8 @@ tool({
     <label class="lbl">Input</label>
     <textarea id="mo-in" spellcheck="false" placeholder="SOS  ·  ... --- ..."></textarea>
     <label class="lbl" for="mo-out">Output ${cpyBtn('#mo-out')}</label>
-    <textarea id="mo-out" readonly></textarea>`,
+    <textarea id="mo-out" readonly></textarea>
+    <div class="err" id="mo-err"></div>`,
   wire(){
     const MAP = { a:'.-', b:'-...', c:'-.-.', d:'-..', e:'.', f:'..-.', g:'--.', h:'....', i:'..',
       j:'.---', k:'-.-', l:'.-..', m:'--', n:'-.', o:'---', p:'.--.', q:'--.-', r:'.-.', s:'...',
@@ -3177,10 +3227,17 @@ tool({
       const v = inp.value;
       if (mode === 'enc'){
         out.value = v.toLowerCase().split(/\s+/).filter(Boolean).map(word =>
-          [...word].map(ch => MAP[ch] || '').filter(Boolean).join(' ')).join(' / ');
+          [...word].map(ch => MAP[ch] || '').filter(Boolean).join(' '))
+          .filter(Boolean).join(' / ');   // a word of only unknown chars left a stray " / "
+        const dropped = [...new Set([...v.toLowerCase()].filter(c => !/\s/.test(c) && !MAP[c]))];
+        $('#mo-err').textContent = dropped.length
+          ? `Not in Morse, skipped: ${dropped.join(' ')}` : '';
       } else {
         out.value = v.trim().split(/\s*\/\s*|\s{3,}/).map(word =>
           word.trim().split(/\s+/).map(code => REV[code] || '·').join('')).join(' ');
+        const bad = [...new Set(v.trim().split(/[\s/]+/).filter(t => t && !REV[t]))];
+        $('#mo-err').textContent = bad.length
+          ? `Not valid Morse, shown as ·: ${bad.slice(0, 8).join(' ')}` : '';
       }
     };
     $('#mo-play').addEventListener('click', () => {
@@ -3292,6 +3349,7 @@ tool({
           } else v = 84;
           n = n * 85 + v;
         }
+        if (n > 0xFFFFFFFF) throw 0;   // group overflows 4 bytes: not valid input
         const cnt = z85 ? 4 : part - 1;
         for (let k = 0; k < cnt; k++) bytes.push((n >>> (24 - k*8)) & 255);
         i += 5;
@@ -3432,9 +3490,7 @@ tool({
       return String(n % 10 ** digits).padStart(digits, '0');
     };
     const fmt = c => c.length > 4 ? c.slice(0, Math.ceil(c.length/2)) + ' ' + c.slice(Math.ceil(c.length/2)) : c;
-    let timer = null;
     const tick = async () => {
-      if (!$('#tool-totp').classList.contains('active')) return;
       const key = parseInput();
       err.textContent = inp.value.trim() && !key ? 'Not a valid Base32 secret' : '';
       if (!key){
@@ -3458,7 +3514,7 @@ tool({
         bar.style.background = left < 6 ? 'var(--bad)' : 'var(--accent)';
       } catch { err.textContent = 'Code computation failed'; }
     };
-    timer = setInterval(tick, 1000);
+    toolInterval('totp', tick, 1000);
     inp.addEventListener('input', tick);
     ['tp-digits','tp-period','tp-algo'].forEach(id => $('#'+id).addEventListener('change', tick));
     tick();
@@ -3595,7 +3651,15 @@ Grace,"rear admiral",97</textarea>
           const cast = s => num && s !== '' && /^-?\d+(\.\d+)?([eE][+-]?\d+)?$/.test(s) ? parseFloat(s) : s;
           let result;
           if ($('#cv-hdr').checked && rows.length > 1){
-            const hdr = rows[0];
+            // Object.fromEntries keeps the LAST of a duplicated key, so repeated
+            // header names used to drop columns without a word. Suffix instead.
+            const seen = new Map();
+            const hdr = rows[0].map(h => {
+              const n = (seen.get(h) || 0) + 1; seen.set(h, n);
+              return n > 1 ? `${h}_${n}` : h;
+            });
+            const dups = [...seen].filter(([, n]) => n > 1).map(([h]) => h);
+            if (dups.length) err.textContent = `Duplicate header${dups.length>1?'s':''} renamed: ${dups.join(', ')}`;
             result = rows.slice(1).map(r => Object.fromEntries(hdr.map((h, i) => [h, cast(r[i] ?? '')])));
           } else {
             result = rows.map(r => r.map(cast));
@@ -3606,7 +3670,9 @@ Grace,"rear admiral",97</textarea>
           if (!Array.isArray(data) || !data.length) throw new Error('Need a non-empty JSON array');
           const d = dsel === 'auto' || dsel === '' ? ',' : dsel;
           let lines;
-          if (typeof data[0] === 'object' && !Array.isArray(data[0])){
+          if (data[0] !== null && typeof data[0] === 'object' && !Array.isArray(data[0])){
+            if (data.some(o => o === null || typeof o !== 'object' || Array.isArray(o)))
+              throw new Error('Every item must be an object when the first one is');
             const keys = [...new Set(data.flatMap(o => Object.keys(o)))];
             lines = [keys.map(k => csvField(k, d)).join(d),
               ...data.map(o => keys.map(k => csvField(o[k], d)).join(d))];
@@ -3651,8 +3717,8 @@ tool({
             // Object.hasOwn, not `in`: `in` walks the prototype, so a parameter
             // literally named "constructor" looked like a repeat of a key that was
             // never there and came out as [null, "x"].
-            if (Object.hasOwn(obj, k)) obj[k] = Array.isArray(obj[k]) ? [...obj[k], val] : [obj[k], val];
-            else obj[k] = val;
+            if (Object.hasOwn(obj, k)) setKey(obj, k, Array.isArray(obj[k]) ? [...obj[k], val] : [obj[k], val]);
+            else setKey(obj, k, val);
           }
           out.value = JSON.stringify(obj, null, 2);
         } else {
@@ -3702,7 +3768,7 @@ tool({
       const text=kids.filter(n=>n.nodeType===3).map(n=>n.nodeValue).join('').trim();
       if(!els.length){ if(!Object.keys(obj).length) return text; if(text) obj['#text']=text; return obj; }
       for(const el of els){ const v=xmlToObj(el), t=el.tagName;
-        if(Object.hasOwn(obj,t)){ if(!Array.isArray(obj[t])) obj[t]=[obj[t]]; obj[t].push(v); } else obj[t]=v; }   // hasOwn: a <constructor> tag is not a repeat
+        if(Object.hasOwn(obj,t)){ if(!Array.isArray(obj[t])) setKey(obj,t,[obj[t]]); obj[t].push(v); } else setKey(obj,t,v); }   // hasOwn: a <constructor> tag is not a repeat
       if(text) obj['#text']=text;
       return obj;
     };
@@ -3771,7 +3837,7 @@ authors:
       const rk=()=>{ ws(); if(t[p]==='"'||t[p]==="'")return rq(); let s=''; while(p<t.length&&![':',',','}'].includes(t[p]))s+=t[p++]; return s.trim(); };
       const rd=()=>{ ws();
         if(t[p]==='['){ p++; const a=[]; ws(); if(t[p]===']'){p++;return a;} for(;;){ a.push(rd()); ws(); if(t[p]===','){p++;continue;} p++; break; } return a; }
-        if(t[p]==='{'){ p++; const o={}; ws(); if(t[p]==='}'){p++;return o;} for(;;){ const k=rk(); ws(); if(t[p]===':')p++; o[k]=rd(); ws(); if(t[p]===','){p++;continue;} p++; break; } return o; }
+        if(t[p]==='{'){ p++; const o={}; ws(); if(t[p]==='}'){p++;return o;} for(;;){ const k=rk(); ws(); if(t[p]===':')p++; setKey(o,k,rd()); ws(); if(t[p]===','){p++;continue;} p++; break; } return o; }
         if(t[p]==='"'||t[p]==="'")return rq();
         let s=''; while(p<t.length&&![',',']','}'].includes(t[p]))s+=t[p++]; return prim(s.trim()); };
       return rd(); };
@@ -3787,8 +3853,8 @@ authors:
           const m=line.slice(ind).match(/^(.+?):(\s.*|)$/); if(!m){i++;continue;}
           let key=m[1].trim(); if((key[0]==='"'&&key.endsWith('"'))||(key[0]==="'"&&key.endsWith("'")))key=key.slice(1,-1);
           const rest=m[2].trim(); i++;
-          if(rest===''){ if(i<lines.length){ const ni=indentOf(stripC(lines[i])); if(ni>indent){ o[key]=node(ni); continue; } } o[key]=null; }
-          else o[key]=scalar(rest);
+          if(rest===''){ if(i<lines.length){ const ni=indentOf(stripC(lines[i])); if(ni>indent){ setKey(o,key,node(ni)); continue; } } setKey(o,key,null); }
+          else setKey(o,key,scalar(rest));
         } return o; };
       const seq = indent => { const a=[];
         while(i<lines.length){ const line=stripC(lines[i]); if(line.trim()===''){i++;continue;} const ind=indentOf(line); if(ind!==indent)break; const m=line.slice(ind).match(/^-(\s+(.*)|\s*)$/); if(!m)break;
@@ -3882,9 +3948,9 @@ port = 8080</textarea>
     const unq = s => (s[0]==='"'||s[0]==="'") ? s.slice(1,-1) : s;
     const parseTOML = src => { const root={}; let cur=root;
       for(const raw of src.replace(/\r\n?/g,'\n').split('\n')){ const line=stripC(raw).trim(); if(!line)continue; let m;
-        if(m=line.match(/^\[\[(.+)\]\]$/)){ const path=m[1].split('.').map(x=>unq(x.trim())); let o=root; for(let j=0;j<path.length-1;j++){ o[path[j]]=o[path[j]]||{}; o=Array.isArray(o[path[j]])?o[path[j]][o[path[j]].length-1]:o[path[j]]; } const key=path[path.length-1]; o[key]=o[key]||[]; const tb={}; o[key].push(tb); cur=tb; }
-        else if(m=line.match(/^\[(.+)\]$/)){ const path=m[1].split('.').map(x=>unq(x.trim())); let o=root; for(const pth of path){ o[pth]=o[pth]||{}; o=Array.isArray(o[pth])?o[pth][o[pth].length-1]:o[pth]; } cur=o; }
-        else { const kv=splitKV(line); if(kv) cur[unq(kv[0])]=val(kv[1]); }
+        if(m=line.match(/^\[\[(.+)\]\]$/)){ const path=m[1].split('.').map(x=>unq(x.trim())); let o=root; for(let j=0;j<path.length-1;j++){ setKey(o,path[j],o[path[j]]||{}); o=Array.isArray(o[path[j]])?o[path[j]][o[path[j]].length-1]:o[path[j]]; } const key=path[path.length-1]; setKey(o,key,o[key]||[]); const tb={}; o[key].push(tb); cur=tb; }
+        else if(m=line.match(/^\[(.+)\]$/)){ const path=m[1].split('.').map(x=>unq(x.trim())); let o=root; for(const pth of path){ setKey(o,pth,o[pth]||{}); o=Array.isArray(o[pth])?o[pth][o[pth].length-1]:o[pth]; } cur=o; }
+        else { const kv=splitKV(line); if(kv) setKey(cur,unq(kv[0]),val(kv[1])); }
       } return root; };
     const tv = v => { if(typeof v==='string')return JSON.stringify(v); if(typeof v==='boolean'||typeof v==='number')return String(v); if(Array.isArray(v))return '['+v.map(tv).join(', ')+']'; if(v&&typeof v==='object')return '{ '+Object.keys(v).map(k=>`${/^[\w-]+$/.test(k)?k:JSON.stringify(k)} = ${tv(v[k])}`).join(', ')+' }'; return JSON.stringify(v); };
     const isTable = v => v&&typeof v==='object'&&!Array.isArray(v);
@@ -3908,7 +3974,7 @@ port = 8080</textarea>
 /* ── messagepack / cbor ─────────────────────────────────────── */
 tool({
   id:'msgpack', name:'MessagePack / CBOR', group:'Encode',
-  blurb:'Serialize JSON to MessagePack or CBOR binary and back. Binary is shown as hex or base64. Supports null, booleans, numbers, strings, arrays and objects.',
+  blurb:'Serialize JSON to MessagePack or CBOR binary and back. Binary is shown as hex or base64. Supports null, booleans, numbers, strings, arrays and objects. CBOR byte strings decode to a "0x…" string, so they re-encode as text rather than bytes.',
   html:`
     <div class="row">
       <div class="seg" id="mp-fmt"><button class="on" data-f="msgpack">MessagePack</button><button data-f="cbor">CBOR</button></div>
@@ -3949,7 +4015,7 @@ tool({
     const mpDec=u=>{ let p=0; const dv=new DataView(u.buffer,u.byteOffset,u.byteLength);
       const rstr=n=>{ const s=new TextDecoder().decode(u.subarray(p,p+n)); p+=n; return s; };
       const rarr=n=>{ const a=[]; for(let k=0;k<n;k++)a.push(rd()); return a; };
-      const rmap=n=>{ const o={}; for(let k=0;k<n;k++){ const key=rd(); o[key]=rd(); } return o; };
+      const rmap=n=>{ const o={}; for(let k=0;k<n;k++){ const key=rd(); setKey(o,key,rd()); } return o; };
       const rd=()=>{ const b=u[p++];
         if(b<0x80)return b; if(b>=0xe0)return b-256;
         if(b<=0x8f)return rmap(b&15); if(b<=0x9f)return rarr(b&15); if(b<=0xbf)return rstr(b&31);
@@ -3987,7 +4053,7 @@ tool({
           case 2:{ const n=len(ai); const s='0x'+toHex(u.subarray(p,p+n)); p+=n; return s; }
           case 3:{ const n=len(ai); const s=new TextDecoder().decode(u.subarray(p,p+n)); p+=n; return s; }
           case 4:{ const n=len(ai); const a=[]; for(let k=0;k<n;k++)a.push(rd()); return a; }
-          case 5:{ const n=len(ai); const o={}; for(let k=0;k<n;k++){ const key=rd(); o[key]=rd(); } return o; }
+          case 5:{ const n=len(ai); const o={}; for(let k=0;k<n;k++){ const key=rd(); setKey(o,key,rd()); } return o; }
           case 7:{ if(ai===20)return false; if(ai===21)return true; if(ai===22||ai===23)return null; if(ai===25){const h=dv.getUint16(p);p+=2;return half(h);} if(ai===26){const v=dv.getFloat32(p);p+=4;return v;} if(ai===27){const v=dv.getFloat64(p);p+=8;return v;} throw new Error('Bad CBOR simple'); }
           default: throw new Error('Unsupported CBOR major '+maj);
         }
@@ -4033,8 +4099,8 @@ tool({
         if(t==='s'){ const len=parseInt(digits(),10); eat(':'); eat('"'); const s=td.decode(b.subarray(p,p+len)); p+=len; eat('"'); eat(';'); return s; }
         if(t==='a'){ const cnt=parseInt(digits(),10); eat(':'); eat('{'); const es=[]; for(let i=0;i<cnt;i++){ const k=rd(); es.push([k,rd()]); } eat('}');
           if(es.every(([k],i)=>k===i)) return es.map(([,v])=>v);
-          const o={}; for(const [k,v] of es) o[k]=v; return o; }
-        if(t==='O'){ const cl=parseInt(digits(),10); eat(':'); eat('"'); const cls=td.decode(b.subarray(p,p+cl)); p+=cl; eat('"'); eat(':'); const cnt=parseInt(digits(),10); eat(':'); eat('{'); const o={__class:cls}; for(let i=0;i<cnt;i++){ const k=rd(); o[k]=rd(); } eat('}'); return o; }
+          const o={}; for(const [k,v] of es) setKey(o,k,v); return o; }
+        if(t==='O'){ const cl=parseInt(digits(),10); eat(':'); eat('"'); const cls=td.decode(b.subarray(p,p+cl)); p+=cl; eat('"'); eat(':'); const cnt=parseInt(digits(),10); eat(':'); eat('{'); const o={__class:cls}; for(let i=0;i<cnt;i++){ const k=rd(); setKey(o,k,rd()); } eat('}'); return o; }
         throw new Error(`Unknown PHP type '${t}'`); };
       const r=rd(); return r;
     };
@@ -4081,7 +4147,7 @@ port = 8080</textarea>
     const parseINI = src => { const root={}; let cur=root;
       for(const raw of src.split(/\r?\n/)){ const line=raw.trim(); if(!line||line[0]===';'||line[0]==='#')continue; let m;
         if(m=line.match(/^\[(.+)\]$/)){ const s=m[1].trim(); cur=root[s]=root[s]||{}; }
-        else if(m=line.match(/^([^=]+)=(.*)$/)){ let k=m[1].trim(), v=m[2].trim(); if((v[0]==='"'&&v.endsWith('"'))||(v[0]==="'"&&v.endsWith("'"))) v=v.slice(1,-1); else v=coerce(v); cur[k]=v; }
+        else if(m=line.match(/^([^=]+)=(.*)$/)){ let k=m[1].trim(), v=m[2].trim(); if((v[0]==='"'&&v.endsWith('"'))||(v[0]==="'"&&v.endsWith("'"))) v=v.slice(1,-1); else v=coerce(v); setKey(cur,k,v); }
       } return root; };
     const iniVal = v => { if(Array.isArray(v)||v&&typeof v==='object') return JSON.stringify(v); const s=String(v); return /[;#"'\n]|^\s|\s$/.test(s)?JSON.stringify(s):s; };
     const dumpINI = obj => { let top='', secs='';
@@ -4117,13 +4183,13 @@ GREETING="hello world"</textarea>
     <textarea id="ep-out" readonly style="min-height:120px"></textarea>`,
   wire(){
     let mode='e2j', fmt='env'; const inp=$('#ep-in'), out=$('#ep-out'), err=$('#ep-err');
-    const parseEnv = src => { const o={}; for(const raw of src.split(/\r?\n/)){ let line=raw.trim(); if(!line||line[0]==='#')continue; line=line.replace(/^export\s+/,''); const i=line.indexOf('='); if(i<0)continue; let k=line.slice(0,i).trim(), v=line.slice(i+1).trim(); const c=v[0]; if((c==='"'||c==="'")&&v.length>1&&v.endsWith(c)){ v=v.slice(1,-1); if(c==='"')v=v.replace(/\\n/g,'\n').replace(/\\t/g,'\t').replace(/\\"/g,'"').replace(/\\\\/g,'\\'); } o[k]=v; } return o; };
+    const parseEnv = src => { const o={}; for(const raw of src.split(/\r?\n/)){ let line=raw.trim(); if(!line||line[0]==='#')continue; line=line.replace(/^export\s+/,''); const i=line.indexOf('='); if(i<0)continue; let k=line.slice(0,i).trim(), v=line.slice(i+1).trim(); const c=v[0]; if((c==='"'||c==="'")&&v.length>1&&v.endsWith(c)){ v=v.slice(1,-1); if(c==='"')v=v.replace(/\\n/g,'\n').replace(/\\t/g,'\t').replace(/\\"/g,'"').replace(/\\\\/g,'\\'); } setKey(o,k,v); } return o; };
     const parseProps = src => { const o={}; const lines=src.split(/\r?\n/); let buf=null;
       for(let raw of lines){ let line = buf!==null ? buf+raw.replace(/^\s+/,'') : raw; buf=null; const t=line.trim(); if(!t||t[0]==='#'||t[0]==='!')continue;
         if(/(^|[^\\])\\$/.test(line)){ buf=line.replace(/\\$/,''); continue; }
         const m=line.match(/^\s*([^=:\s]+)\s*[=:]\s*(.*)$/); if(!m)continue;
         const v=m[2].replace(/\\u([0-9a-fA-F]{4})/g,(_,h)=>String.fromCharCode(parseInt(h,16))).replace(/\\n/g,'\n').replace(/\\t/g,'\t').replace(/\\r/g,'\r').replace(/\\([=:# !\\])/g,'$1');
-        o[m[1]]=v; } return o; };
+        setKey(o,m[1],v); } return o; };
     const dumpEnv = o => Object.keys(o).map(k=>{ const v=String(o[k]); return `${k}=${/[\s#"'=]|^$/.test(v)?JSON.stringify(v):v}`; }).join('\n')+'\n';
     const dumpProps = o => Object.keys(o).map(k=>{ const v=String(o[k]).replace(/\\/g,'\\\\').replace(/\n/g,'\\n').replace(/\t/g,'\\t').replace(/([=:#!])/g,'\\$1'); const key=k.replace(/([=:\s])/g,'\\$1'); return `${key}=${v}`; }).join('\n')+'\n';
     const run=()=>{ err.textContent=''; out.value=''; const v=inp.value; if(!v.trim())return;
@@ -4229,11 +4295,11 @@ tool({
         else break; } };
       const str=()=>{ const q=src[p++]; let s=''; while(p<src.length&&src[p]!==q){ if(src[p]==='\\'){ const e=src[++p]; p++; if(e==='n')s+='\n'; else if(e==='t')s+='\t'; else if(e==='r')s+='\r'; else if(e==='b')s+='\b'; else if(e==='f')s+='\f'; else if(e==='u'){ s+=String.fromCharCode(parseInt(src.substr(p,4),16)); p+=4; } else if(e==='\n'){} else s+=e; } else s+=src[p++]; } p++; return s; };
       const key=()=>{ ws(); const c=src[p]; if(c==='"'||c==="'")return str(); let s=''; while(p<src.length&&/[\w$]/.test(src[p]))s+=src[p++]; if(!s)throw new Error('Bad key at '+p); return s; };
-      const obj=()=>{ p++; const o={}; ws(); if(src[p]==='}'){p++;return o;} for(;;){ ws(); const k=key(); ws(); if(src[p]!==':')throw new Error('Expected ":" at '+p); p++; o[k]=val(); ws(); if(src[p]===','){p++; ws(); if(src[p]==='}'){p++;break;} continue;} if(src[p]==='}'){p++;break;} throw new Error('Expected "," or "}" at '+p); } return o; };
+      const obj=()=>{ p++; const o={}; ws(); if(src[p]==='}'){p++;return o;} for(;;){ ws(); const k=key(); ws(); if(src[p]!==':')throw new Error('Expected ":" at '+p); p++; setKey(o,k,val()); ws(); if(src[p]===','){p++; ws(); if(src[p]==='}'){p++;break;} continue;} if(src[p]==='}'){p++;break;} throw new Error('Expected "," or "}" at '+p); } return o; };
       const arr=()=>{ p++; const a=[]; ws(); if(src[p]===']'){p++;return a;} for(;;){ a.push(val()); ws(); if(src[p]===','){p++; ws(); if(src[p]===']'){p++;break;} continue;} if(src[p]===']'){p++;break;} throw new Error('Expected "," or "]" at '+p); } return a; };
       const lit=()=>{ let s=''; while(p<src.length&&!/[\s,}\]]/.test(src[p]))s+=src[p++];
         if(s==='true')return true; if(s==='false')return false; if(s==='null')return null;
-        if(/Infinity$/.test(s))return s[0]==='-'?-Infinity:Infinity; if(s==='NaN'||s==='-NaN')return NaN;
+        if(/^[+-]?Infinity$/.test(s))return s[0]==='-'?-Infinity:Infinity; if(s==='NaN'||s==='-NaN')return NaN;
         if(/^[+-]?0x[0-9a-fA-F]+$/.test(s))return parseInt(s.replace('+',''),16);
         const n=Number(s); if(s!==''&&!isNaN(n))return n;
         throw new Error('Unexpected token "'+s+'" at '+p); };
@@ -4330,7 +4396,7 @@ MAoGCCqGSM49AwEH
 /* ── bson ↔ json ────────────────────────────────────────────── */
 tool({
   id:'bson', name:'BSON ↔ JSON', group:'Encode',
-  blurb:'MongoDB BSON binary to/from JSON, shown as hex or base64. Encodes null, booleans, numbers, strings, arrays and objects; decoding also surfaces ObjectId ($oid), dates ($date) and binary ($binary).',
+  blurb:'MongoDB BSON binary to/from JSON, shown as hex or base64. Encodes null, booleans, numbers, strings, arrays and objects; decoding also surfaces ObjectId ($oid), dates ($date) and binary ($binary) — those markers re-encode as ordinary objects, not as their BSON types.',
   html:`
     <div class="row">
       <div class="seg" id="bs-mode"><button class="on" data-m="enc">JSON → BSON</button><button data-m="dec">BSON → JSON</button></div>
@@ -4385,7 +4451,7 @@ tool({
           else if(type===0x11){ val=Number(dv.getBigUint64(p,true)); p+=8; }
           else if(type===0x12){ val=Number(dv.getBigInt64(p,true)); p+=8; }
           else throw new Error('Unsupported BSON type 0x'+type.toString(16));
-          o[name]=val;
+          setKey(o, name, val);
         }
         return {o, p:start+len};
       };
@@ -4405,7 +4471,7 @@ tool({
 /* ── apple plist ↔ json ─────────────────────────────────────── */
 tool({
   id:'plist', name:'Apple plist ↔ JSON', group:'Text',
-  blurb:'Apple XML property list (.plist) to JSON and back. dict → object, array → array; string/integer/real/true/false map to JSON, data stays base64, date stays a string.',
+  blurb:'Apple XML property list (.plist) to JSON and back. dict → object, array → array; string/integer/real/true/false map to JSON. &lt;data&gt; and &lt;date&gt; decode to plain strings, so they come back as &lt;string&gt; — those two do not round-trip.',
   html:`
     <div class="row"><div class="seg" id="pl-mode"><button class="on" data-m="p2j">plist → JSON</button><button data-m="j2p">JSON → plist</button></div></div>
     <label class="lbl">Input</label>
@@ -5065,9 +5131,11 @@ tool({
       const sp = ($('#ch-suid').checked ? 4 : 0) + ($('#ch-sgid').checked ? 2 : 0) + ($('#ch-sticky').checked ? 1 : 0);
       return { digits, sp };
     };
-    const render = ({ digits, sp }) => {
+    const render = ({ digits, sp }, writeBack = true) => {
       const octStr = (sp ? sp : '') + digits.join('');
-      oct.value = octStr;
+      // Only write the field back when the change came from somewhere else —
+      // assigning .value while you type moves the caret to the end.
+      if (writeBack && oct.value !== octStr) oct.value = octStr;
       let sym = '';
       digits.forEach((d, wi) => {
         sym += d & 4 ? 'r' : '-';
@@ -5078,7 +5146,7 @@ tool({
       });
       $('#ch-sym').textContent = sym;
     };
-    const applyOct = v => {
+    const applyOct = (v, writeBack = true) => {
       err.textContent = '';
       if (!/^[0-7]{3,4}$/.test(v)){ err.textContent = 'Octal mode is 3 or 4 digits of 0–7'; return; }
       const ds = v.split('').map(Number);
@@ -5089,11 +5157,11 @@ tool({
         boxes[wi*3+2].checked = !!(ds[wi] & 1);
       });
       $('#ch-suid').checked = !!(sp & 4); $('#ch-sgid').checked = !!(sp & 2); $('#ch-sticky').checked = !!(sp & 1);
-      render({ digits: ds, sp });
+      render({ digits: ds, sp }, writeBack);
     };
     boxes.concat([$('#ch-suid'), $('#ch-sgid'), $('#ch-sticky')]).forEach(b =>
       b.addEventListener('change', () => { err.textContent = ''; render(fromBoxes()); }));
-    oct.addEventListener('input', () => applyOct(oct.value.trim()));
+    oct.addEventListener('input', () => applyOct(oct.value.trim(), false));
     preset.addEventListener('change', () => { if (preset.value){ applyOct(preset.value); preset.value = ''; } });
     applyOct('755');
   }
@@ -5122,7 +5190,7 @@ apple
       <button class="ghost ln-op" data-op="trim">Trim</button>
       <button class="ghost ln-op" data-op="noempty">Drop empty</button>
     </div>
-    <label class="lbl">Output <span id="ln-stats" style="text-transform:none;letter-spacing:0;color:var(--muted)"></span> ${cpyBtn('#ln-out')} <button class="cpy" id="ln-chain">Use as input</button></label>
+    <label class="lbl">Output <span id="ln-stats" style="text-transform:none;letter-spacing:0;color:var(--muted)"></span> ${cpyBtn('#ln-out')} <button class="ghost" id="ln-chain" style="padding:.18rem .5rem;font-size:.655rem;letter-spacing:.06em">Use as input</button></label>
     <textarea id="ln-out" readonly style="min-height:130px"></textarea>`,
   wire(){
     const inp = $('#ln-in'), out = $('#ln-out'), stats = $('#ln-stats');
@@ -5191,11 +5259,15 @@ tool({
         n++;
         const groups = typeof args[args.length-1] === 'object' ? args[args.length-1] : undefined;
         const m = args[0];
-        return rep.value
-          .replace(/\$&/g, m)
-          .replace(/\$<([A-Za-z_$][\w$]*)>/g, (_, g) => groups?.[g] ?? '')
-          .replace(/\$(\d+)/g, (_, d) => args[+d] !== undefined && typeof args[+d] === 'string' ? args[+d] : '')
-          .replace(/\$\$/g, '$');
+        // One pass over the template: chained .replace() calls let an inserted
+        // match containing "$1" be substituted again, and ran $$ last so "$$1"
+        // never produced a literal "$1".
+        return rep.value.replace(/\$\$|\$&|\$<([A-Za-z_$][\w$]*)>|\$(\d+)/g, (tok, name, num) => {
+          if (tok === '$$') return '$';
+          if (tok === '$&') return m;
+          if (name !== undefined) return groups?.[name] ?? '';
+          return typeof args[+num] === 'string' ? args[+num] : '';
+        });
       });
       count.textContent = `· ${n} replacement${n === 1 ? '' : 's'}`;
     };
@@ -5573,8 +5645,9 @@ tool({
         let t;
         if (s.kind === 'object'){
           const name = ident(hint, used);
+          const fieldNames = new Set();   // per struct, so user-id and user_id don't both become UserId
           const lines = Object.entries(s.fields).map(([k, f]) => {
-            const fname = ident(k, new Set());
+            const fname = ident(k, fieldNames);
             // nullable is a property of the SHAPE; f is {shape, optional}, so f.nullable
             // was always undefined and Go never got a pointer where TypeScript got "| null".
             return `\t${fname} ${f.shape.nullable ? '*' : ''}${goType(f.shape, k)} \`json:"${k}${f.optional ? ',omitempty' : ''}"\``;
@@ -5681,7 +5754,12 @@ tool({
           if (ix > 0) req.headers[h.slice(0, ix).trim()] = h.slice(ix + 1).trim();
         }
         else if (['-d','--data','--data-raw','--data-binary','--data-ascii'].includes(t)) req.data.push(next());
-        else if (t === '--data-urlencode') req.data.push(encodeURIComponent(next()).replace(/%3D/, '='));
+        else if (t === '--data-urlencode'){
+          // curl encodes only the value half of name=value, and leaves the '=' alone.
+          const raw = next(), eq = raw.indexOf('=');
+          req.data.push(eq < 0 ? encodeURIComponent(raw)
+                               : raw.slice(0, eq) + '=' + encodeURIComponent(raw.slice(eq + 1)));
+        }
         else if (t === '--json'){ req.data.push(next()); req.headers['Content-Type'] = 'application/json'; }
         else if (t === '-F' || t === '--form') req.form.push(next());
         else if (t === '-u' || t === '--user') req.user = next();
@@ -5729,8 +5807,10 @@ tool({
       $('#cu-fetch').value = fl.join('\n');
       // python
       const pyStr = s => "'" + String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'") + "'";
-      const pl = ['import requests', '', `resp = requests.${req.method.toLowerCase() in {get:1,post:1,put:1,patch:1,delete:1,head:1} ? req.method.toLowerCase() : 'request'}(`];
-      if (!(req.method.toLowerCase() in {get:1,post:1,put:1,patch:1,delete:1,head:1})) pl[2] = `resp = requests.request(${pyStr(req.method)},`;
+      const PYM = ['get','post','put','patch','delete','head'];   // `in {…}` walked the prototype
+      const pym = PYM.includes(req.method.toLowerCase());
+      const pl = ['import requests', '', pym ? `resp = requests.${req.method.toLowerCase()}(`
+                                             : `resp = requests.request(${pyStr(req.method)},`];
       pl.push(`    ${pyStr(req.url)},`);
       const pyh = Object.entries(req.headers).filter(([k]) => k !== 'Authorization' || !req.user);
       if (pyh.length) pl.push(`    headers={${pyh.map(([k, val]) => `${pyStr(k)}: ${pyStr(val)}`).join(', ')}},`);
@@ -6179,7 +6259,7 @@ tool({
       }
     };
     $('#mk-go').addEventListener('click', gen);
-    ['mk-fmt'].forEach(id => $('#'+id).addEventListener('change', gen));
+    $$('#tool-mock input, #tool-mock select').forEach(el => el.addEventListener('change', gen));
     gen();
   }
 });
@@ -6272,7 +6352,8 @@ tool({
           const ms = Number(ts / 10000n - 12219292800000n);
           return { type:'UUID v1', ms, note:'60-bit Gregorian timestamp' };
         }
-        return { type:`UUID v${parseInt(ver,16)||'?'}`, ms: null, note:'this UUID version carries no timestamp' };
+        const vn = parseInt(ver, 16);   // ||'?' turned a legitimate version 0 into '?'
+        return { type:`UUID v${Number.isNaN(vn) ? '?' : vn}`, ms: null, note:'this UUID version carries no timestamp' };
       }
       // Mongo ObjectId
       if (/^[0-9a-f]{24}$/.test(v.toLowerCase()))
@@ -6336,8 +6417,12 @@ tool({
       err.textContent = '';
       ['ie-sign','ie-exp','ie-mant','ie-bits','ie-hex','ie-stored'].forEach(id => $('#'+id).textContent = '—');
       const t = inp.value.trim(); if (!t) return;
-      const x = t === 'Infinity' || t === '-Infinity' || t === 'NaN' ? Number(t) : parseFloat(t);
-      if (Number.isNaN(x) && t !== 'NaN'){ err.textContent = 'Not a number'; return; }
+      // parseFloat stops at the first junk character, so "1abc" quietly became 1.
+      const special = t === 'Infinity' || t === '-Infinity' || t === 'NaN';
+      if (!special && !/^[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$/.test(t)){
+        err.textContent = 'Not a number'; return;
+      }
+      const x = special ? Number(t) : parseFloat(t);
       const bytes = prec === 64 ? 8 : 4, ebits = prec === 64 ? 11 : 8, mbits = prec === 64 ? 52 : 23, bias = prec === 64 ? 1023 : 127;
       const buf = new ArrayBuffer(bytes), dv = new DataView(buf);
       if (prec === 64) dv.setFloat64(0, x); else dv.setFloat32(0, x);
@@ -6788,7 +6873,9 @@ tool({
               const gn = parseTLV(octet.bytes, 0, octet.bytes.length)[0];
               for (const item of gn.children){
                 if (item.tag === 2) sans.push('DNS:' + td.decode(item.bytes));
-                else if (item.tag === 7) sans.push('IP:' + [...item.bytes].join('.'));
+                else if (item.tag === 7) sans.push('IP:' + (item.bytes.length === 16
+                  ? [...item.bytes].map(hex2).join('').replace(/(.{4})(?=.)/g, '$1:').replace(/\b:?(?:0+:?){2,}/, '::')
+                  : [...item.bytes].join('.')));
                 else if (item.tag === 1) sans.push('email:' + td.decode(item.bytes));
                 else if (item.tag === 6) sans.push('URI:' + td.decode(item.bytes));
               }
@@ -6859,11 +6946,14 @@ tool({
     const drop = $('#fh-drop'), file = $('#fh-file'), exp = $('#fh-exp'), err = $('#fh-err');
     let hashes = {};
     const hex = buf => [...new Uint8Array(buf)].map(hex2).join('');
+    let seq = 0;
     const handle = async f => {
       if (!f) return;
+      const my = ++seq;              // a second drop mid-hash used to interleave into `hashes`
       err.textContent = ''; drop.textContent = `Hashing ${f.name}…`;
       try {
         const buf = await f.arrayBuffer();
+        if (my !== seq) return;
         hashes = { md5: md5(new Uint8Array(buf)) };
         $('#fh-name').textContent = `${f.name} · ${f.size.toLocaleString('en-US')} bytes`;
         $('#fh-md5').textContent = hashes.md5;
@@ -6871,6 +6961,7 @@ tool({
         if (crypto.subtle){
           for (const [id, alg] of [['fh-sha1','SHA-1'],['fh-sha256','SHA-256'],['fh-sha512','SHA-512']]){
             const d = hex(await crypto.subtle.digest(alg, buf));
+            if (my !== seq) return;
             hashes[id] = d; $('#'+id).textContent = d;
           }
         } else ['fh-sha1','fh-sha256','fh-sha512'].forEach(id => $('#'+id).textContent = 'WebCrypto unavailable');
@@ -7183,7 +7274,8 @@ tool({
     const renderTo = s => { const c = document.createElement('canvas'); c.width = c.height = s; c.getContext('2d').drawImage(img, 0, 0, s, s); return c; };
     const dl = (blob, name) => { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click(); };
     const buildIco = async sizes => {
-      const pngs = await Promise.all(sizes.map(s => new Promise(res => renderTo(s).toBlob(b => b.arrayBuffer().then(res), 'image/png'))));
+      const pngs = await Promise.all(sizes.map(s => new Promise((res, rej) =>
+        renderTo(s).toBlob(b => b ? b.arrayBuffer().then(res, rej) : rej(new Error('encode failed')), 'image/png'))));
       const n = sizes.length;
       const head = new DataView(new ArrayBuffer(6 + 16 * n));
       head.setUint16(0, 0, true); head.setUint16(2, 1, true); head.setUint16(4, n, true);
@@ -7231,7 +7323,11 @@ tool({
     drop.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('over'); });
     drop.addEventListener('dragleave', () => drop.classList.remove('over'));
     drop.addEventListener('drop', e => { e.preventDefault(); drop.classList.remove('over'); handle(e.dataTransfer.files[0]); });
-    $('#fv-ico').addEventListener('click', async () => { if (img) dl(await buildIco([16, 32, 48]), 'favicon.ico'); });
+    $('#fv-ico').addEventListener('click', async () => {
+      if (!img) return;
+      try { dl(await buildIco([16, 32, 48]), 'favicon.ico'); }
+      catch { err.textContent = 'Could not build the .ico from this image'; }
+    });
   }
 });
 
@@ -7419,7 +7515,7 @@ tool({
     const refresh = () => { renderBrowser(); renderNative(); };
     addEventListener('online', renderBrowser); addEventListener('offline', renderBrowser);
     const c = navigator.connection; if (c && c.addEventListener) c.addEventListener('change', renderBrowser);
-    setInterval(() => { if ($('#tool-wifi').classList.contains('active')) renderNative(); }, 3000);
+    toolInterval('wifi', renderNative, 3000);
     refresh();
   }
 });
@@ -7469,7 +7565,9 @@ tool({
       set('dv-cookie', navigator.cookieEnabled ? 'enabled' : 'disabled');
       set('dv-pubip', 'not available offline — needs a network request');
       if (navigator.storage && navigator.storage.estimate)
-        navigator.storage.estimate().then(e => { const gb = x => x ? (x/1073741824).toFixed(2) + ' GB' : '—'; set('dv-store', `${gb(e.usage)} used of ${gb(e.quota)} quota`); });
+        navigator.storage.estimate()
+          .then(e => { const gb = x => x ? (x/1073741824).toFixed(2) + ' GB' : '—'; set('dv-store', `${gb(e.usage)} used of ${gb(e.quota)} quota`); })
+          .catch(() => set('dv-store', 'not exposed'));
       else set('dv-store', 'not exposed');
       const h = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.device;
       if (h) h.postMessage('get').then(d => set('dv-localip', (d && d.localIPs && d.localIPs.join('   ')) || '—')).catch(() => set('dv-localip', '—'));
@@ -7807,7 +7905,7 @@ tool({
     };
     const reset = () => { snake = [{x:10,y:10},{x:9,y:10},{x:8,y:10}]; dir = {x:1,y:0}; nextDir = dir; food = place(); score = 0; dead = false; upd(); draw(); };
     const tick = () => {
-      if (!$('#tool-snake').classList.contains('active') || dead) return;
+      if (dead) return;
       dir = nextDir;
       const head = { x:(snake[0].x+dir.x+N)%N, y:(snake[0].y+dir.y+N)%N };
       if (snake.some(s => s.x===head.x && s.y===head.y)){ dead = true; if (score>hi()) try{localStorage.setItem(HK,score);}catch{} upd(); draw(); return; }
@@ -7821,7 +7919,7 @@ tool({
       if (m){ e.preventDefault(); if (m[0] !== -dir.x || m[1] !== -dir.y) nextDir = { x:m[0], y:m[1] }; }
     });
     $('#sn-play').addEventListener('click', reset);
-    reset(); setInterval(tick, 110);
+    reset(); toolInterval('snake', tick, 110);
   }
 });
 
@@ -7958,7 +8056,10 @@ tool({
     $('#su-new').addEventListener('click', () => { $('#su-msg').textContent = 'generating…'; setTimeout(() => { gen(+$('#su-diff').value); render(); $('#su-msg').textContent = ''; }, 10); });
     $('#su-check').addEventListener('click', () => { live(); const b = cur(); $('#su-msg').textContent = b.includes(0) ? 'keep going…' : grid.querySelector('.bad') ? 'conflicts highlighted' : b.join('')===solution.join('') ? '🎉 correct!' : 'no conflicts, but wrong'; });
     $('#su-solve').addEventListener('click', () => { grid.querySelectorAll('input').forEach((inp,i) => { if (!inp.classList.contains('given')){ inp.value = solution[i]; inp.classList.remove('bad'); } }); $('#su-msg').textContent = 'solution shown'; });
-    gen(32); render();
+    // Defer like the New button does: gen() runs a uniqueness search and would
+    // otherwise block the main thread while the tool is being hydrated.
+    $('#su-msg').textContent = 'generating…';
+    setTimeout(() => { gen(32); render(); $('#su-msg').textContent = ''; }, 0);
   }
 });
 
@@ -10312,6 +10413,7 @@ function activate(id, push=true, focus=false){
   if (mainEl) mainEl.scrollTop = 0;   // reset the tool panel (desktop app-shell)
   window.scrollTo({ top: 0 });        // reset page scroll (mobile)
   if (focus) focusPrimary(id);        // after the scroll reset, so it can't fight it
+  document.dispatchEvent(new CustomEvent('pt-tool-change', { detail:{ id } }));
 }
 nav.addEventListener('click', e => {
   const b = e.target.closest('button[data-tool]');

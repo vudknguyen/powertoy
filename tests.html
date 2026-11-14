@@ -551,6 +551,60 @@ t('game keys do not hijack typing in inputs', async () => { await go('g2048'); a
    is why single-tool tests miss it. ('sq-in' was shared by Shell quote and SQL
    toolkit: visiting Shell quote first left SQL toolkit reading the wrong box.)
    Hydrate everything, then assert ids are unique. */
+/* ---------- regressions from the implementation review ---------- */
+t('radix: a lone "-" is an error, not 0', async () => {
+  await go('radix'); set('#rad-in','-'); inc(txt('#rad-err'),'Not a valid number');   // BigInt('') is 0n
+  set('#rad-in','0xff'); eq(txt('#rad-10'),'255');
+});
+t('ieee: trailing junk is rejected', async () => {
+  await go('ieee'); $$('#ie-prec [data-p]').find(b=>b.dataset.p==='64').click();       // an earlier test leaves 32-bit on
+  set('#ie-in','1abc'); inc(txt('#ie-err'),'Not a number');                            // parseFloat('1abc') is 1
+  set('#ie-in','0.1'); eq(txt('#ie-hex'),'0x3fb999999999999a');
+});
+t('json5: "xInfinity" is not Infinity', async () => {
+  await go('json5'); set('#j5-in','{a: xInfinity}'); assert(txt('#j5-err').length>0,'no error');
+  set('#j5-in','{a: -Infinity}'); inc(val('#j5-out'),'null');                           // JSON has no Infinity
+});
+/* o['__proto__'] = v hits Object.prototype's setter instead of making a property,
+   so the key used to vanish from every parser's output. */
+t('parsers keep a __proto__ key', async () => {
+  await go('yaml');  $$('#ya-mode [data-m]')[0].click(); set('#ya-in','__proto__: x\nok: 1');
+  inc(val('#ya-out'),'"__proto__"');
+  await go('toml');  $$('#tm-mode [data-m]')[0].click(); set('#tm-in','__proto__ = "x"');
+  inc(val('#tm-out'),'"__proto__"');
+  await go('json5'); set('#j5-in','{__proto__: 1}'); inc(val('#j5-out'),'"__proto__"');
+});
+/* Chained .replace() calls re-substituted inserted text and ran $$ last. */
+t('regex replace: $$ escapes, and inserted text is not re-substituted', async () => {
+  await go('rrep');
+  set('#rr-pat','b'); set('#rr-rep','$$1'); set('#rr-in','abc'); eq(val('#rr-out'),'a$1c');
+  set('#rr-pat','.+'); set('#rr-rep','[$&]'); set('#rr-in','$1'); eq(val('#rr-out'),'[$1]');
+  set('#rr-pat','(\\w+)@([\\w.]+)'); set('#rr-rep','$1 at $2'); set('#rr-in','ada@x.com');
+  eq(val('#rr-out'),'ada at x.com');
+});
+t('csv: duplicate headers are suffixed, not dropped', async () => {
+  await go('csv'); $$('#cv-mode [data-m]')[0].click(); set('#cv-in','a,b,a\n1,2,3');
+  const o = JSON.parse(val('#cv-out'))[0];
+  eq(o.a, 1); eq(o.a_2, 3); inc(txt('#cv-err'),'Duplicate header');
+});
+t('json → types: two keys cannot collide on one Go field name', async () => {
+  await go('j2t'); $$('#jt-lang button').find(b=>b.dataset.l==='go').click();
+  set('#jt-in','{"user-id":1,"user_id":2}');
+  inc(val('#jt-out'),'UserId '); inc(val('#jt-out'),'UserId2 ');
+});
+t('morse: characters it cannot encode are reported', async () => {
+  await go('morse'); $$('#mo-mode [data-m]')[0].click();
+  set('#mo-in','sos ~'); eq(val('#mo-out'),'... --- ...'); inc(txt('#mo-err'),'~');
+  set('#mo-in','sos'); eq(txt('#mo-err'),'');
+});
+t('duration: a negative value keeps its sign on the clock', async () => {
+  await go('dur'); set('#dur-v','-3661'); set('#dur-u','1000');
+  inc(txt('#dur-clock'),'\u22121:01:01');
+});
+t('id decoder: UUID version 0 is not reported as "?"', async () => {
+  await go('iddecode'); set('#idd-in','00000000-0000-0000-0000-000000000000');
+  inc(txt('#idd-type'),'v0');
+});
 /* The restore loop used to run once at startup, before any tool body existed, so
    getElementById() was null for every saved id, the "stale entry" branch deleted
    them all and wrote the emptied object back. Remember-my-input was a no-op that
