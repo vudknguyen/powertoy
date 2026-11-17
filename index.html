@@ -88,19 +88,20 @@ header.top{
 .brand i{color:var(--accent);font-style:normal}
 .tagline{color:var(--muted);font-size:.775rem;flex:1}
 .search{position:sticky;top:0;z-index:6;background:var(--bg);width:auto;margin-bottom:.5rem}
-.search input{
+.search input[type=text]{
   width:100%;background:var(--surface);border:1px solid var(--border-2);
   color:var(--ink);font-family:var(--sans);font-size:.8rem;
-  padding:.4rem 2.1rem .4rem .7rem;border-radius:6px;outline:none;
+  height:var(--ctl-h);padding:0 2.1rem 0 .7rem;border-radius:var(--ctl-r);outline:none;
 }
-.search input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--tint)}
+.search input[type=text]:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--tint)}
 .search kbd{
-  position:absolute;right:.6rem;top:.36rem;font-size:.7rem;color:var(--faint);
+  position:absolute;right:.6rem;top:50%;transform:translateY(-50%);font-size:.7rem;color:var(--faint);
   border:1px solid var(--border);padding:0 .35rem;border-radius:4px;pointer-events:none;
   font-family:var(--mono);background:var(--bg);
 }
-.hdrlink{font-size:.73rem;color:var(--muted);text-decoration:none;white-space:nowrap;
-  border:1px solid var(--border-2);padding:.26rem .55rem;border-radius:6px}
+.hdrlink{display:inline-flex;align-items:center;font-size:.73rem;color:var(--muted);
+  text-decoration:none;white-space:nowrap;
+  border:1px solid var(--border-2);height:var(--ctl-h);padding:0 .62rem;border-radius:var(--ctl-r)}
 .hdrlink:hover{color:var(--accent-2);border-color:var(--accent)}
 .home-grid{columns:238px;column-gap:1.9rem;margin-top:.2rem}
 .home-group{break-inside:avoid;-webkit-column-break-inside:avoid;display:inline-block;width:100%;margin:0 0 1.35rem}
@@ -114,8 +115,8 @@ header.top{
 .home-links button:hover{color:var(--accent-2);background:var(--hover)}
 .navhome{font-weight:600 !important}
 .brand{cursor:pointer}
-.navtoggle{display:none;background:none;border:1px solid var(--border-2);border-radius:6px;
-  color:var(--muted);cursor:pointer;font-size:.95rem;line-height:1;padding:.26rem .48rem}
+.navtoggle{display:none;background:none;border:1px solid var(--border-2);border-radius:var(--ctl-r);
+  color:var(--muted);cursor:pointer;font-size:.95rem;line-height:1;height:var(--ctl-h);padding:0 .6rem}
 .navtoggle:hover{color:var(--accent-2);border-color:var(--accent)}
 #dlBtn{color:var(--accent-2);border-color:var(--accent)}
 @media (max-width:600px){ .hdrlink{display:none} }
@@ -162,17 +163,142 @@ section.tool.active > *:nth-child(4){animation-delay:.12s}
 .chip{font-size:.61rem;letter-spacing:.1em;text-transform:uppercase;color:var(--accent-2);background:var(--tint);padding:.16rem .5rem;border-radius:5px;font-weight:600}
 .blurb{color:var(--muted);font-size:.855rem;margin-bottom:1.05rem;max-width:44rem}
 
-/* controls */
-textarea,input[type=text],input[type=password],input[type=number],input[type=datetime-local],select{
+/* ── controls ────────────────────────────────────────────────────────────
+   One height, one radius, one horizontal rhythm for every inline control, so
+   anything sharing a .row sits on the same baseline. Measured before this:
+   button.act 28.4px, button.ghost 29.2px, .seg 29.9px, text/number 31.4px,
+   select and datetime-local 33.4px (still wearing the platform's own chrome),
+   and five colour swatches at four different inline sizes. */
+:root{ --ctl-h:2rem; --ctl-r:6px; --ctl-px:.62rem; }
+
+textarea,
+input[type=text],input[type=password],input[type=number],input[type=search],
+input[type=email],input[type=url],input[type=tel],
+input[type=date],input[type=time],input[type=datetime-local],
+select{
   background:var(--surface);border:1px solid var(--border-2);color:var(--ink);
-  font-family:var(--mono);font-size:.8rem;padding:.45rem .62rem;border-radius:6px;
+  font-family:var(--mono);font-size:.8rem;border-radius:var(--ctl-r);
   outline:none;width:100%;
 }
-textarea{resize:vertical;min-height:84px;line-height:1.55}
+/* every single-line control is exactly --ctl-h; the textarea keeps its own box */
+input[type=text],input[type=password],input[type=number],input[type=search],
+input[type=email],input[type=url],input[type=tel],
+input[type=date],input[type=time],input[type=datetime-local],
+select{ height:var(--ctl-h); padding:0 var(--ctl-px); }
+
+textarea{resize:vertical;min-height:84px;line-height:1.55;padding:.45rem var(--ctl-px)}
 textarea:focus,input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--tint)}
 textarea[readonly]{background:var(--code-bg);color:var(--accent-2)}
-select{font-family:var(--sans);width:auto}
-input[type=range]{width:200px;accent-color:var(--accent)}
+
+/* Dropdowns kept the platform's own widget, which brought its own height, font
+   and corner radius and ignored everything above — the reason selects stood 2px
+   proud of the inputs beside them. Reset it and draw the chevron ourselves, as a
+   data URI so the page still references nothing external. */
+select{
+  appearance:none;-webkit-appearance:none;
+  font-family:var(--sans);width:auto;cursor:pointer;
+  padding-right:1.85rem;
+  background-repeat:no-repeat;background-position:right .58rem center;background-size:10px 6px;
+  background-image:url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%235c6270' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+[data-theme="dark"] select{ background-image:url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%239aa1b2' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); }
+select:hover{border-color:var(--border-2);color:var(--ink)}
+select:disabled{opacity:.5;cursor:default}
+
+/* The date/time fields keep the native picker — it is the only way to get one
+   without shipping a calendar — but the segmented editor reads badly in the mono
+   face, and the picker button was stretching the box past --ctl-h. */
+input[type=date],input[type=time],input[type=datetime-local]{
+  font-family:var(--sans);width:auto;min-width:11.5rem;
+}
+input[type=date]::-webkit-datetime-edit,
+input[type=time]::-webkit-datetime-edit,
+input[type=datetime-local]::-webkit-datetime-edit{padding:0}
+input[type=date]::-webkit-calendar-picker-indicator,
+input[type=time]::-webkit-calendar-picker-indicator,
+input[type=datetime-local]::-webkit-calendar-picker-indicator{
+  cursor:pointer;opacity:.5;padding:0;margin-left:.35rem;transition:opacity .12s ease;
+}
+input[type=date]:hover::-webkit-calendar-picker-indicator,
+input[type=time]:hover::-webkit-calendar-picker-indicator,
+input[type=datetime-local]:hover::-webkit-calendar-picker-indicator{opacity:1}
+
+/* ── date picker ─────────────────────────────────────────────────────────
+   The browser's own date popup is native UI: no stylesheet can reach its
+   layout, spacing or colours, so on a pointer device we hide it and draw the
+   panel below from the same tokens as everything else. Touch keeps the native
+   picker — the OS wheel beats anything here and is what people expect. */
+/* Scoped to .pt-fine, a class the picker itself puts on <html> from the one
+   matchMedia it also gates on. A second copy of the media query here could
+   disagree with the script — and that failure mode is the bad one: the native
+   button hidden while our panel declines to open, leaving no picker at all. */
+html.pt-fine{
+  --dp-on:1;
+}
+html.pt-fine input[type=date]::-webkit-calendar-picker-indicator,
+html.pt-fine input[type=datetime-local]::-webkit-calendar-picker-indicator{display:none}
+html.pt-fine input[type=date],html.pt-fine input[type=datetime-local]{
+    padding-right:2rem;
+    background-repeat:no-repeat;background-position:right .62rem center;background-size:13px 13px;
+    background-image:url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cg fill='none' stroke='%235c6270' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='2' y='3' width='12' height='11' rx='2'/%3E%3Cpath d='M2 6.5h12M5.5 1.6v2.6M10.5 1.6v2.6'/%3E%3C/g%3E%3C/svg%3E");
+  }
+html.pt-fine[data-theme="dark"] input[type=date],
+html.pt-fine[data-theme="dark"] input[type=datetime-local]{background-image:url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cg fill='none' stroke='%239aa1b2' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='2' y='3' width='12' height='11' rx='2'/%3E%3Cpath d='M2 6.5h12M5.5 1.6v2.6M10.5 1.6v2.6'/%3E%3C/g%3E%3C/svg%3E")}
+.dp{
+  position:fixed;z-index:220;display:none;width:16.5rem;padding:.55rem;
+  background:var(--surface);border:1px solid var(--border-2);border-radius:10px;
+  box-shadow:0 12px 34px rgba(0,0,0,.24);font-family:var(--sans);
+}
+.dp.open{display:block}
+.dp:focus{outline:none}
+.dp-head{display:flex;align-items:center;justify-content:space-between;gap:.4rem;margin-bottom:.4rem}
+.dp-title{font-size:.84rem;font-weight:640;color:var(--ink);letter-spacing:-.01em}
+.dp-nav{display:flex;gap:.15rem}
+.dp-nav button{
+  background:none;border:1px solid transparent;border-radius:5px;cursor:pointer;
+  color:var(--muted);font-size:.9rem;line-height:1;width:1.55rem;height:1.55rem;
+}
+.dp-nav button:hover{color:var(--accent-2);border-color:var(--border-2);background:var(--hover)}
+.dp-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
+.dp-dow{font-size:.6rem;text-transform:uppercase;letter-spacing:.07em;color:var(--faint);text-align:center;padding:.2rem 0}
+.dp-day{
+  background:none;border:0;border-radius:5px;cursor:pointer;color:var(--ink);
+  font-family:var(--mono);font-size:.76rem;padding:.33rem 0;text-align:center;
+}
+.dp-day:hover{background:var(--hover)}
+.dp-day.dp-out{color:var(--faint);opacity:.5}
+.dp-day.dp-today{box-shadow:inset 0 0 0 1px var(--accent)}
+.dp-day.dp-sel{background:var(--accent);color:var(--on-accent);font-weight:650}
+.dp-day.dp-sel:hover{background:var(--accent-2)}
+.dp-foot{display:flex;align-items:center;gap:.45rem;margin-top:.5rem;padding-top:.5rem;border-top:1px solid var(--border)}
+.dp-foot .lbl2{font-size:.6rem;text-transform:uppercase;letter-spacing:.09em;color:var(--faint);font-weight:600}
+.dp-time{
+  width:2.6rem;height:1.6rem;padding:0 .25rem;text-align:center;
+  background:var(--bg);border:1px solid var(--border-2);border-radius:5px;
+  color:var(--ink);font-family:var(--mono);font-size:.76rem;outline:none;
+}
+.dp-time:focus{border-color:var(--accent)}
+.dp-foot .dp-sp{flex:1}
+.dp-foot button{
+  background:none;border:1px solid var(--border-2);border-radius:5px;cursor:pointer;
+  color:var(--muted);font-family:var(--sans);font-size:.7rem;padding:.22rem .5rem;
+}
+.dp-foot button:hover{color:var(--accent-2);border-color:var(--accent)}
+.dp-foot button.dp-ok{background:var(--accent);border-color:var(--accent);color:var(--on-accent);font-weight:600}
+.dp-foot button.dp-ok:hover{background:var(--accent-2);border-color:var(--accent-2);color:var(--on-accent)}
+
+/* Colour swatches carried their own size inline — 52x36, 48x34, 44x32 and
+   2.4rem x 1.9rem across five tools. */
+input[type=color]{
+  appearance:none;-webkit-appearance:none;
+  width:2.75rem;height:var(--ctl-h);padding:2px;cursor:pointer;
+  background:var(--surface);border:1px solid var(--border-2);border-radius:var(--ctl-r);
+}
+input[type=color]::-webkit-color-swatch-wrapper{padding:0}
+input[type=color]::-webkit-color-swatch{border:0;border-radius:calc(var(--ctl-r) - 3px)}
+input[type=color]::-moz-color-swatch{border:0;border-radius:calc(var(--ctl-r) - 3px)}
+
+input[type=range]{width:200px;accent-color:var(--accent);height:var(--ctl-h);cursor:pointer}
 label.lbl{
   /* These labels carry inline controls (Copy, Send to →, a format select). Without
      wrapping they overflowed the panel on a 320px screen. */
@@ -184,22 +310,27 @@ label.lbl{
 .row > *{flex:0 0 auto}
 .grow{flex:1 1 12rem !important}
 button.act{
-  background:var(--accent);color:var(--on-accent);border:0;cursor:pointer;
+  background:var(--accent);color:var(--on-accent);border:1px solid var(--accent);cursor:pointer;
   font-family:var(--sans);font-weight:620;font-size:.785rem;
-  padding:.42rem .95rem;border-radius:6px;
-  transition:background .12s ease;
+  height:var(--ctl-h);padding:0 .95rem;border-radius:var(--ctl-r);
+  transition:background .12s ease,border-color .12s ease;
 }
-button.act:hover{background:var(--accent-2)}
+button.act:disabled{opacity:.45;cursor:default}
+button.act:hover:not(:disabled){background:var(--accent-2);border-color:var(--accent-2)}
 button.ghost{
   background:var(--surface);border:1px solid var(--border-2);color:var(--muted);cursor:pointer;
-  font-family:var(--sans);font-size:.785rem;padding:.38rem .78rem;border-radius:6px;
+  font-family:var(--sans);font-size:.785rem;height:var(--ctl-h);padding:0 .82rem;border-radius:var(--ctl-r);
 }
-button.ghost:hover{color:var(--accent-2);border-color:var(--accent)}
-.seg{display:inline-flex;flex-wrap:wrap;max-width:100%;background:var(--surface);border:1px solid var(--border-2);border-radius:6px;padding:2px;gap:2px}
+button.ghost:disabled{opacity:.45;cursor:default}
+button.ghost:hover:not(:disabled){color:var(--accent-2);border-color:var(--accent)}
+.seg{display:inline-flex;flex-wrap:wrap;max-width:100%;background:var(--surface);
+  border:1px solid var(--border-2);border-radius:var(--ctl-r);padding:2px;gap:2px;
+  min-height:var(--ctl-h);align-items:stretch}
 .seg button{
   background:none;border:0;cursor:pointer;color:var(--muted);
-  font-family:var(--sans);font-size:.76rem;padding:.28rem .72rem;border-radius:4px;
+  font-family:var(--sans);font-size:.76rem;padding:0 .72rem;border-radius:calc(var(--ctl-r) - 2px);
 }
+.seg button:hover:not(.on){color:var(--ink);background:var(--hover)}
 .seg button.on{background:var(--accent);color:var(--on-accent);font-weight:600}
 .check{display:inline-flex;align-items:center;gap:.4rem;font-size:.85rem;color:var(--muted);cursor:pointer;user-select:none}
 .check input{accent-color:var(--accent);width:auto}
@@ -478,7 +609,7 @@ details.rules li{margin:.15rem 0}
 .netlbl{display:block;font-size:.82rem;color:var(--ink);font-weight:600;margin-top:.55rem}
 .netlbl .muted{font-weight:400;color:var(--muted)}
 .netstat{flex:1}
-.netcode{flex:1;min-width:0;height:3.1rem;resize:vertical;font-family:var(--mono);font-size:.78rem;padding:.45rem .55rem;border:1px solid var(--border-2);border-radius:7px;background:var(--bg);color:var(--ink);word-break:break-all}
+.netcode{flex:1;min-width:0;height:3.1rem;resize:vertical;font-family:var(--mono);font-size:.78rem;padding:.45rem .55rem;border:1px solid var(--border-2);border-radius:var(--ctl-r);background:var(--bg);color:var(--ink);word-break:break-all}
 .netqr{margin:.4rem 0;border:1px solid var(--border-2);border-radius:7px;background:#fff;image-rendering:pixelated;max-width:240px;height:auto}
 .netcam{margin:.4rem 0;width:260px;max-width:100%;border:1px solid var(--border-2);border-radius:7px;background:#000}
 /* timezone scheduler */
@@ -538,7 +669,7 @@ details.rules li{margin:.15rem 0}
   <div class="tagline">Everyday developer utilities — offline, in one file.</div>
   <a id="dlBtn" class="hdrlink" target="_blank" rel="noopener" hidden>⤓ macOS app</a>
   <a id="verBadge" class="hdrlink" target="_blank" rel="noopener">v0.0.0</a>
-  <button id="themeBtn" class="ghost" title="Toggle dark mode" style="padding:.35rem .65rem;font-size:1rem;line-height:1">◐</button>
+  <button id="themeBtn" class="ghost" title="Toggle dark mode" style="padding:0 .62rem;font-size:1rem;line-height:1">◐</button>
 </header>
 
 <div class="navscrim" id="navscrim" hidden></div>
@@ -985,8 +1116,8 @@ tool({
   blurb:'Interpolate N evenly-spaced steps between two colors — for charts, heatmaps, hover states and gradients. Click any step to copy its hex.',
   html: `
     <div class="row">
-      <input type="color" id="fade-a" aria-label="Start colour" value="#106b5b" style="width:52px;height:36px;padding:2px;background:var(--surface);border:1px solid var(--border-2);border-radius:8px">
-      <input type="color" id="fade-b" aria-label="End colour" value="#ffb000" style="width:52px;height:36px;padding:2px;background:var(--surface);border:1px solid var(--border-2);border-radius:8px">
+      <input type="color" id="fade-a" aria-label="Start colour" value="#106b5b">
+      <input type="color" id="fade-b" aria-label="End colour" value="#ffb000">
       <label class="check">steps <input type="number" id="fade-n" value="8" min="2" max="32" style="width:4.5rem"></label>
     </div>
     <div class="fadebar" id="fade-bar"></div>
@@ -4369,7 +4500,7 @@ tool({
   html:`
     <div class="row">
       <div class="seg" id="pd-mode"><button class="on" data-m="p2d">PEM → DER</button><button data-m="d2p">DER → PEM</button></div>
-      <input id="pd-label" aria-label="PEM label" value="CERTIFICATE" style="width:12rem" spellcheck="false">
+      <input type="text" id="pd-label" aria-label="PEM label" value="CERTIFICATE" style="width:12rem" spellcheck="false">
     </div>
     <label class="lbl">Input</label>
     <textarea id="pd-in" spellcheck="false" style="min-height:120px">-----BEGIN EC PARAMETERS-----
@@ -7018,7 +7149,7 @@ tool({
     const render = () => {
       stopsEl.innerHTML = stops.map((s,i) => `
         <div class="row" data-i="${i}">
-          <input type="color" value="${s.c}" data-k="c" aria-label="Stop ${i+1} colour" style="width:48px;height:34px;padding:2px;border:1px solid var(--border-2);border-radius:6px;background:var(--surface)">
+          <input type="color" value="${s.c}" data-k="c" aria-label="Stop ${i+1} colour">
           <input type="number" value="${s.p}" min="0" max="100" data-k="p" aria-label="Stop ${i+1} position (%)" style="width:5.5rem"> %
           <button class="ghost gr-del" aria-label="Remove stop ${i+1}" ${stops.length<=2?'disabled':''} style="padding:.3rem .65rem">✕</button>
         </div>`).join('');
@@ -7055,7 +7186,7 @@ tool({
       <label class="check">y <input type="number" id="sh-y" value="10" style="width:4.5rem"></label>
       <label class="check">blur <input type="number" id="sh-blur" value="25" min="0" style="width:4.5rem"></label>
       <label class="check">spread <input type="number" id="sh-spread" value="-5" style="width:4.5rem"></label>
-      <label class="check">color <input type="color" id="sh-color" value="#106b5b" style="width:44px;height:32px;padding:2px;border:1px solid var(--border-2);border-radius:6px;background:var(--surface)"></label>
+      <label class="check">color <input type="color" id="sh-color" value="#106b5b"></label>
       <label class="check">opacity <input type="range" id="sh-alpha" min="0" max="100" value="30" style="width:90px"> <span id="sh-av" style="font-family:var(--mono)">30%</span></label>
       <label class="check"><input type="checkbox" id="sh-inset"> inset</label>
     </div>
@@ -10043,7 +10174,7 @@ tool({
 
     <div class="row" style="margin-top:.8rem">
       <div class="swatches" id="cz-pal"></div>
-      <input type="color" id="cz-col" aria-label="Scribble colour" value="#c08457" style="width:2.4rem;height:1.9rem;padding:0;border:1px solid var(--border-2);border-radius:6px;background:none;cursor:pointer">
+      <input type="color" id="cz-col" aria-label="Scribble colour" value="#c08457">
       <label class="check">brush <input type="range" id="cz-size" min="2" max="60" value="14" style="width:100px"> <span class="v" id="cz-sizev">14</span> px</label>
     </div>
     <div class="row" style="margin-top:.6rem">
@@ -10383,6 +10514,178 @@ document.addEventListener('fullscreenchange', () => {
   const el = document.fullscreenElement;
   if (el){ const b = el.querySelector('.fsbtn'); if (b){ b.textContent = '⤢'; b.title = 'Exit full screen'; } }
 });
+
+/* ── date picker ───────────────────────────────────────────────────────────
+   The browser's native date popup cannot be styled — it is browser chrome, not
+   DOM — so on a pointer device this replaces it. The <input> itself stays the
+   source of truth and keeps its type, so every tool still reads .value in the
+   same format and keyboard entry into the segmented field works as before; this
+   only takes over the little calendar button. Touch devices keep the native
+   picker, which is better than anything here on a phone. */
+const ptDate = (() => {
+  /* One source of truth for "is this a pointer device": the stylesheet reads it
+     back off <html>, so CSS and script can never disagree about which picker is
+     in play. Re-evaluated on change, so plugging in a mouse switches over. */
+  const FINE = matchMedia('(hover:hover) and (pointer:fine)');
+  const syncFine = () => document.documentElement.classList.toggle('pt-fine', FINE.matches);
+  syncFine();
+  FINE.addEventListener ? FINE.addEventListener('change', syncFine) : FINE.addListener(syncFine);
+  const DOW = ['Mo','Tu','We','Th','Fr','Sa','Su'];
+  const MON = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  let box = null, input = null, view = null, pick = null;   // view: month on show, pick: chosen date
+
+  const parse = v => {
+    const m = /^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2}))?/.exec(v || '');
+    if (!m) return null;
+    const d = new Date(+m[1], +m[2] - 1, +m[3], m[4] ? +m[4] : 0, m[5] ? +m[5] : 0);
+    return isNaN(d) ? null : d;
+  };
+  const withTime = () => input && input.type === 'datetime-local';
+  const fmt = d => `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}` +
+                   (withTime() ? `T${pad2(d.getHours())}:${pad2(d.getMinutes())}` : '');
+  const sameDay = (a, b) => a && b && a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth() && a.getDate()===b.getDate();
+
+  const build = () => {
+    box = document.createElement('div');
+    box.className = 'dp'; box.tabIndex = -1;
+    box.setAttribute('role', 'dialog'); box.setAttribute('aria-label', 'Choose a date');
+    box.innerHTML = `
+      <div class="dp-head">
+        <span class="dp-title"></span>
+        <span class="dp-nav">
+          <button type="button" data-mv="-1" aria-label="Previous month">‹</button>
+          <button type="button" data-mv="1" aria-label="Next month">›</button>
+        </span>
+      </div>
+      <div class="dp-grid">${DOW.map(d => `<span class="dp-dow">${d}</span>`).join('')}</div>
+      <div class="dp-grid dp-days"></div>
+      <div class="dp-foot">
+        <span class="lbl2 dp-tlabel">Time</span>
+        <input class="dp-time" id="dp-h" inputmode="numeric" maxlength="2" aria-label="Hour">
+        <span class="lbl2">:</span>
+        <input class="dp-time" id="dp-mi" inputmode="numeric" maxlength="2" aria-label="Minute">
+        <span class="dp-sp"></span>
+        <button type="button" class="dp-now">Today</button>
+        <button type="button" class="dp-ok">Done</button>
+      </div>`;
+    document.body.appendChild(box);
+
+    box.addEventListener('click', e => {
+      const mv = e.target.closest('[data-mv]');
+      if (mv){ view = new Date(view.getFullYear(), view.getMonth() + (+mv.dataset.mv), 1); draw(); return; }
+      const day = e.target.closest('.dp-day');
+      if (day){ choose(new Date(+day.dataset.y, +day.dataset.m, +day.dataset.d)); return; }
+      if (e.target.closest('.dp-now')){ const n = new Date(); choose(n, true); return; }
+      if (e.target.closest('.dp-ok')) close(true);
+    });
+    const timeIn = () => {
+      const h = Math.min(23, Math.max(0, +$('#dp-h').value || 0));
+      const mi = Math.min(59, Math.max(0, +$('#dp-mi').value || 0));
+      pick.setHours(h, mi, 0, 0); commit();
+    };
+    [$('#dp-h'), $('#dp-mi')].forEach(el => el.addEventListener('input', timeIn));
+    box.addEventListener('keydown', e => {
+      if (e.key === 'Escape'){ e.preventDefault(); close(true); return; }
+      if (/^(INPUT)$/.test(e.target.tagName)) return;      // let the time fields take their own keys
+      const step = { ArrowLeft:-1, ArrowRight:1, ArrowUp:-7, ArrowDown:7 }[e.key];
+      if (step !== undefined){
+        e.preventDefault();
+        const d = new Date(pick); d.setDate(d.getDate() + step); choose(d, false, true);
+      } else if (e.key === 'PageUp' || e.key === 'PageDown'){
+        e.preventDefault();
+        const d = new Date(pick); d.setMonth(d.getMonth() + (e.key === 'PageUp' ? -1 : 1)); choose(d, false, true);
+      } else if (e.key === 'Enter'){ e.preventDefault(); close(true); }
+    });
+  };
+
+  const commit = () => {
+    input.value = fmt(pick);
+    input.dispatchEvent(new Event('input', { bubbles:true }));
+    input.dispatchEvent(new Event('change', { bubbles:true }));
+  };
+  const choose = (d, useNow, keepOpen) => {
+    if (!useNow && pick) d.setHours(pick.getHours(), pick.getMinutes(), 0, 0);
+    pick = d; view = new Date(d.getFullYear(), d.getMonth(), 1);
+    $('#dp-h').value = pad2(pick.getHours()); $('#dp-mi').value = pad2(pick.getMinutes());
+    draw(); commit();
+    if (!keepOpen && !useNow) close(true);
+  };
+
+  const draw = () => {
+    box.querySelector('.dp-title').textContent = `${MON[view.getMonth()]} ${view.getFullYear()}`;
+    const first = new Date(view.getFullYear(), view.getMonth(), 1);
+    const lead = (first.getDay() + 6) % 7;                 // weeks start Monday
+    const start = new Date(first); start.setDate(1 - lead);
+    const today = new Date();
+    let html = '';
+    for (let i = 0; i < 42; i++){
+      const d = new Date(start.getFullYear(), start.getMonth(), start.getDate() + i);
+      const cls = ['dp-day'];
+      // dp- prefixes throughout: a bare `out` here picked up the app's
+      // output-row class (.out is display:grid with a 9.5rem first column) and
+      // stretched every column of the calendar to 203px.
+      if (d.getMonth() !== view.getMonth()) cls.push('dp-out');
+      if (sameDay(d, today)) cls.push('dp-today');
+      if (sameDay(d, pick)) cls.push('dp-sel');
+      html += `<button type="button" class="${cls.join(' ')}" data-y="${d.getFullYear()}" data-m="${d.getMonth()}" data-d="${d.getDate()}"`
+            + `${sameDay(d, pick) ? ' aria-current="date"' : ''}>${d.getDate()}</button>`;
+    }
+    box.querySelector('.dp-days').innerHTML = html;
+    const on = withTime();
+    box.querySelector('.dp-tlabel').style.display = on ? '' : 'none';
+    $('#dp-h').style.display = $('#dp-mi').style.display = on ? '' : 'none';
+    box.querySelectorAll('.dp-foot .lbl2')[1].style.display = on ? '' : 'none';
+  };
+
+  const place = () => {
+    const r = input.getBoundingClientRect(), h = box.offsetHeight, w = box.offsetWidth;
+    const below = r.bottom + 6, above = r.top - h - 6;
+    box.style.top = (below + h < innerHeight || above < 0 ? below : above) + 'px';
+    box.style.left = Math.max(8, Math.min(r.left, innerWidth - w - 8)) + 'px';
+  };
+  const onScroll = () => { if (box && box.classList.contains('open')) place(); };
+  const onDocDown = e => { if (box.classList.contains('open') && !box.contains(e.target) && e.target !== input) close(false); };
+
+  const close = refocus => {
+    if (!box || !box.classList.contains('open')) return;
+    box.classList.remove('open');
+    removeEventListener('scroll', onScroll, true); removeEventListener('resize', onScroll);
+    document.removeEventListener('pointerdown', onDocDown, true);
+    const el = input; input = null;
+    if (refocus && el) el.focus();
+  };
+
+  const open = el => {
+    if (!box) build();
+    input = el;
+    pick = parse(el.value) || new Date();
+    if (!withTime()) pick.setHours(0, 0, 0, 0);
+    view = new Date(pick.getFullYear(), pick.getMonth(), 1);
+    $('#dp-h').value = pad2(pick.getHours()); $('#dp-mi').value = pad2(pick.getMinutes());
+    draw();
+    box.classList.add('open'); place(); box.focus();
+    addEventListener('scroll', onScroll, true); addEventListener('resize', onScroll);
+    document.addEventListener('pointerdown', onDocDown, true);
+  };
+
+  /* One delegated listener: the calendar button is the right ~30px of the field,
+     so clicking into the text still edits the segment you clicked. Alt+Down
+     opens it from the keyboard, the way a combobox does. */
+  const on = () => document.documentElement.classList.contains('pt-fine');
+  document.addEventListener('click', e => {
+    if (!on()) return;                      // read the class, not a second copy of the query
+    const el = e.target.closest('input[type=date],input[type=datetime-local]');
+    if (!el || el.disabled || el.readOnly) return;
+    if (e.clientX < el.getBoundingClientRect().right - 30) return;
+    e.preventDefault(); open(el);
+  });
+  document.addEventListener('keydown', e => {
+    if (!on() || !e.altKey || e.key !== 'ArrowDown') return;
+    const el = e.target.closest && e.target.closest('input[type=date],input[type=datetime-local]');
+    if (el){ e.preventDefault(); open(el); }
+  });
+  return { open, close };
+})();
 
 /* Put the caret in the tool's first real input. Only on an explicit pick (nav click,
    palette, search, catalogue) — never on load or hashchange, where stealing focus
